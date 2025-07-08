@@ -14,7 +14,7 @@ API概要
 メソッド：
 説明：ユーザー情報の登録・取得
 リクエスト例：
-GET /users
+POST /users
 レスポンス例：
 {
     "users": [
@@ -34,7 +34,7 @@ GET /users
 メソッド：
 説明：TOP画像の管理
 リクエスト例：
-GET /top_images
+POST /top_images
 レスポンス例
 {
     "top_image": [
@@ -53,7 +53,7 @@ GET /top_images
 メソッド：
 説明：実績・スキルの登録・編集・削除
 リクエスト例
-GET /portfolios
+POST /portfolios
 レスポンス例：
 {
     "portfolios": [
