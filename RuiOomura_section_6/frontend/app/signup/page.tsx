@@ -1,48 +1,46 @@
 // SignUp page
-// NOTE: App Routerでは状態管理を行うときに必ず書く
-"use client" 
-// NOTE: これは「このファイルはブラウザ側で動くコードだよ」とNext.jsに伝えるもの
+"use client";
 
-/*
-TODO:
-    ・メール・パスワードの入力フォーム
-    ・Firebase Authを使ってユーザーを新規作成
-    ・成功時やエラー時の表示が適切
-    ・UIはTailwindCSSを用いる
-*/
+import React from 'react';
+import { useState } from 'react';
+import { initializeApp } from "firebase/app";
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 
-// TODO:useStateで入力フォームの状態管理（useState）
-/*
-目的：
-    ・「メールアドレス」と「パスワード」を入力できるフォームを作る
-    ・「サインアップ」ボタンを作る
-    ・見た目はシンプルでよいので、動作重視
-準備：
-    ・ユーザーが入力したメールとパスワードを保持する「状態」を作る
-    →リアルタイムに入力内容を管理できる
-    ・具体的に「メール用の状態」と「パスワード用の状態」が必要
-*/
-import './Form';
-import Form from './Form';
-function SignUp() {
+export default function SignUpPage() {
+    const [email, setEmail] = useState(""); // メールアドレスの状態
+    const [password, setPassword] = useState(""); // パスワードの状態
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault(); // ページのリロードを防ぐ
+        console.log("メール:", email);
+        console.log("パスワード", password);
+        // TODO:firebase処理を書く
+        // TODO:Firebase Authでサインアップするロジックの実装
+    };
+
     return (
-        <div>
-            <form />
-        </div>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4 max-w-md mx-auto mt-20">
+            <input
+                type="email"
+                placeholder="email@abc.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="p-2 border rounded"     
+            />
+            <input
+                type="password"
+                placeholder="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="p-2 border rounded"
+            />
+            <button type="submit" className="bg-blue-500 text-white p-2 rounded">
+                Sign Up
+            </button>  
+        </form>
     );
-}
-
-
-export default SignUp;
-
-
-
-
-// TODO:Firebase Authでサインアップするロジックの実装
+};
 
 
 // TODO:エラーハンドリングとバリデーション
-
-
 // TODO:サインアップ後の画面遷移
 
