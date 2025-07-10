@@ -2,6 +2,7 @@
 "use client";
 
 import React from 'react';
+import Link from 'next/link';
 
 export default function Home() {
     return (
@@ -23,10 +24,16 @@ export default function Home() {
             </section>   
 
             {/* サインアップボタン・サインインボタン */}
-                <section>
-                <button>sign in</button>
-                <button>sign up</button>
+            <section>
+                <Link href="/signin">
+                    <button>sign in</button>
+                </Link>
+
+                <Link href="/signup">
+                    <button>sign up</button>
+                </Link>
             </section>
+            
             {/* インスタ風エリア */}
             <section>
                 <h3>DATEstagram</h3>
