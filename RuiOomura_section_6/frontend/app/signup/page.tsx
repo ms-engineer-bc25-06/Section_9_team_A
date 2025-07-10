@@ -3,19 +3,26 @@
 
 import React from 'react';
 import { useState } from 'react';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 console.log(auth);
 
 export default function SignUpPage() {
     const [email, setEmail] = useState(""); // メールアドレスの状態
     const [password, setPassword] = useState(""); // パスワードの状態
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault(); // ページのリロードを防ぐ
         console.log("メール:", email);
         console.log("パスワード", password);
-        // TODO:firebase処理を書く
-        // TODO:Firebase Authでサインアップするロジックの実装
+
+        try {
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            console.log("ユーザー登録成功:", userCredential.user);
+        } catch(error) {
+            console.error("ユーザー登録失敗:", error);
+        };
     };
+
 
     return (
         <form onSubmit={handleSubmit} className="flex flex-col gap-4 max-w-md mx-auto mt-20">
@@ -42,6 +49,20 @@ export default function SignUpPage() {
 
 
 
-// TODO:エラーハンドリングとバリデーション
+// TODO: block7エラーハンドリングとバリデーション
+/*
+    メールアドレスが空でないか？
+    パスワードが空でないか？
+    パスワードが6文字以上か？
+
+    バリデーションに引っかかった場合はcreate～()を実行しない
+*/
+// TODO: エラーメッセージを画面表示
+/*
+    ・errorMessageという状態変数をuseStateで定義
+    ・バリデーション or Firebaseのエラーが発生したらメッセージを入れる
+    ・JSX内に{errorMessage && <p>{errorMessage}</p>}のように表示する
+*/
+
 // TODO:サインアップ後の画面遷移
 
