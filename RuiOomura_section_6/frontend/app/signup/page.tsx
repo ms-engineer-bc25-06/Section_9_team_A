@@ -3,8 +3,8 @@
 
 import React from 'react';
 import { useState } from 'react';
-import { initializeApp } from "firebase/app";
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+console.log(auth);
 
 export default function SignUpPage() {
     const [email, setEmail] = useState(""); // メールアドレスの状態
@@ -39,6 +39,7 @@ export default function SignUpPage() {
         </form>
     );
 };
+
 
 
 // TODO:エラーハンドリングとバリデーション
