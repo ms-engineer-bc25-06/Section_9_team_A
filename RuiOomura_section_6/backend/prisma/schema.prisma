@@ -9,23 +9,23 @@ datasource db {
 
 // userテーブル作成：メールアドレス、FirebaseUIDなど
 model User {
-  id  Int @id @default(autoincrement())
+  id String @id 
   name String
   email String @unique
   password String
 
-  posts Post[]
+  photos Photo[]
 
   @@map("users")
 }
 
-// Postテーブル作成：画像URL、キャプション、作成者（Userと紐づけ）など(1User:nPost)
-model Post {
+// Photoテーブル作成：画像URL、キャプション、作成者（Userと紐づけ）など(1User:nPost)
+model Photo {
   id Int @id @default(autoincrement())
-  userId Int @map("user_id")
-  text String @db.Text
-  user @relation(fields: [userId], reference: [id], onDelete: Cascade)
+  userId String @map("user_id")
+  caption String @db.Text
   imageUrl String @default("") @db.Text
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("posts")
