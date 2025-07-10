@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react';
 export default function Home() {
     // Firebase Authでログイン状態（認証状態）を検出できるようにする
     const [user, setUser] = useState<User | null>(null);
-/*
+
 const handleLogout = async () => {
     try {
         await signOut(auth);
@@ -21,7 +21,7 @@ const handleLogout = async () => {
         // エラー時の処理
         console.error('ログアウトエラー', error);
     };
-*/
+
 
 };
 // 現在のログインユーザーを取得、状態が変わるたびにuserを更新
