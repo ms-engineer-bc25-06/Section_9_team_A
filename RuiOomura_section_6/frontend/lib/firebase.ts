@@ -17,7 +17,5 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 // getAuth(app) で auth を作成
-
-
 // auth を export する（app を export してもOK）
 export const auth = getAuth(app);
