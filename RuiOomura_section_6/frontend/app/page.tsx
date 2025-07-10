@@ -3,8 +3,34 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { onAuthStateChanged, signOut, User } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+import { useEffect, useState } from 'react';
 
 export default function Home() {
+    // Firebase Authでログイン状態（認証状態）を検出できるようにする
+    const [user, setUser] = useState<User | null>(null);
+
+const handleLogout = async () => {
+    try {
+        await signOut(auth);
+        // 成功時の処理
+        console.log("ログアウトに成功しました");
+        setUser(null); // 状態も更新
+    } catch (error) {
+        // エラー時の処理
+        console.error('ログアウトエラー', error);
+    };
+};
+// 現在のログインユーザーを取得、状態が変わるたびにuserを更新
+useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        setUser(currentUser);
+    });
+
+    return () => unsubscribe();
+}, []);
+
     return (
         <main>
             {/* ヘッダー */}
@@ -14,7 +40,7 @@ export default function Home() {
            
             {/* 画像エリア */}
             <section>
-                <img src="" alt="top_image" />
+                <img src="noimage.png" alt="top_image" />
             </section>
 
             {/* プロフィールテキスト */}
@@ -25,25 +51,33 @@ export default function Home() {
 
             {/* サインアップボタン・サインインボタン */}
             <section>
-                <Link href="/signin">
-                    <button>sign in</button>
-                </Link>
-
-                <Link href="/signup">
-                    <button>sign up</button>
-                </Link>
+                {user ? (
+                    <>
+                        <p>ごきげんよう {user.email} さん</p>
+                        <button onClick={async () => await signOut(auth)}>sign out</button>
+                    </>
+                ) : (
+                    <>
+                        <Link href="/signin">
+                            <button>sign in</button>
+                        </Link>
+                        <Link href="/signup">
+                            <button>sign up</button>
+                        </Link>
+                    </>
+                )}
             </section>
-            
+
             {/* インスタ風エリア */}
             <section>
                 <h3>DATEstagram</h3>
                 <ul>
                     <li>
-                        <img src="" alt="No.1" />
+                        <img src="noimage.png" alt="No.1" />
                         <p>No.1</p>
                     </li>
                     <li>
-                        <img src="" alt="No.2" />
+                        <img src="noimage.png" alt="No.2" />
                         <p>No.2</p>
                     </li>
                 </ul>
