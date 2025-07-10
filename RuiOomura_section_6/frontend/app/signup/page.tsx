@@ -2,10 +2,13 @@
 "use client";
 
 import React from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useRouter } from 'next/navigation';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { FirebaseError } from 'firebase/app';
 import { auth } from '@/lib/firebase';
-console.log(auth);
+import { getFirebaseErrorMessage } from '@/lib/firebaseError';
 
 type FormData = {
     email: string;
@@ -13,6 +16,8 @@ type FormData = {
 };
 
 export default function SignUpPage() {
+    const router = useRouter();
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const { register, handleSubmit, formState: { errors } } = useForm<FormData>();
     const onSubmit = async (data: FormData) => {
         // TODO: console.log消す
@@ -22,9 +27,19 @@ export default function SignUpPage() {
         // サーバーに送信する処理
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+            // TODO: console.log消す
             console.log("ユーザー登録成功:", userCredential.user);
+            setErrorMessage(null);
+            router.push('/'); // topページへ
         } catch(error) {
+            // TODO: console.log消す
             console.error("ユーザー登録失敗:", error);
+            if (error instanceof FirebaseError) {
+                const message = getFirebaseErrorMessage(error.code);
+                setErrorMessage(message);
+            } else {
+                setErrorMessage('予期しないエラーが発生しました');
+            };
         };
     };
 
@@ -50,7 +65,8 @@ export default function SignUpPage() {
              className="p-2 border rounded"
             />
 
-            {errors.password && <p className="test-red-500 text-sm">{errors.password.message}</p>}
+            {errors.password && <p className="text-red-500 text-sm">{errors.password.message}</p>}
+            {errorMessage && <p className="text-red-600 text-sm">{errorMessage}</p>}
 
             <button type="submit" className="bg-blue-500 text-white p-2 rounded">
                 Sign Up
@@ -60,21 +76,7 @@ export default function SignUpPage() {
 };
 
 
-
-// TODO: block7エラーハンドリングとバリデーション
-/*
-    メールアドレスが空でないか？
-    パスワードが空でないか？
-    パスワードが6文字以上か？
-
-    バリデーションに引っかかった場合はcreate～()を実行しない
-*/
-// TODO: エラーメッセージを画面表示
-/*
-    ・errorMessageという状態変数をuseStateで定義
-    ・バリデーション or Firebaseのエラーが発生したらメッセージを入れる
-    ・JSX内に{errorMessage && <p>{errorMessage}</p>}のように表示する
-*/
-
 // TODO:サインアップ後の画面遷移
+/*
 
+*/
