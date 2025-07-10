@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react';
 export default function Home() {
     // Firebase Authでログイン状態（認証状態）を検出できるようにする
     const [user, setUser] = useState<User | null>(null);
-
+/*
 const handleLogout = async () => {
     try {
         await signOut(auth);
@@ -21,6 +21,8 @@ const handleLogout = async () => {
         // エラー時の処理
         console.error('ログアウトエラー', error);
     };
+*/
+
 };
 // 現在のログインユーザーを取得、状態が変わるたびにuserを更新
 useEffect(() => {
@@ -85,3 +87,20 @@ useEffect(() => {
         </main>
     );
 };
+
+// PostgreSQL + Prisma + DockerによるDB接続の準備
+/*
+    目的：
+        ・DockerでPostgreSQLコンテナを立ち上げてローカル開発用DBを用意
+        ・Prismaを使ってデータベーススキーマを定義し、マイグレーションテーブルを作成
+        ・今後Express.js側からデータを読み書きできる基盤を整える
+    
+    手順；
+    1.DockerでPostgreSQLのコンテナを立ち上げる
+        ・Dockerを使ってPostgreSQL_DBを仮想的に立ち上げる
+    2.PostgreSQLが起動していることを確認
+    3.Prismaをインストールし、初期設定する
+    4.Prismaスキーマ（DBモデル）を定義する
+    5.Prismaマイグレーションを実行
+    6.Prisma Clientを生成して使えるようにする
+*/
