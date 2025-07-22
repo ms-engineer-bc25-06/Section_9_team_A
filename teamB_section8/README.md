@@ -12,60 +12,41 @@
 
 ---
 
-## ディレクトリ構成
+## ngrokによるWebhook開発の自動化
 
-```
-（省略：docs/api-reference.md参照）
-```
+### 1. ngrokインストール
+- Windows: `./scripts/install-ngrok-windows.ps1` をPowerShellで実行
+- Mac: `bash ./scripts/install-ngrok-mac.sh` をターミナルで実行
+- AuthTokenは https://dashboard.ngrok.com/get-started/your-authtoken で取得し、.envに設定
+
+### 2. 統合起動
+- Windows: `./scripts/start-dev.ps1`
+- Mac: `./scripts/start-dev.sh`
+- ngrokのURLが自動表示されるので、LINE ConsoleのWebhook URLにコピー
+
+### 3. 統合停止
+- Windows: `./scripts/stop-dev.ps1`
+- Mac: `./scripts/stop-dev.sh`
 
 ---
 
-## セットアップ手順
+## Webhook設定ガイド
+- [docs/webhook-guide.md](docs/webhook-guide.md) を参照
 
-### 1. リポジトリをクローン
-```
-git clone <このリポジトリのURL>
-cd linebot-project
-```
+---
 
-### 2. 環境変数ファイルを作成
-```
-# .env.example をコピーして .env を作成
-cp .env.example .env  # Mac/Linux
-copy .env.example .env  # Windows（PowerShell）
-```
+## 詳細なngrokセットアップ・トラブル対応
+- [docs/ngrok-setup.md](docs/ngrok-setup.md) を参照
 
-### 3. 自動セットアップスクリプトを実行
-- **Windows**
-  - PowerShellで `./setup.ps1` を実行
-- **Mac/Linux**
-  - ターミナルで `chmod +x setup.sh && ./setup.sh`
+---
 
-### 4. サービス起動
+## 旧来の手動起動手順
+（ngrokを使わない場合）
 ```
 docker compose up --build
 ```
 
 ---
 
-## 動作確認
-- http://localhost:8000/health で "ok" が返ること
-- LINE Webhook/DB/OpenAI連携が正常に動作すること
-
----
-
-## トラブルシューティング
-- Windows: [docs/troubleshooting-windows.md](docs/troubleshooting-windows.md)
-- Mac: [docs/troubleshooting-mac.md](docs/troubleshooting-mac.md)
-
----
-
-## チーム開発ルール
-- [docs/team-rules.md](docs/team-rules.md)
-
----
-
-## 重要
-- **Windowsは必ずPowerShell構文で操作してください（`&&`やbash構文禁止）**
-- **.envファイルは絶対にGit管理しないでください**
-- **困ったら必ずドキュメントを参照してください** 
+## その他のセットアップ・運用手順
+（省略：docs/api-reference.md参照） 
