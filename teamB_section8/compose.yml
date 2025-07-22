@@ -1,0 +1,22 @@
+version: "3.9"
+
+services:
+  app:
+    build: .
+    container_name: linebot-app
+    env_file:
+      - .env
+    volumes:
+      # ソースコードをコンテナにマウント（ホットリロード対応）
+      - ./app:/app/app
+      # SQLiteデータ永続化（Windows/Mac両対応）
+      - ./data:/app/data
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    tty: true 
