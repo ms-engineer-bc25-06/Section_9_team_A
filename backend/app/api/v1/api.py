@@ -11,6 +11,7 @@ from app.api.v1 import (
     subscriptions,
     invitations,
     webhooks,
+    chat_rooms,
 )
 
 api_router = APIRouter()
@@ -27,6 +28,11 @@ api_router.include_router(teams.router, prefix="/teams", tags=["チーム"])
 # 音声セッション
 api_router.include_router(
     voice_sessions.router, prefix="/voice-sessions", tags=["音声セッション"]
+)
+
+# チャットルーム
+api_router.include_router(
+    chat_rooms.router, prefix="/chat-rooms", tags=["チャットルーム"]
 )
 
 # 文字起こし
