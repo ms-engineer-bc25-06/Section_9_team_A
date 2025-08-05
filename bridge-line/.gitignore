@@ -1,0 +1,191 @@
+# Bridge Line プロジェクト用 .gitignore
+
+# ===== OS 固有ファイル =====
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.tmp
+*.temp
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ===== 開発環境 =====
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ===== バックエンド =====
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# 仮想環境
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# 環境変数
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ログ
+*.log
+logs/
+
+# データベース
+*.db
+*.sqlite
+*.sqlite3
+
+# ===== フロントエンド =====
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# 依存関係
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# 環境変数
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# テスト
+coverage/
+.nyc_output
+.jest/
+
+# ===== Docker =====
+# Docker ボリューム
+docker-volumes/
+postgres_data/
+redis_data/
+
+# ===== 一時ファイル =====
+# アップロードファイル
+uploads/
+temp/
+tmp/
+
+# キャッシュ
+.cache/
+.parcel-cache/
+
+# ===== セキュリティ =====
+# 秘密鍵
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# API キー
+secrets/
+.secrets
+
+# ===== ドキュメント =====
+# 生成されたドキュメント
+docs/generated/
+docs/build/
+
+# ===== テスト =====
+# テスト結果
+test-results/
+playwright-report/
+test-results.xml
+
+# ===== CI/CD =====
+# GitHub Actions
+.github/workflows/.env
+
+# ===== その他 =====
+# バックアップファイル
+*.bak
+*.backup
+*.old
+
+# 圧縮ファイル
+*.zip
+*.tar.gz
+*.rar
+
+# メディアファイル（開発用）
+*.mp4
+*.avi
+*.mov
+*.wav
+*.mp3
