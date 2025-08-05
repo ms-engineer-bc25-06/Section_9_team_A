@@ -44,12 +44,6 @@ erDiagram
         VARCHAR position
         JSONB interests
         VARCHAR communication_style
-        DECIMAL collaboration_score
-        DECIMAL leadership_score
-        DECIMAL empathy_score
-        DECIMAL assertiveness_score
-        DECIMAL creativity_score
-        DECIMAL analytical_score
         JSONB visibility_settings
         INTEGER total_chat_sessions
         INTEGER total_speaking_time_seconds
