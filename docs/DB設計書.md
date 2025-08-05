@@ -16,7 +16,7 @@ Bridge LINEは、BtoB向けチームコミュニケーションアプリケー�
 
 ---
 
-## 🗂️ **テーブル一覧 (12テーブル + 2ビュー)**
+## 🗂️ **テーブル一覧 (15テーブル + 2ビュー)**
 
 | No | テーブル名 | 用途 | 主な関連テーブル |
 | --- | --- | --- | --- |
@@ -32,6 +32,9 @@ Bridge LINEは、BtoB向けチームコミュニケーションアプリケー�
 | 10 | `invitations` | チーム招待 | teams, users |
 | 11 | `audit_logs` | 監査ログ | users, teams |
 | 12 | `notifications` | 通知管理 | users |
+| 13 | `chat_rooms` | 雑談ルーム | chat_messages, chat_room_participants |
+| 14 | `chat_messages` | チャットメッセージ | chat_rooms, users |
+| 15 | `chat_room_participants` | ルーム参加者 | chat_rooms, users |
 
 ---
 
@@ -65,6 +68,17 @@ erDiagram
 
     invitations }|--|| teams : "招待チーム"
     invitations }|--o| users : "招待者"
+
+    chat_rooms ||--o{ chat_messages : "1対多"
+    chat_rooms ||--o{ chat_room_participants : "1対多"
+    chat_rooms }|--|| users : "作成者"
+    chat_rooms }|--o| teams : "所属チーム"
+
+    chat_messages }|--|| chat_rooms : "多対1"
+    chat_messages }|--|| users : "送信者"
+
+    chat_room_participants }|--|| chat_rooms : "多対1"
+    chat_room_participants }|--|| users : "多対1"
 
 ```
 
@@ -674,6 +688,173 @@ CREATE INDEX idx_notifications_created_at ON notifications(created_at);
 
 ---
 
+### **13. chat_rooms (雑談ルーム)**
+
+```sql
+CREATE TABLE chat_rooms (
+    id SERIAL PRIMARY KEY,
+    room_id VARCHAR(255) UNIQUE NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    is_public BOOLEAN DEFAULT false,
+    max_participants INTEGER DEFAULT 50,
+    current_participants INTEGER DEFAULT 0,
+    status VARCHAR(50) DEFAULT 'active',
+    room_type VARCHAR(50) DEFAULT 'general',
+    participants TEXT,
+    moderators TEXT,
+    total_messages INTEGER DEFAULT 0,
+    total_duration DOUBLE PRECISION DEFAULT 0,
+    created_by INTEGER NOT NULL REFERENCES users(id),
+    team_id INTEGER REFERENCES teams(id),
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE
+);
+
+-- インデックス
+CREATE INDEX idx_chat_rooms_id ON chat_rooms(id);
+CREATE INDEX idx_chat_rooms_room_id ON chat_rooms(room_id);
+CREATE INDEX idx_chat_rooms_created_by ON chat_rooms(created_by);
+CREATE INDEX idx_chat_rooms_team_id ON chat_rooms(team_id);
+CREATE INDEX idx_chat_rooms_status ON chat_rooms(status);
+CREATE INDEX idx_chat_rooms_is_public ON chat_rooms(is_public);
+CREATE INDEX idx_chat_rooms_created_at ON chat_rooms(created_at);
+
+-- 更新時刻自動更新トリガー
+CREATE TRIGGER update_chat_rooms_updated_at
+    BEFORE UPDATE ON chat_rooms
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+```
+
+**フィールド説明**
+
+| フィールド名 | 型 | 説明 | 制約 |
+| --- | --- | --- | --- |
+| `id` | SERIAL | プライマリキー | NOT NULL, PK, AUTO_INCREMENT |
+| `room_id` | VARCHAR(255) | ルーム識別子（UUID） | NOT NULL, UNIQUE |
+| `name` | VARCHAR(255) | ルーム名 | NOT NULL |
+| `description` | TEXT | ルーム説明 | - |
+| `is_public` | BOOLEAN | 公開フラグ | DEFAULT false |
+| `max_participants` | INTEGER | 最大参加者数 | DEFAULT 50 |
+| `current_participants` | INTEGER | 現在の参加者数 | DEFAULT 0 |
+| `status` | VARCHAR(50) | ルームステータス | DEFAULT 'active' |
+| `room_type` | VARCHAR(50) | ルームタイプ | DEFAULT 'general' |
+| `participants` | TEXT | 参加者情報（JSON） | - |
+| `moderators` | TEXT | モデレーター情報（JSON） | - |
+| `total_messages` | INTEGER | 総メッセージ数 | DEFAULT 0 |
+| `total_duration` | DOUBLE PRECISION | 総通話時間 | DEFAULT 0 |
+| `created_by` | INTEGER | 作成者ID | NOT NULL, FK |
+| `team_id` | INTEGER | チームID | FK |
+| `is_active` | BOOLEAN | アクティブフラグ | DEFAULT true |
+| `created_at` | TIMESTAMP | 作成日時 | 自動設定 |
+| `updated_at` | TIMESTAMP | 更新日時 | 自動更新 |
+
+---
+
+### **14. chat_messages (チャットメッセージ)**
+
+```sql
+CREATE TABLE chat_messages (
+    id SERIAL PRIMARY KEY,
+    message_id VARCHAR(255) UNIQUE NOT NULL,
+    content TEXT NOT NULL,
+    message_type VARCHAR(50) DEFAULT 'text',
+    audio_file_path VARCHAR(500),
+    audio_duration DOUBLE PRECISION,
+    transcription TEXT,
+    is_edited BOOLEAN DEFAULT false,
+    is_deleted BOOLEAN DEFAULT false,
+    chat_room_id INTEGER NOT NULL REFERENCES chat_rooms(id) ON DELETE CASCADE,
+    sender_id INTEGER NOT NULL REFERENCES users(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE
+);
+
+-- インデックス
+CREATE INDEX idx_chat_messages_id ON chat_messages(id);
+CREATE INDEX idx_chat_messages_message_id ON chat_messages(message_id);
+CREATE INDEX idx_chat_messages_chat_room_id ON chat_messages(chat_room_id);
+CREATE INDEX idx_chat_messages_sender_id ON chat_messages(sender_id);
+CREATE INDEX idx_chat_messages_message_type ON chat_messages(message_type);
+CREATE INDEX idx_chat_messages_created_at ON chat_messages(created_at);
+CREATE INDEX idx_chat_messages_is_deleted ON chat_messages(is_deleted);
+
+-- 更新時刻自動更新トリガー
+CREATE TRIGGER update_chat_messages_updated_at
+    BEFORE UPDATE ON chat_messages
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+```
+
+**フィールド説明**
+
+| フィールド名 | 型 | 説明 | 制約 |
+| --- | --- | --- | --- |
+| `id` | SERIAL | プライマリキー | NOT NULL, PK, AUTO_INCREMENT |
+| `message_id` | VARCHAR(255) | メッセージ識別子（UUID） | NOT NULL, UNIQUE |
+| `content` | TEXT | メッセージ内容 | NOT NULL |
+| `message_type` | VARCHAR(50) | メッセージタイプ | DEFAULT 'text' |
+| `audio_file_path` | VARCHAR(500) | 音声ファイルパス | - |
+| `audio_duration` | DOUBLE PRECISION | 音声時間 | - |
+| `transcription` | TEXT | 文字起こし内容 | - |
+| `is_edited` | BOOLEAN | 編集フラグ | DEFAULT false |
+| `is_deleted` | BOOLEAN | 削除フラグ | DEFAULT false |
+| `chat_room_id` | INTEGER | チャットルームID | NOT NULL, FK |
+| `sender_id` | INTEGER | 送信者ID | NOT NULL, FK |
+| `created_at` | TIMESTAMP | 作成日時 | 自動設定 |
+| `updated_at` | TIMESTAMP | 更新日時 | 自動更新 |
+
+---
+
+### **15. chat_room_participants (ルーム参加者)**
+
+```sql
+CREATE TABLE chat_room_participants (
+    id SERIAL PRIMARY KEY,
+    chat_room_id INTEGER NOT NULL REFERENCES chat_rooms(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role VARCHAR(50) DEFAULT 'member',
+    status VARCHAR(50) DEFAULT 'active',
+    is_online BOOLEAN DEFAULT false,
+    joined_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    last_active_at TIMESTAMP WITH TIME ZONE,
+    total_messages INTEGER DEFAULT 0
+);
+
+-- インデックス
+CREATE INDEX idx_chat_room_participants_id ON chat_room_participants(id);
+CREATE INDEX idx_chat_room_participants_chat_room_id ON chat_room_participants(chat_room_id);
+CREATE INDEX idx_chat_room_participants_user_id ON chat_room_participants(user_id);
+CREATE INDEX idx_chat_room_participants_role ON chat_room_participants(role);
+CREATE INDEX idx_chat_room_participants_status ON chat_room_participants(status);
+CREATE INDEX idx_chat_room_participants_is_online ON chat_room_participants(is_online);
+CREATE INDEX idx_chat_room_participants_joined_at ON chat_room_participants(joined_at);
+
+-- ユニーク制約（同じユーザーが同じルームに重複参加できない）
+CREATE UNIQUE INDEX idx_chat_room_participants_unique ON chat_room_participants(chat_room_id, user_id);
+
+```
+
+**フィールド説明**
+
+| フィールド名 | 型 | 説明 | 制約 |
+| --- | --- | --- | --- |
+| `id` | SERIAL | プライマリキー | NOT NULL, PK, AUTO_INCREMENT |
+| `chat_room_id` | INTEGER | チャットルームID | NOT NULL, FK |
+| `user_id` | INTEGER | ユーザーID | NOT NULL, FK |
+| `role` | VARCHAR(50) | 参加者ロール | DEFAULT 'member' |
+| `status` | VARCHAR(50) | 参加者ステータス | DEFAULT 'active' |
+| `is_online` | BOOLEAN | オンライン状態 | DEFAULT false |
+| `joined_at` | TIMESTAMP | 参加日時 | 自動設定 |
+| `last_active_at` | TIMESTAMP | 最終アクティブ日時 | - |
+| `total_messages` | INTEGER | 総メッセージ数 | DEFAULT 0 |
+
+---
+
 ## 📊 **ビュー定義**
 
 ### **1. user_team_summary_view (ユーザー・チーム統合ビュー)**
@@ -978,6 +1159,11 @@ CREATE INDEX idx_transcriptions_session_speaker_time ON transcriptions(voice_ses
 CREATE INDEX idx_ai_analyses_session_type_created ON ai_analyses(voice_session_id, analysis_type, created_at);
 CREATE INDEX idx_user_profiles_scores_composite ON user_profiles(collaboration_score, leadership_score, empathy_score) WHERE collaboration_score IS NOT NULL;
 
+-- チャットルーム関連の複合インデックス
+CREATE INDEX idx_chat_rooms_public_status_created ON chat_rooms(is_public, status, created_at);
+CREATE INDEX idx_chat_messages_room_created_deleted ON chat_messages(chat_room_id, created_at, is_deleted);
+CREATE INDEX idx_chat_room_participants_room_user_status ON chat_room_participants(chat_room_id, user_id, status);
+
 -- JSONB検索用のGINインデックス
 CREATE INDEX idx_user_profiles_interests_gin ON user_profiles USING gin(interests);
 CREATE INDEX idx_user_profiles_visibility_gin ON user_profiles USING gin(visibility_settings);
@@ -996,6 +1182,10 @@ ANALYZE users, user_profiles, teams, team_members, voice_sessions, transcription
 DELETE FROM audit_logs WHERE created_at < CURRENT_DATE - INTERVAL '1 year';
 DELETE FROM notifications WHERE is_read = true AND created_at < CURRENT_DATE - INTERVAL '30 days';
 UPDATE invitations SET status = 'expired' WHERE status = 'pending' AND expires_at < CURRENT_TIMESTAMP;
+
+-- チャットルーム関連のクリーンアップ
+DELETE FROM chat_messages WHERE is_deleted = true AND updated_at < CURRENT_DATE - INTERVAL '90 days';
+UPDATE chat_room_participants SET is_online = false WHERE last_active_at < CURRENT_TIMESTAMP - INTERVAL '5 minutes';
 
 ```
 
@@ -1063,6 +1253,27 @@ FROM ai_analyses
 WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
 GROUP BY analysis_type
 ORDER BY total_analyses DESC;
+
+-- チャットルーム統計
+SELECT
+    COUNT(*) as total_rooms,
+    COUNT(CASE WHEN is_public = true THEN 1 END) as public_rooms,
+    COUNT(CASE WHEN status = 'active' THEN 1 END) as active_rooms,
+    AVG(current_participants) as avg_participants,
+    SUM(total_messages) as total_messages
+FROM chat_rooms
+WHERE created_at >= CURRENT_DATE - INTERVAL '30 days';
+
+-- チャットメッセージ統計
+SELECT
+    message_type,
+    COUNT(*) as total_messages,
+    COUNT(CASE WHEN is_deleted = false THEN 1 END) as active_messages,
+    AVG(LENGTH(content)) as avg_message_length
+FROM chat_messages
+WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'
+GROUP BY message_type
+ORDER BY total_messages DESC;
 
 ```
 
