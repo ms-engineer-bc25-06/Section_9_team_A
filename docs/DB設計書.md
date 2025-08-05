@@ -289,22 +289,28 @@ CREATE INDEX idx_team_members_joined_at ON team_members(joined_at);
 
 ```sql
 CREATE TABLE voice_sessions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-    title VARCHAR(200),
+    id SERIAL PRIMARY KEY,
+    session_id VARCHAR(255) UNIQUE NOT NULL,
+    title VARCHAR(255),
     description TEXT,
-    status VARCHAR(20) NOT NULL DEFAULT 'waiting'
-        CHECK (status IN ('waiting', 'active', 'completed', 'cancelled')),
+    audio_file_path VARCHAR(500),
+    audio_duration FLOAT,
+    audio_format VARCHAR(50),
+    file_size INTEGER,
+    status VARCHAR(50),
+    is_public BOOLEAN,
+    is_analyzed BOOLEAN,
+    participant_count INTEGER,
+    participants TEXT,
+    analysis_summary TEXT,
+    sentiment_score FLOAT,
+    key_topics TEXT,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    team_id INTEGER,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE,
     started_at TIMESTAMP WITH TIME ZONE,
-    ended_at TIMESTAMP WITH TIME ZONE,
-    duration_seconds INTEGER DEFAULT 0 CHECK (duration_seconds >= 0),
-    participant_count INTEGER DEFAULT 0 CHECK (participant_count >= 0),
-    max_participants INTEGER DEFAULT 10 CHECK (max_participants > 0),
-    recording_url TEXT,
-    recording_size_bytes BIGINT DEFAULT 0 CHECK (recording_size_bytes >= 0),
-    settings JSONB DEFAULT '{}'::jsonb,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    ended_at TIMESTAMP WITH TIME ZONE
 );
 
 -- インデックス
