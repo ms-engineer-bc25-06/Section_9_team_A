@@ -8,24 +8,7 @@ from .common import (
     TimestampMixin,
 )
 
-# 認証スキーマ
-from .auth import (
-    Token,
-    TokenData,
-    UserBase,
-    UserCreate,
-    UserLogin,
-    UserRegister,
-    UserUpdate,
-    UserResponse,
-    FirebaseAuthRequest,
-    PasswordResetRequest,
-    PasswordResetConfirm,
-    EmailVerificationRequest,
-    EmailVerificationConfirm,
-)
-
-# 音声セッションスキーマ
+# 音声セッション関連
 from .voice_session import (
     AudioFormatEnum,
     VoiceSessionBase,
@@ -40,10 +23,39 @@ from .voice_session import (
     VoiceSessionStats,
 )
 
+# チャットルーム関連
+from .chat_room import (
+    RoomTypeEnum,
+    RoomStatusEnum,
+    MessageTypeEnum,
+    ParticipantRoleEnum,
+    ParticipantStatusEnum,
+    ChatRoomBase,
+    ChatRoomCreate,
+    ChatRoomUpdate,
+    ChatRoomResponse,
+    ChatRoomDetailResponse,
+    ChatRoomListResponse,
+    ChatMessageBase,
+    ChatMessageCreate,
+    ChatMessageUpdate,
+    ChatMessageResponse,
+    ChatMessageListResponse,
+    ChatRoomParticipantBase,
+    ChatRoomParticipantCreate,
+    ChatRoomParticipantUpdate,
+    ChatRoomParticipantResponse,
+    ChatRoomParticipantListResponse,
+    ChatRoomQueryParams,
+    ChatMessageQueryParams,
+    ChatRoomStats,
+)
+
 # その他のスキーマ（今後実装予定）
+# from .user import *
+# from .team import *
 # from .transcription import *
 # from .analysis import *
-# from .team import *
 # from .subscription import *
 # from .billing import *
 # from .invitation import *
@@ -56,20 +68,6 @@ __all__ = [
     "BaseResponse",
     "ErrorResponse",
     "TimestampMixin",
-    # 認証
-    "Token",
-    "TokenData",
-    "UserBase",
-    "UserCreate",
-    "UserLogin",
-    "UserRegister",
-    "UserUpdate",
-    "UserResponse",
-    "FirebaseAuthRequest",
-    "PasswordResetRequest",
-    "PasswordResetConfirm",
-    "EmailVerificationRequest",
-    "EmailVerificationConfirm",
     # 音声セッション
     "AudioFormatEnum",
     "VoiceSessionBase",
@@ -82,4 +80,29 @@ __all__ = [
     "VoiceSessionFilters",
     "VoiceSessionQueryParams",
     "VoiceSessionStats",
+    # チャットルーム
+    "RoomTypeEnum",
+    "RoomStatusEnum",
+    "MessageTypeEnum",
+    "ParticipantRoleEnum",
+    "ParticipantStatusEnum",
+    "ChatRoomBase",
+    "ChatRoomCreate",
+    "ChatRoomUpdate",
+    "ChatRoomResponse",
+    "ChatRoomDetailResponse",
+    "ChatRoomListResponse",
+    "ChatMessageBase",
+    "ChatMessageCreate",
+    "ChatMessageUpdate",
+    "ChatMessageResponse",
+    "ChatMessageListResponse",
+    "ChatRoomParticipantBase",
+    "ChatRoomParticipantCreate",
+    "ChatRoomParticipantUpdate",
+    "ChatRoomParticipantResponse",
+    "ChatRoomParticipantListResponse",
+    "ChatRoomQueryParams",
+    "ChatMessageQueryParams",
+    "ChatRoomStats",
 ]
