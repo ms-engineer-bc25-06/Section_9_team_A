@@ -7,6 +7,8 @@ import structlog
 from app.config import settings
 from app.api.v1.api import api_router
 from app.core.database import engine, Base
+from app.core.exceptions import BridgeLineException
+from app.api.deps import handle_bridge_line_exceptions
 
 # ログ設定
 structlog.configure(
@@ -72,6 +74,14 @@ app.add_middleware(
 # Trusted Host設定（開発環境では無効化）
 if settings.ENVIRONMENT == "production":
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=["localhost", "127.0.0.1"])
+
+
+# 例外ハンドラー追加
+@app.exception_handler(BridgeLineException)
+async def bridge_line_exception_handler(request, exc: BridgeLineException):
+    """BridgeLine例外のハンドラー"""
+    return handle_bridge_line_exceptions(exc)
+
 
 # APIルーターの追加
 app.include_router(api_router, prefix="/api/v1")
