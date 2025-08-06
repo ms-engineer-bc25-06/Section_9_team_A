@@ -1,6 +1,6 @@
 # Bridge LINE - データベース設計書
 
-## 📊 **概要**
+## **概要**
 
 ### システム概要
 
@@ -16,7 +16,9 @@ Bridge LINEは、BtoB向けチームコミュニケーションアプリケー�
 
 ---
 
+
 ## 🗂️ **テーブル一覧 (15テーブル + 2ビュー)**
+
 
 | No | テーブル名 | 用途 | 主な関連テーブル |
 | --- | --- | --- | --- |
@@ -38,7 +40,7 @@ Bridge LINEは、BtoB向けチームコミュニケーションアプリケー�
 
 ---
 
-## 🔗 **ER図**
+## **(簡易)ER図**
 
 ```mermaid
 erDiagram
@@ -84,7 +86,7 @@ erDiagram
 
 ---
 
-## 📋 **テーブル詳細定義**
+## **テーブル詳細定義**
 
 ### **1. users (ユーザー基本情報)**
 
@@ -688,6 +690,7 @@ CREATE INDEX idx_notifications_created_at ON notifications(created_at);
 
 ---
 
+
 ### **13. chat_rooms (雑談ルーム)**
 
 ```sql
@@ -857,6 +860,7 @@ CREATE UNIQUE INDEX idx_chat_room_participants_unique ON chat_room_participants(
 
 ## 📊 **ビュー定義**
 
+
 ### **1. user_team_summary_view (ユーザー・チーム統合ビュー)**
 
 ```sql
@@ -949,7 +953,7 @@ GROUP BY t.id, t.name, t.description, u_owner.display_name, s.plan_type, s.statu
 
 ---
 
-## 🔧 **トリガー関数とプロシージャ**
+## **トリガー関数とプロシージャ**
 
 ### **1. user_profiles 自動更新トリガー**
 
@@ -1080,7 +1084,7 @@ $$ LANGUAGE plpgsql;
 
 ---
 
-## 🚀 **初期化スクリプト**
+## **初期化スクリプト**
 
 ### **データベース初期化**
 
@@ -1147,7 +1151,7 @@ ON CONFLICT DO NOTHING;
 
 ---
 
-## 📈 **パフォーマンス最適化**
+## **パフォーマンス最適化**
 
 ### **重要なインデックス一覧**
 
@@ -1191,7 +1195,7 @@ UPDATE chat_room_participants SET is_online = false WHERE last_active_at < CURRE
 
 ---
 
-## 🔒 **セキュリティ設定**
+## **セキュリティ設定**
 
 ### **行レベルセキュリティ (RLS)**
 
@@ -1219,7 +1223,7 @@ CREATE POLICY team_access_policy ON teams
 
 ---
 
-## 📊 **運用監視クエリ**
+## **運用監視クエリ**
 
 ### **システム状況監視**
 
@@ -1278,5 +1282,3 @@ ORDER BY total_messages DESC;
 ```
 
 ---
-
-この完全版DB設計書により、Bridge LINEアプリケーションの全機能を支える堅牢なデータベース構造が構築できます。user_profilesテーブルの追加により、より詳細なユーザー分析とパーソナライズ機能が実現可能になっています。
