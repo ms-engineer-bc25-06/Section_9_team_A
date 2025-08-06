@@ -42,9 +42,14 @@ class User(Base):
 
     # リレーションシップ
     teams = relationship("TeamMember", back_populates="user")
-    voice_sessions = relationship("VoiceSession", back_populates="user")
+    owned_teams = relationship("Team", back_populates="owner")
+    voice_sessions = relationship("VoiceSession", back_populates="host")
     transcriptions = relationship("Transcription", back_populates="user")
     analyses = relationship("Analysis", back_populates="user")
+    subscriptions = relationship("Subscription", back_populates="user")
+    billings = relationship("Billing", back_populates="user")
+    sent_invitations = relationship("Invitation", foreign_keys="Invitation.inviter_id", back_populates="inviter")
+    audit_logs = relationship("AuditLog", back_populates="user")
 
     def __repr__(self):
         return f"<User(id={self.id}, email='{self.email}', username='{self.username}')>"
