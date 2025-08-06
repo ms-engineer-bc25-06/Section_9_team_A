@@ -1,27 +1,26 @@
-"use client"
-import { Inter } from 'next/font/google';
-import { ThemeProvider } from '@mui/material/styles';
-import { CssBaseline } from '@mui/material';
-import { theme } from '@/lib/theme';
-import './globals.css';
+import type React from "react"
+import type { Metadata } from "next"
+import { Inter } from "next/font/google"
+import "./globals.css"
+import { AuthProvider } from "@/components/auth/AuthProvider"
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ subsets: ["latin"] })
+
+export const metadata: Metadata = {
+  title: "Bridge Line - チームコミュニケーション",
+  description: "AI分析機能付き音声チャットでチームの絆を深める",
+}
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: React.ReactNode
 }) {
   return (
     <html lang="ja">
       <body className={inter.className}>
-        <ThemeProvider theme={theme}>
-          <CssBaseline />
-          <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc' }}>
-            {children}
-          </div>
-        </ThemeProvider>
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
-  );
+  )
 }
