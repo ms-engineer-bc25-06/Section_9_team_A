@@ -3,6 +3,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.pool import NullPool
 import structlog
+import os
 
 from app.config import settings
 
@@ -11,15 +12,17 @@ logger = structlog.get_logger()
 # データベースURL
 DATABASE_URL = settings.DATABASE_URL
 
-# 非同期エンジン作成
-engine = create_async_engine(
-    DATABASE_URL, echo=settings.DEBUG, poolclass=NullPool, future=True
-)
+# Alembic実行時は非同期エンジンを作成しない
+if not os.environ.get("ALEMBIC_RUNNING"):
+    # 非同期エンジン作成
+    engine = create_async_engine(
+        DATABASE_URL, echo=settings.DEBUG, poolclass=NullPool, future=True
+    )
 
-# セッションファクトリー作成
-AsyncSessionLocal = async_sessionmaker(
-    engine, class_=AsyncSession, expire_on_commit=False
-)
+    # セッションファクトリー作成
+    AsyncSessionLocal = async_sessionmaker(
+        engine, class_=AsyncSession, expire_on_commit=False
+    )
 
 
 # ベースクラス

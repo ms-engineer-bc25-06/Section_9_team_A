@@ -36,6 +36,7 @@ python-multipart==0.0.9
 
 # WebSocket Support
 websockets==12.0
+websocket-client==1.7.0
 
 # File Upload
 aiofiles==23.2.1

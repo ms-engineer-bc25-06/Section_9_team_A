@@ -435,3 +435,69 @@ class VoiceSessionService:
         except Exception as e:
             logger.error(f"Failed to get user by id {user_id}: {e}")
             return None
+
+    async def get_session_by_session_id(
+        self, session_id: str
+    ) -> Optional[VoiceSession]:
+        """セッションIDで音声セッションを取得"""
+        try:
+            return await self.repository.get_by_session_id(self.db, session_id)
+        except Exception as e:
+            logger.error(f"Failed to get session by session_id {session_id}: {e}")
+            return None
+
+    async def start_session(
+        self, session_id: str, user_id: int
+    ) -> VoiceSessionResponse:
+        """音声セッションを開始"""
+        try:
+            session = await self.get_session_by_session_id(session_id)
+            if not session:
+                raise NotFoundException("Voice session not found")
+
+            # 権限チェック
+            if session.user_id != user_id:
+                raise PermissionException("Access denied")
+
+            # セッション状態を更新
+            update_data = VoiceSessionUpdate(status="active", started_at=datetime.now())
+
+            updated_session = await self.repository.update(
+                self.db, session.id, update_data
+            )
+
+            return VoiceSessionResponse.model_validate(updated_session)
+
+        except (NotFoundException, PermissionException):
+            raise
+        except Exception as e:
+            logger.error(f"Failed to start session {session_id}: {e}")
+            raise ValidationException("Failed to start session")
+
+    async def end_session(self, session_id: str, user_id: int) -> VoiceSessionResponse:
+        """音声セッションを終了"""
+        try:
+            session = await self.get_session_by_session_id(session_id)
+            if not session:
+                raise NotFoundException("Voice session not found")
+
+            # 権限チェック
+            if session.user_id != user_id:
+                raise PermissionException("Access denied")
+
+            # セッション状態を更新
+            update_data = VoiceSessionUpdate(
+                status="completed", ended_at=datetime.now()
+            )
+
+            updated_session = await self.repository.update(
+                self.db, session.id, update_data
+            )
+
+            return VoiceSessionResponse.model_validate(updated_session)
+
+        except (NotFoundException, PermissionException):
+            raise
+        except Exception as e:
+            logger.error(f"Failed to end session {session_id}: {e}")
+            raise ValidationException("Failed to end session")

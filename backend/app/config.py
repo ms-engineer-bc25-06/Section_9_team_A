@@ -17,7 +17,9 @@ class Settings(BaseSettings):
     PORT: int = 8000
 
     # データベース設定
-    DATABASE_URL: str = "postgresql+asyncpg://user:password@localhost/bridge_line"
+    DATABASE_URL: str = (
+        "postgresql+asyncpg://bridge_user:bridge_password@localhost/bridge_line_db"
+    )
     TEST_DATABASE_URL: Optional[str] = None
 
     # セキュリティ設定
