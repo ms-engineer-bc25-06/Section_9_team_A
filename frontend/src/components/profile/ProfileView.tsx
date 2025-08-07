@@ -5,19 +5,42 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar"
 import { Badge } from "@/components/ui/Badge"
 import { Separator } from "@/components/ui/Separator"
-import { Calendar, MapPin, Home, Heart, Trophy, Utensils, Coffee, MessageSquare } from "lucide-react"
+import { 
+  Calendar, 
+  MapPin, 
+  Home, 
+  Heart, 
+  Trophy, 
+  Utensils, 
+  Coffee, 
+  MessageSquare,
+  User,
+  BookOpen,
+  Music,
+  PawPrint,
+  Star,
+  Quote,
+  Target
+} from "lucide-react"
 
 const mockProfile = {
   name: "田中太郎",
+  nickname: "タロウ",
   department: "開発部",
   joinDate: "2023-04-01",
   birthDate: "1990-05-15",
   hometown: "東京都",
   residence: "神奈川県横浜市",
   hobbies: "プログラミング、読書、映画鑑賞",
-  club: "テニス部",
-  favoriteFood: "ラーメン、寿司",
-  weekendActivity: "カフェ巡り、散歩",
+  studentActivities: "テニス部、プログラミングサークル",
+  holidayActivities: "カフェ巡り、散歩、映画鑑賞",
+  favoriteFood: "ラーメン、寿司、カレー",
+  favoriteMedia: "ハリーポッター、スターウォーズ、進撃の巨人",
+  favoriteMusic: "J-POP、ロック、カラオケでは「乾杯」",
+  petsOshi: "猫を飼っています、推しは初音ミク",
+  respectedPerson: "スティーブ・ジョブズ",
+  motto: "継続は力なり",
+  futureGoals: "AI技術で社会に貢献するプロダクトを作りたい",
   feedback: [
     "チームワークを大切にする素晴らしいメンバーです",
     "技術力が高く、いつも頼りになります",
@@ -27,14 +50,21 @@ const mockProfile = {
 
 export function ProfileView() {
   const profileItems = [
+    { icon: User, label: "ニックネーム", value: mockProfile.nickname },
     { icon: Calendar, label: "入社年月", value: mockProfile.joinDate },
     { icon: Calendar, label: "生年月日", value: mockProfile.birthDate },
     { icon: MapPin, label: "出身地", value: mockProfile.hometown },
     { icon: Home, label: "居住地", value: mockProfile.residence },
-    { icon: Heart, label: "趣味／特技", value: mockProfile.hobbies },
-    { icon: Trophy, label: "学生時代の部活／サークル", value: mockProfile.club },
+    { icon: Heart, label: "趣味・特技", value: mockProfile.hobbies },
+    { icon: Trophy, label: "学生時代の部活・サークル・力を入れていたこと", value: mockProfile.studentActivities },
+    { icon: Coffee, label: "休日の過ごし方", value: mockProfile.holidayActivities },
     { icon: Utensils, label: "好きな食べ物", value: mockProfile.favoriteFood },
-    { icon: Coffee, label: "休日の過ごし方", value: mockProfile.weekendActivity },
+    { icon: BookOpen, label: "好きな本・漫画・映画・ドラマ", value: mockProfile.favoriteMedia },
+    { icon: Music, label: "好きな音楽・カラオケの18番", value: mockProfile.favoriteMusic },
+    { icon: PawPrint, label: "ペット・推し", value: mockProfile.petsOshi },
+    { icon: Star, label: "尊敬する人", value: mockProfile.respectedPerson },
+    { icon: Quote, label: "座右の銘", value: mockProfile.motto },
+    { icon: Target, label: "将来の目標・生きてるうちにやってみたいこと", value: mockProfile.futureGoals },
   ]
 
   return (
