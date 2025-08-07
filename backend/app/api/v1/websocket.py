@@ -89,6 +89,11 @@ async def websocket_voice_session(websocket: WebSocket, session_id: str):
         await websocket.close(
             code=status.WS_1008_POLICY_VIOLATION, reason="Session not found"
         )
+    except HTTPException as e:
+        logger.warning(f"HTTP error: {e}")
+        await websocket.close(
+            code=status.WS_1008_POLICY_VIOLATION, reason=str(e.detail)
+        )
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
         await websocket.close(
@@ -168,6 +173,11 @@ async def websocket_chat_room(websocket: WebSocket, room_id: str):
         await websocket.close(
             code=status.WS_1008_POLICY_VIOLATION, reason="Authentication failed"
         )
+    except HTTPException as e:
+        logger.warning(f"HTTP error: {e}")
+        await websocket.close(
+            code=status.WS_1008_POLICY_VIOLATION, reason=str(e.detail)
+        )
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
         await websocket.close(
@@ -177,6 +187,35 @@ async def websocket_chat_room(websocket: WebSocket, room_id: str):
         # 接続を切断
         if connection_id:
             manager.disconnect(connection_id)
+
+
+# 接続管理API
+@router.get("/connections/stats")
+async def get_connection_stats():
+    """接続統計を取得"""
+    try:
+        stats = manager.get_connection_stats()
+        return {
+            "stats": stats,
+            "timestamp": datetime.now().isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"Failed to get connection stats: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get connection stats")
+
+
+@router.post("/connections/cleanup")
+async def cleanup_inactive_connections():
+    """非アクティブな接続をクリーンアップ"""
+    try:
+        await manager.cleanup_inactive_connections()
+        return {
+            "status": "cleanup_completed",
+            "timestamp": datetime.now().isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"Failed to cleanup connections: {e}")
+        raise HTTPException(status_code=500, detail="Failed to cleanup connections")
 
 
 @router.get("/voice-sessions/{session_id}/participants")

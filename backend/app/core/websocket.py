@@ -25,40 +25,78 @@ class ConnectionManager:
         self.user_connections: Dict[int, Set[str]] = {}
         # 接続情報を管理
         self.connection_info: Dict[str, Dict[str, Any]] = {}
+        # 接続制限
+        self.max_connections_per_user = 3
+        self.max_connections_per_session = 50
+        # 接続タイムアウト
+        self.connection_timeout = timedelta(hours=24)
+        # ハートビート管理
+        self.last_heartbeat: Dict[str, datetime] = {}
 
     async def connect(self, websocket: WebSocket, session_id: str, user: User) -> str:
         """WebSocket接続を確立"""
-        await websocket.accept()
+        try:
+            await websocket.accept()
 
-        # 接続IDを生成
-        connection_id = f"{user.id}_{session_id}_{datetime.now().timestamp()}"
+            # 接続制限チェック
+            await self._check_connection_limits(session_id, user.id)
 
-        # 接続を登録
-        self.active_connections[connection_id] = websocket
-        self.connection_info[connection_id] = {
-            "user_id": user.id,
-            "session_id": session_id,
-            "connected_at": datetime.now(),
-            "user": user,
-        }
+            # 接続IDを生成
+            connection_id = f"{user.id}_{session_id}_{datetime.now().timestamp()}"
 
-        # セッション別接続管理
-        if session_id not in self.session_connections:
-            self.session_connections[session_id] = set()
-        self.session_connections[session_id].add(connection_id)
+            # 接続を登録
+            self.active_connections[connection_id] = websocket
+            self.connection_info[connection_id] = {
+                "user_id": user.id,
+                "session_id": session_id,
+                "connected_at": datetime.now(),
+                "user": user,
+                "last_activity": datetime.now(),
+                "status": "connected",
+            }
 
-        # ユーザー別接続管理
-        if user.id not in self.user_connections:
-            self.user_connections[user.id] = set()
-        self.user_connections[user.id].add(connection_id)
+            # セッション別接続管理
+            if session_id not in self.session_connections:
+                self.session_connections[session_id] = set()
+            self.session_connections[session_id].add(connection_id)
 
-        logger.info(
-            f"WebSocket connected: {connection_id}",
-            user_id=user.id,
-            session_id=session_id,
-        )
+            # ユーザー別接続管理
+            if user.id not in self.user_connections:
+                self.user_connections[user.id] = set()
+            self.user_connections[user.id].add(connection_id)
 
-        return connection_id
+            # ハートビート初期化
+            self.last_heartbeat[connection_id] = datetime.now()
+
+            logger.info(
+                f"WebSocket connected: {connection_id}",
+                user_id=user.id,
+                session_id=session_id,
+            )
+
+            return connection_id
+
+        except Exception as e:
+            logger.error(f"Failed to establish WebSocket connection: {e}")
+            raise
+
+    async def _check_connection_limits(self, session_id: str, user_id: int):
+        """接続制限をチェック"""
+        # ユーザー別接続数チェック
+        user_connections = len(self.user_connections.get(user_id, set()))
+        if user_connections >= self.max_connections_per_user:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Maximum connections per user exceeded",
+            )
+
+        # セッション別接続数チェック
+        session_connections = len(self.session_connections.get(session_id, set()))
+        if session_connections >= self.max_connections_per_session:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Maximum connections per session exceeded",
+            )
 
     def disconnect(self, connection_id: str):
         """WebSocket接続を切断"""
@@ -72,6 +110,8 @@ class ConnectionManager:
             del self.active_connections[connection_id]
             if connection_id in self.connection_info:
                 del self.connection_info[connection_id]
+            if connection_id in self.last_heartbeat:
+                del self.last_heartbeat[connection_id]
 
             # セッション別接続から削除
             if session_id and session_id in self.session_connections:
@@ -95,9 +135,21 @@ class ConnectionManager:
         """特定の接続にメッセージを送信"""
         if connection_id in self.active_connections:
             try:
+                # 接続の有効性をチェック
+                if not await self._is_connection_valid(connection_id):
+                    self.disconnect(connection_id)
+                    return
+
                 await self.active_connections[connection_id].send_text(
                     json.dumps(message, default=str)
                 )
+
+                # 活動時間を更新
+                if connection_id in self.connection_info:
+                    self.connection_info[connection_id]["last_activity"] = (
+                        datetime.now()
+                    )
+
             except Exception as e:
                 logger.error(f"Failed to send message to {connection_id}: {e}")
                 self.disconnect(connection_id)
@@ -107,18 +159,72 @@ class ConnectionManager:
     ):
         """セッション内の全接続にメッセージをブロードキャスト"""
         if session_id in self.session_connections:
+            disconnected_connections = []
+
             for connection_id in self.session_connections[session_id]:
                 if connection_id != exclude_connection:
-                    await self.send_personal_message(message, connection_id)
+                    try:
+                        await self.send_personal_message(message, connection_id)
+                    except Exception as e:
+                        logger.error(f"Failed to broadcast to {connection_id}: {e}")
+                        disconnected_connections.append(connection_id)
+
+            # 切断された接続を削除
+            for connection_id in disconnected_connections:
+                self.disconnect(connection_id)
 
     async def broadcast_to_user(
         self, message: dict, user_id: int, exclude_connection: str = None
     ):
         """特定ユーザーの全接続にメッセージをブロードキャスト"""
         if user_id in self.user_connections:
+            disconnected_connections = []
+
             for connection_id in self.user_connections[user_id]:
                 if connection_id != exclude_connection:
-                    await self.send_personal_message(message, connection_id)
+                    try:
+                        await self.send_personal_message(message, connection_id)
+                    except Exception as e:
+                        logger.error(f"Failed to broadcast to {connection_id}: {e}")
+                        disconnected_connections.append(connection_id)
+
+            # 切断された接続を削除
+            for connection_id in disconnected_connections:
+                self.disconnect(connection_id)
+
+    async def _is_connection_valid(self, connection_id: str) -> bool:
+        """接続の有効性をチェック"""
+        if connection_id not in self.connection_info:
+            return False
+
+        info = self.connection_info[connection_id]
+        last_activity = info.get("last_activity")
+
+        if last_activity and datetime.now() - last_activity > self.connection_timeout:
+            logger.warning(f"Connection timeout: {connection_id}")
+            return False
+
+        return True
+
+    async def update_heartbeat(self, connection_id: str):
+        """ハートビートを更新"""
+        if connection_id in self.last_heartbeat:
+            self.last_heartbeat[connection_id] = datetime.now()
+            if connection_id in self.connection_info:
+                self.connection_info[connection_id]["last_activity"] = datetime.now()
+
+    async def cleanup_inactive_connections(self):
+        """非アクティブな接続をクリーンアップ"""
+        current_time = datetime.now()
+        inactive_connections = []
+
+        for connection_id, last_heartbeat_time in self.last_heartbeat.items():
+            if current_time - last_heartbeat_time > timedelta(minutes=5):
+                inactive_connections.append(connection_id)
+
+        for connection_id in inactive_connections:
+            logger.info(f"Cleaning up inactive connection: {connection_id}")
+            self.disconnect(connection_id)
 
     def get_session_participants(self, session_id: str) -> Set[int]:
         """セッションの参加者ID一覧を取得"""
@@ -137,6 +243,18 @@ class ConnectionManager:
     def get_session_connection_count(self, session_id: str) -> int:
         """セッションの接続数を取得"""
         return len(self.session_connections.get(session_id, set()))
+
+    def get_connection_stats(self) -> Dict[str, Any]:
+        """接続統計を取得"""
+        return {
+            "total_connections": len(self.active_connections),
+            "total_sessions": len(self.session_connections),
+            "total_users": len(self.user_connections),
+            "session_connections": {
+                session_id: len(connections)
+                for session_id, connections in self.session_connections.items()
+            },
+        }
 
 
 # グローバル接続マネージャー
@@ -160,6 +278,10 @@ class WebSocketAuth:
             if not user:
                 raise AuthenticationException("Invalid token")
 
+            # ユーザーの有効性チェック
+            if not user.is_active:
+                raise AuthenticationException("User account is inactive")
+
             return user
 
         except Exception as e:
@@ -176,6 +298,9 @@ class WebSocketMessageHandler:
     ):
         """メッセージの処理"""
         try:
+            # ハートビートを更新
+            await manager.update_heartbeat(connection_id)
+
             message_type = message.get("type")
 
             if message_type == "ping":
@@ -238,6 +363,13 @@ class WebSocketMessageHandler:
 
             else:
                 logger.warning(f"Unknown message type: {message_type}")
+                await manager.send_personal_message(
+                    {
+                        "type": "error",
+                        "message": f"Unknown message type: {message_type}",
+                    },
+                    connection_id,
+                )
 
         except Exception as e:
             logger.error(f"Failed to handle message: {e}")
