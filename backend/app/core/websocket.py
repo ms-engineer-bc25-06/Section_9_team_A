@@ -202,6 +202,40 @@ class WebSocketMessageHandler:
                         session_id, connection_id, user, message
                     )
 
+            elif message_type == "text_message":
+                session_id = message.get("session_id")
+                content = message.get("content")
+                if session_id and content:
+                    await WebSocketMessageHandler.handle_text_message(
+                        session_id, connection_id, user, message
+                    )
+
+            elif message_type == "emoji_reaction":
+                session_id = message.get("session_id")
+                target_message_id = message.get("target_message_id")
+                emoji = message.get("emoji")
+                if session_id and target_message_id and emoji:
+                    await WebSocketMessageHandler.handle_emoji_reaction(
+                        session_id, connection_id, user, message
+                    )
+
+            elif message_type == "edit_message":
+                session_id = message.get("session_id")
+                message_id = message.get("message_id")
+                new_content = message.get("new_content")
+                if session_id and message_id and new_content:
+                    await WebSocketMessageHandler.handle_edit_message(
+                        session_id, connection_id, user, message
+                    )
+
+            elif message_type == "delete_message":
+                session_id = message.get("session_id")
+                message_id = message.get("message_id")
+                if session_id and message_id:
+                    await WebSocketMessageHandler.handle_delete_message(
+                        session_id, connection_id, user, message
+                    )
+
             else:
                 logger.warning(f"Unknown message type: {message_type}")
 
@@ -214,47 +248,89 @@ class WebSocketMessageHandler:
     @staticmethod
     async def handle_join_session(session_id: str, connection_id: str, user: User):
         """セッション参加処理"""
-        # 参加通知をブロードキャスト
-        await manager.broadcast_to_session(
-            {
-                "type": "user_joined",
-                "user": {
-                    "id": user.id,
-                    "display_name": user.display_name,
-                    "avatar_url": user.avatar_url,
-                },
-                "session_id": session_id,
-                "timestamp": datetime.now().isoformat(),
-            },
-            session_id,
-            exclude_connection=connection_id,
-        )
+        try:
+            from app.services.participant_management_service import (
+                participant_manager,
+                ParticipantRole,
+            )
 
-        # 参加者リストを送信
-        participants = manager.get_session_participants(session_id)
-        await manager.send_personal_message(
-            {
-                "type": "session_participants",
-                "participants": list(participants),
-                "session_id": session_id,
-            },
-            connection_id,
-        )
+            # 参加者を管理システムに追加
+            participant = await participant_manager.add_participant(
+                session_id, user, ParticipantRole.PARTICIPANT
+            )
+
+            # 参加通知をブロードキャスト
+            await manager.broadcast_to_session(
+                {
+                    "type": "user_joined",
+                    "user": {
+                        "id": user.id,
+                        "display_name": user.display_name,
+                        "avatar_url": user.avatar_url,
+                    },
+                    "session_id": session_id,
+                    "role": participant.role.value,
+                    "timestamp": datetime.now().isoformat(),
+                },
+                session_id,
+                exclude_connection=connection_id,
+            )
+
+            # 参加者リストを送信
+            participants = await participant_manager.get_session_participants(
+                session_id
+            )
+            participant_list = [
+                {
+                    "user_id": p.user_id,
+                    "display_name": p.user.display_name,
+                    "avatar_url": p.user.avatar_url,
+                    "role": p.role.value,
+                    "status": p.status.value,
+                    "is_muted": p.is_muted,
+                    "is_speaking": p.is_speaking,
+                    "joined_at": p.joined_at.isoformat(),
+                }
+                for p in participants
+            ]
+
+            await manager.send_personal_message(
+                {
+                    "type": "session_participants",
+                    "participants": participant_list,
+                    "session_id": session_id,
+                },
+                connection_id,
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to handle join session: {e}")
+            raise
 
     @staticmethod
     async def handle_leave_session(session_id: str, connection_id: str, user: User):
         """セッション退出処理"""
-        # 退出通知をブロードキャスト
-        await manager.broadcast_to_session(
-            {
-                "type": "user_left",
-                "user": {"id": user.id, "display_name": user.display_name},
-                "session_id": session_id,
-                "timestamp": datetime.now().isoformat(),
-            },
-            session_id,
-            exclude_connection=connection_id,
-        )
+        try:
+            from app.services.participant_management_service import participant_manager
+
+            # 参加者を管理システムから削除
+            await participant_manager.remove_participant(session_id, user.id, "left")
+
+            # 退出通知をブロードキャスト
+            await manager.broadcast_to_session(
+                {
+                    "type": "user_left",
+                    "user": {"id": user.id, "display_name": user.display_name},
+                    "session_id": session_id,
+                    "timestamp": datetime.now().isoformat(),
+                },
+                session_id,
+                exclude_connection=connection_id,
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to handle leave session: {e}")
+            raise
 
     @staticmethod
     async def handle_audio_data(
@@ -316,4 +392,94 @@ class WebSocketMessageHandler:
             await manager.send_personal_message(
                 {"type": "error", "message": "Failed to process audio data"},
                 connection_id,
+            )
+
+    @staticmethod
+    async def handle_text_message(
+        session_id: str, connection_id: str, user: User, message: dict
+    ):
+        """テキストメッセージ処理"""
+        try:
+            from app.services.messaging_service import (
+                messaging_service,
+                MessagePriority,
+            )
+
+            content = message.get("content", "")
+            priority = MessagePriority(message.get("priority", "normal"))
+
+            # テキストメッセージを送信
+            await messaging_service.send_text_message(
+                session_id, user.id, content, priority
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to handle text message: {e}")
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to send text message"},
+                connection_id,
+            )
+
+    @staticmethod
+    async def handle_emoji_reaction(
+        session_id: str, connection_id: str, user: User, message: dict
+    ):
+        """絵文字リアクション処理"""
+        try:
+            from app.services.messaging_service import messaging_service
+
+            target_message_id = message.get("target_message_id")
+            emoji = message.get("emoji")
+
+            # 絵文字リアクションを送信
+            await messaging_service.send_emoji_reaction(
+                session_id, user.id, target_message_id, emoji
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to handle emoji reaction: {e}")
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to send emoji reaction"},
+                connection_id,
+            )
+
+    @staticmethod
+    async def handle_edit_message(
+        session_id: str, connection_id: str, user: User, message: dict
+    ):
+        """メッセージ編集処理"""
+        try:
+            from app.services.messaging_service import messaging_service
+
+            message_id = message.get("message_id")
+            new_content = message.get("new_content")
+
+            # メッセージを編集
+            await messaging_service.edit_message(
+                session_id, message_id, user.id, new_content
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to handle edit message: {e}")
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to edit message"}, connection_id
+            )
+
+    @staticmethod
+    async def handle_delete_message(
+        session_id: str, connection_id: str, user: User, message: dict
+    ):
+        """メッセージ削除処理"""
+        try:
+            from app.services.messaging_service import messaging_service
+
+            message_id = message.get("message_id")
+
+            # メッセージを削除
+            await messaging_service.delete_message(session_id, message_id, user.id)
+
+        except Exception as e:
+            logger.error(f"Failed to handle delete message: {e}")
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to delete message"}, connection_id
             )
