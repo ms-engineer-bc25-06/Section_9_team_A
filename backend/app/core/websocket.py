@@ -339,7 +339,9 @@ class WebSocketMessageHandler:
         """音声データ処理"""
         try:
             from app.services.audio_processing_service import audio_processor
+            from app.services.transcription_service import transcription_service
             from app.schemas.websocket import AudioDataMessage
+            import base64
 
             # 音声データメッセージを作成
             audio_message = AudioDataMessage(
@@ -386,6 +388,54 @@ class WebSocketMessageHandler:
                 session_id,
                 exclude_connection=connection_id,
             )
+
+            # 転写処理
+            if audio_level.is_speaking:
+                # Base64デコード
+                audio_data = base64.b64decode(message.get("data"))
+                timestamp = datetime.fromisoformat(message.get("timestamp"))
+
+                # 転写処理
+                transcription_chunk = await transcription_service.process_audio_chunk(
+                    session_id=session_id,
+                    user_id=user.id,
+                    audio_data=audio_data,
+                    timestamp=timestamp,
+                    sample_rate=message.get("sample_rate", 16000),
+                )
+
+                if transcription_chunk:
+                    # 確定転写の場合
+                    if transcription_chunk.is_final:
+                        await manager.broadcast_to_session(
+                            {
+                                "type": "transcription_final",
+                                "session_id": session_id,
+                                "user_id": user.id,
+                                "text": transcription_chunk.text,
+                                "confidence": transcription_chunk.confidence,
+                                "start_time": transcription_chunk.start_time,
+                                "end_time": transcription_chunk.end_time,
+                                "timestamp": datetime.now().isoformat(),
+                            },
+                            session_id,
+                        )
+                    else:
+                        # 部分転写の場合
+                        await manager.broadcast_to_session(
+                            {
+                                "type": "transcription_partial",
+                                "session_id": session_id,
+                                "user_id": user.id,
+                                "text": transcription_chunk.text,
+                                "is_final": False,
+                                "confidence": transcription_chunk.confidence,
+                                "start_time": transcription_chunk.start_time,
+                                "end_time": transcription_chunk.end_time,
+                                "timestamp": datetime.now().isoformat(),
+                            },
+                            session_id,
+                        )
 
         except Exception as e:
             logger.error(f"Failed to process audio data: {e}")
