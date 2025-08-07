@@ -1,4 +1,4 @@
-// 統計情報表示部品
+// // 統計情報表示部品
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
