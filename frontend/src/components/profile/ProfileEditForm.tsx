@@ -15,15 +15,22 @@ import { useRouter } from "next/navigation"
 
 const mockProfile = {
   name: "田中太郎",
+  nickname: "タロウ",
   department: "開発部",
   joinDate: "2023-04-01",
   birthDate: "1990-05-15",
   hometown: "東京都",
   residence: "神奈川県横浜市",
   hobbies: "プログラミング、読書、映画鑑賞",
-  club: "テニス部",
-  favoriteFood: "ラーメン、寿司",
-  weekendActivity: "カフェ巡り、散歩",
+  studentActivities: "テニス部、プログラミングサークル",
+  holidayActivities: "カフェ巡り、散歩、映画鑑賞",
+  favoriteFood: "ラーメン、寿司、カレー",
+  favoriteMedia: "ハリーポッター、スターウォーズ、進撃の巨人",
+  favoriteMusic: "J-POP、ロック、カラオケでは「乾杯」",
+  petsOshi: "猫を飼っています、推しは初音ミク",
+  respectedPerson: "スティーブ・ジョブズ",
+  motto: "継続は力なり",
+  futureGoals: "AI技術で社会に貢献するプロダクトを作りたい",
 }
 
 export function ProfileEditForm() {
@@ -79,6 +86,11 @@ export function ProfileEditForm() {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="nickname">ニックネーム</Label>
+              <Input id="nickname" value={profile.nickname} onChange={(e) => handleInputChange("nickname", e.target.value)} />
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="department">部署</Label>
               <Input
                 id="department"
@@ -128,7 +140,7 @@ export function ProfileEditForm() {
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="hobbies">趣味／特技</Label>
+              <Label htmlFor="hobbies">趣味・特技</Label>
               <Textarea
                 id="hobbies"
                 value={profile.hobbies}
@@ -138,26 +150,92 @@ export function ProfileEditForm() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="club">学生時代の部活／サークル</Label>
-              <Input id="club" value={profile.club} onChange={(e) => handleInputChange("club", e.target.value)} />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="favoriteFood">好きな食べ物</Label>
-              <Input
-                id="favoriteFood"
-                value={profile.favoriteFood}
-                onChange={(e) => handleInputChange("favoriteFood", e.target.value)}
+              <Label htmlFor="studentActivities">学生時代の部活・サークル・力を入れていたこと</Label>
+              <Textarea
+                id="studentActivities"
+                value={profile.studentActivities}
+                onChange={(e) => handleInputChange("studentActivities", e.target.value)}
+                rows={2}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="weekendActivity">休日の過ごし方</Label>
+              <Label htmlFor="holidayActivities">休日の過ごし方</Label>
               <Textarea
-                id="weekendActivity"
-                value={profile.weekendActivity}
-                onChange={(e) => handleInputChange("weekendActivity", e.target.value)}
+                id="holidayActivities"
+                value={profile.holidayActivities}
+                onChange={(e) => handleInputChange("holidayActivities", e.target.value)}
                 rows={2}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="favoriteFood">好きな食べ物</Label>
+              <Textarea
+                id="favoriteFood"
+                value={profile.favoriteFood}
+                onChange={(e) => handleInputChange("favoriteFood", e.target.value)}
+                rows={2}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="favoriteMedia">好きな本・漫画・映画・ドラマ</Label>
+              <Textarea
+                id="favoriteMedia"
+                value={profile.favoriteMedia}
+                onChange={(e) => handleInputChange("favoriteMedia", e.target.value)}
+                rows={2}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="favoriteMusic">好きな音楽・カラオケの18番</Label>
+              <Textarea
+                id="favoriteMusic"
+                value={profile.favoriteMusic}
+                onChange={(e) => handleInputChange("favoriteMusic", e.target.value)}
+                rows={2}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="petsOshi">ペット・推し</Label>
+              <Textarea
+                id="petsOshi"
+                value={profile.petsOshi}
+                onChange={(e) => handleInputChange("petsOshi", e.target.value)}
+                rows={2}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="respectedPerson">尊敬する人</Label>
+              <Textarea
+                id="respectedPerson"
+                value={profile.respectedPerson}
+                onChange={(e) => handleInputChange("respectedPerson", e.target.value)}
+                rows={2}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="motto">座右の銘</Label>
+              <Textarea
+                id="motto"
+                value={profile.motto}
+                onChange={(e) => handleInputChange("motto", e.target.value)}
+                rows={2}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="futureGoals">将来の目標・生きてるうちにやってみたいこと</Label>
+              <Textarea
+                id="futureGoals"
+                value={profile.futureGoals}
+                onChange={(e) => handleInputChange("futureGoals", e.target.value)}
+                rows={3}
               />
             </div>
           </div>
