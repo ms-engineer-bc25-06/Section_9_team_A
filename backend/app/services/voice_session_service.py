@@ -1,7 +1,7 @@
 from typing import Optional, List, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 
 from app.models.voice_session import VoiceSession
@@ -17,6 +17,14 @@ from app.schemas.voice_session import (
     VoiceSessionQueryParams,
     VoiceSessionStats,
     VoiceSessionAudioUpdate,
+    ParticipantAddRequest,
+    ParticipantListResponse,
+    ParticipantUpdateRequest,
+    ParticipantRoleEnum,
+    RecordingStatusResponse,
+    RecordingStatusEnum,
+    RealtimeStatsResponse,
+    SessionProgressResponse,
 )
 from app.core.exceptions import (
     NotFoundException,
@@ -501,3 +509,712 @@ class VoiceSessionService:
         except Exception as e:
             logger.error(f"Failed to end session {session_id}: {e}")
             raise ValidationException("Failed to end session")
+
+    # 参加者管理メソッド
+    async def add_participant(
+        self,
+        session_id: str,
+        user_id: int,
+        participant_user_id: int,
+        role: ParticipantRoleEnum,
+    ) -> VoiceSessionResponse:
+        """参加者を追加"""
+        try:
+            session = await self.get_session_by_session_id(session_id)
+            if not session:
+                raise NotFoundException("Voice session not found")
+
+            # 権限チェック（オーナーまたはモデレーターのみ）
+            if not await self._can_manage_participants(session, user_id):
+                raise PermissionException("Access denied")
+
+            # 参加者ユーザーの存在チェック
+            participant_user = await self._get_user_by_id(participant_user_id)
+            if not participant_user:
+                raise NotFoundException("Participant user not found")
+
+            # 参加者情報を更新
+            participants = self._parse_participants(session.participants)
+
+            # 既存の参加者かチェック
+            if any(p["user_id"] == participant_user_id for p in participants):
+                raise ValidationException("User is already a participant")
+
+            # 新しい参加者を追加
+            new_participant = {
+                "user_id": participant_user_id,
+                "username": participant_user.username,
+                "email": participant_user.email,
+                "role": role.value,
+                "joined_at": datetime.now().isoformat(),
+                "is_active": True,
+            }
+            participants.append(new_participant)
+
+            # セッションを更新
+            update_data = VoiceSessionUpdate(
+                participants=self._serialize_participants(participants),
+                participant_count=len(participants),
+            )
+
+            updated_session = await self.repository.update(
+                self.db, session.id, update_data
+            )
+
+            return VoiceSessionResponse.model_validate(updated_session)
+
+        except (NotFoundException, PermissionException, ValidationException):
+            raise
+        except Exception as e:
+            logger.error(f"Failed to add participant to session {session_id}: {e}")
+            raise ValidationException("Failed to add participant")
+
+    async def remove_participant(
+        self, session_id: str, user_id: int, participant_user_id: int
+    ) -> VoiceSessionResponse:
+        """参加者を削除"""
+        try:
+            session = await self.get_session_by_session_id(session_id)
+            if not session:
+                raise NotFoundException("Voice session not found")
+
+            # 権限チェック（オーナーまたはモデレーターのみ）
+            if not await self._can_manage_participants(session, user_id):
+                raise PermissionException("Access denied")
+
+            # 参加者情報を更新
+            participants = self._parse_participants(session.participants)
+
+            # 参加者を削除
+            participants = [
+                p for p in participants if p["user_id"] != participant_user_id
+            ]
+
+            # セッションを更新
+            update_data = VoiceSessionUpdate(
+                participants=self._serialize_participants(participants),
+                participant_count=len(participants),
+            )
+
+            updated_session = await self.repository.update(
+                self.db, session.id, update_data
+            )
+
+            return VoiceSessionResponse.model_validate(updated_session)
+
+        except (NotFoundException, PermissionException):
+            raise
+        except Exception as e:
+            logger.error(f"Failed to remove participant from session {session_id}: {e}")
+            raise ValidationException("Failed to remove participant")
+
+    async def get_participants(
+        self, session_id: str, user_id: int
+    ) -> ParticipantListResponse:
+        """参加者一覧を取得"""
+        try:
+            session = await self.get_session_by_session_id(session_id)
+            if not session:
+                raise NotFoundException("Voice session not found")
+
+            # 権限チェック（参加者またはオーナー）
+            if not await self._can_view_participants(session, user_id):
+                raise PermissionException("Access denied")
+
+            participants = self._parse_participants(session.participants)
+
+            # 参加者情報を取得
+            participant_responses = []
+            active_count = 0
+
+            for participant in participants:
+                user = await self._get_user_by_id(participant["user_id"])
+                if user:
+                    participant_responses.append(
+                        {
+                            "user_id": participant["user_id"],
+                            "username": user.username,
+                            "email": user.email,
+                            "role": participant["role"],
+                            "joined_at": datetime.fromisoformat(
+                                participant["joined_at"]
+                            ),
+                            "is_active": participant["is_active"],
+                        }
+                    )
+                    if participant["is_active"]:
+                        active_count += 1
+
+            return ParticipantListResponse(
+                participants=participant_responses,
+                total=len(participant_responses),
+                active_count=active_count,
+            )
+
+        except (NotFoundException, PermissionException):
+            raise
+        except Exception as e:
+            logger.error(f"Failed to get participants for session {session_id}: {e}")
+            raise ValidationException("Failed to get participants")
+
+    async def update_participant_role(
+        self,
+        session_id: str,
+        user_id: int,
+        participant_user_id: int,
+        new_role: ParticipantRoleEnum,
+    ) -> VoiceSessionResponse:
+        """参加者の権限を更新"""
+        try:
+            session = await self.get_session_by_session_id(session_id)
+            if not session:
+                raise NotFoundException("Voice session not found")
+
+            # 権限チェック（オーナーのみ）
+            if session.user_id != user_id:
+                raise PermissionException("Access denied")
+
+            # 参加者情報を更新
+            participants = self._parse_participants(session.participants)
+
+            # 参加者の権限を更新
+            for participant in participants:
+                if participant["user_id"] == participant_user_id:
+                    participant["role"] = new_role.value
+                    break
+            else:
+                raise NotFoundException("Participant not found")
+
+            # セッションを更新
+            update_data = VoiceSessionUpdate(
+                participants=self._serialize_participants(participants)
+            )
+
+            updated_session = await self.repository.update(
+                self.db, session.id, update_data
+            )
+
+            return VoiceSessionResponse.model_validate(updated_session)
+
+        except (NotFoundException, PermissionException):
+            raise
+        except Exception as e:
+            logger.error(
+                f"Failed to update participant role in session {session_id}: {e}"
+            )
+            raise ValidationException("Failed to update participant role")
+
+    # ヘルパーメソッド
+    def _parse_participants(self, participants_json: str) -> list:
+        """参加者JSONをパース"""
+        import json
+
+        if not participants_json:
+            return []
+        try:
+            return json.loads(participants_json)
+        except json.JSONDecodeError:
+            return []
+
+    def _serialize_participants(self, participants: list) -> str:
+        """参加者リストをJSONにシリアライズ"""
+        import json
+
+        return json.dumps(participants)
+
+    async def _can_manage_participants(
+        self, session: VoiceSession, user_id: int
+    ) -> bool:
+        """参加者管理権限があるかチェック"""
+        # オーナーの場合
+        if session.user_id == user_id:
+            return True
+
+        # 参加者リストから権限をチェック
+        participants = self._parse_participants(session.participants)
+        for participant in participants:
+            if participant["user_id"] == user_id:
+                return participant["role"] in ["owner", "moderator"]
+
+        return False
+
+    async def _can_view_participants(self, session: VoiceSession, user_id: int) -> bool:
+        """参加者一覧閲覧権限があるかチェック"""
+        # オーナーの場合
+        if session.user_id == user_id:
+            return True
+
+        # 参加者の場合
+        participants = self._parse_participants(session.participants)
+        for participant in participants:
+            if participant["user_id"] == user_id:
+                return True
+
+        return False
+
+    # 録音制御メソッド
+    async def start_recording(
+        self, session_id: str, user_id: int, quality: str = "high", format: str = "mp3"
+    ) -> RecordingStatusResponse:
+        """録音を開始"""
+        try:
+            session = await self.get_session_by_session_id(session_id)
+            if not session:
+                raise NotFoundException("Voice session not found")
+
+            # 権限チェック（オーナーまたはモデレーターのみ）
+            if not await self._can_manage_recording(session, user_id):
+                raise PermissionException("Access denied")
+
+            # 録音状態を更新
+            recording_status = {
+                "status": RecordingStatusEnum.RECORDING.value,
+                "is_recording": True,
+                "started_at": datetime.now().isoformat(),
+                "quality": quality,
+                "format": format,
+                "recording_duration": 0.0,
+            }
+
+            # セッションを更新
+            update_data = VoiceSessionUpdate(
+                participants=self._serialize_recording_status(recording_status)
+            )
+
+            updated_session = await self.repository.update(
+                self.db, session.id, update_data
+            )
+
+            return RecordingStatusResponse(
+                session_id=session_id,
+                status=RecordingStatusEnum.RECORDING,
+                is_recording=True,
+                recording_duration=0.0,
+                quality=quality,
+                format=format,
+                started_at=datetime.now(),
+            )
+
+        except (NotFoundException, PermissionException):
+            raise
+        except Exception as e:
+            logger.error(f"Failed to start recording for session {session_id}: {e}")
+            raise ValidationException("Failed to start recording")
+
+    async def stop_recording(
+        self, session_id: str, user_id: int
+    ) -> RecordingStatusResponse:
+        """録音を停止"""
+        try:
+            session = await self.get_session_by_session_id(session_id)
+            if not session:
+                raise NotFoundException("Voice session not found")
+
+            # 権限チェック（オーナーまたはモデレーターのみ）
+            if not await self._can_manage_recording(session, user_id):
+                raise PermissionException("Access denied")
+
+            # 録音状態を更新
+            recording_status = {
+                "status": RecordingStatusEnum.STOPPED.value,
+                "is_recording": False,
+                "stopped_at": datetime.now().isoformat(),
+            }
+
+            # セッションを更新
+            update_data = VoiceSessionUpdate(
+                participants=self._serialize_recording_status(recording_status)
+            )
+
+            updated_session = await self.repository.update(
+                self.db, session.id, update_data
+            )
+
+            return RecordingStatusResponse(
+                session_id=session_id,
+                status=RecordingStatusEnum.STOPPED,
+                is_recording=False,
+            )
+
+        except (NotFoundException, PermissionException):
+            raise
+        except Exception as e:
+            logger.error(f"Failed to stop recording for session {session_id}: {e}")
+            raise ValidationException("Failed to stop recording")
+
+    async def pause_recording(
+        self, session_id: str, user_id: int
+    ) -> RecordingStatusResponse:
+        """録音を一時停止"""
+        try:
+            session = await self.get_session_by_session_id(session_id)
+            if not session:
+                raise NotFoundException("Voice session not found")
+
+            # 権限チェック（オーナーまたはモデレーターのみ）
+            if not await self._can_manage_recording(session, user_id):
+                raise PermissionException("Access denied")
+
+            # 録音状態を更新
+            recording_status = {
+                "status": RecordingStatusEnum.PAUSED.value,
+                "is_recording": False,
+                "paused_at": datetime.now().isoformat(),
+            }
+
+            # セッションを更新
+            update_data = VoiceSessionUpdate(
+                participants=self._serialize_recording_status(recording_status)
+            )
+
+            updated_session = await self.repository.update(
+                self.db, session.id, update_data
+            )
+
+            return RecordingStatusResponse(
+                session_id=session_id,
+                status=RecordingStatusEnum.PAUSED,
+                is_recording=False,
+            )
+
+        except (NotFoundException, PermissionException):
+            raise
+        except Exception as e:
+            logger.error(f"Failed to pause recording for session {session_id}: {e}")
+            raise ValidationException("Failed to pause recording")
+
+    async def resume_recording(
+        self, session_id: str, user_id: int
+    ) -> RecordingStatusResponse:
+        """録音を再開"""
+        try:
+            session = await self.get_session_by_session_id(session_id)
+            if not session:
+                raise NotFoundException("Voice session not found")
+
+            # 権限チェック（オーナーまたはモデレーターのみ）
+            if not await self._can_manage_recording(session, user_id):
+                raise PermissionException("Access denied")
+
+            # 録音状態を更新
+            recording_status = {
+                "status": RecordingStatusEnum.RECORDING.value,
+                "is_recording": True,
+                "resumed_at": datetime.now().isoformat(),
+            }
+
+            # セッションを更新
+            update_data = VoiceSessionUpdate(
+                participants=self._serialize_recording_status(recording_status)
+            )
+
+            updated_session = await self.repository.update(
+                self.db, session.id, update_data
+            )
+
+            return RecordingStatusResponse(
+                session_id=session_id,
+                status=RecordingStatusEnum.RECORDING,
+                is_recording=True,
+            )
+
+        except (NotFoundException, PermissionException):
+            raise
+        except Exception as e:
+            logger.error(f"Failed to resume recording for session {session_id}: {e}")
+            raise ValidationException("Failed to resume recording")
+
+    async def get_recording_status(
+        self, session_id: str, user_id: int
+    ) -> RecordingStatusResponse:
+        """録音状態を取得"""
+        try:
+            session = await self.get_session_by_session_id(session_id)
+            if not session:
+                raise NotFoundException("Voice session not found")
+
+            # 権限チェック（参加者またはオーナー）
+            if not await self._can_view_recording(session, user_id):
+                raise PermissionException("Access denied")
+
+            # 録音状態を取得
+            recording_status = self._parse_recording_status(session.participants)
+
+            return RecordingStatusResponse(
+                session_id=session_id,
+                status=RecordingStatusEnum(recording_status.get("status", "idle")),
+                is_recording=recording_status.get("is_recording", False),
+                recording_duration=recording_status.get("recording_duration", 0.0),
+                file_path=recording_status.get("file_path"),
+                file_size=recording_status.get("file_size"),
+                quality=recording_status.get("quality"),
+                format=recording_status.get("format"),
+                started_at=datetime.fromisoformat(recording_status["started_at"])
+                if recording_status.get("started_at")
+                else None,
+                error_message=recording_status.get("error_message"),
+            )
+
+        except (NotFoundException, PermissionException):
+            raise
+        except Exception as e:
+            logger.error(
+                f"Failed to get recording status for session {session_id}: {e}"
+            )
+            raise ValidationException("Failed to get recording status")
+
+    # 録音制御ヘルパーメソッド
+    def _parse_recording_status(self, recording_status_json: str) -> dict:
+        """録音状態JSONをパース"""
+        import json
+
+        if not recording_status_json:
+            return {"status": "idle", "is_recording": False}
+        try:
+            return json.loads(recording_status_json)
+        except json.JSONDecodeError:
+            return {"status": "idle", "is_recording": False}
+
+    def _serialize_recording_status(self, recording_status: dict) -> str:
+        """録音状態をJSONにシリアライズ"""
+        import json
+
+        return json.dumps(recording_status)
+
+    async def _can_manage_recording(self, session: VoiceSession, user_id: int) -> bool:
+        """録音管理権限があるかチェック"""
+        # オーナーの場合
+        if session.user_id == user_id:
+            return True
+
+        # 参加者リストから権限をチェック
+        participants = self._parse_participants(session.participants)
+        for participant in participants:
+            if participant["user_id"] == user_id:
+                return participant["role"] in ["owner", "moderator"]
+
+        return False
+
+    async def _can_view_recording(self, session: VoiceSession, user_id: int) -> bool:
+        """録音状態閲覧権限があるかチェック"""
+        # オーナーの場合
+        if session.user_id == user_id:
+            return True
+
+        # 参加者の場合
+        participants = self._parse_participants(session.participants)
+        for participant in participants:
+            if participant["user_id"] == user_id:
+                return True
+
+        return False
+
+    # リアルタイム統計メソッド
+    async def get_realtime_stats(
+        self, session_id: str, user_id: int
+    ) -> RealtimeStatsResponse:
+        """リアルタイム統計を取得"""
+        try:
+            session = await self.get_session_by_session_id(session_id)
+            if not session:
+                raise NotFoundException("Voice session not found")
+
+            # 権限チェック（参加者またはオーナー）
+            if not await self._can_view_session(session, user_id):
+                raise PermissionException("Access denied")
+
+            # 現在の継続時間を計算
+            current_duration = 0.0
+            if session.started_at:
+                if session.ended_at:
+                    current_duration = (
+                        session.ended_at - session.started_at
+                    ).total_seconds()
+                else:
+                    current_duration = (
+                        datetime.now() - session.started_at
+                    ).total_seconds()
+
+            # 参加者情報を取得
+            participants = self._parse_participants(session.participants)
+            active_participants = sum(
+                1 for p in participants if p.get("is_active", True)
+            )
+
+            # 録音状態を取得
+            recording_status = self._parse_recording_status(session.participants)
+            recording_duration = recording_status.get("recording_duration", 0.0)
+
+            # 文字起こし件数を取得
+            transcription_count = (
+                len(session.transcriptions) if session.transcriptions else 0
+            )
+
+            # 分析進捗を計算
+            analysis_progress = 0.0
+            if session.is_analyzed:
+                analysis_progress = 1.0
+            elif session.analyses:
+                analysis_progress = min(len(session.analyses) / 3.0, 1.0)  # 仮の計算
+
+            # 主要トピック数を取得
+            key_topics_count = 0
+            if session.key_topics:
+                try:
+                    import json
+
+                    topics = json.loads(session.key_topics)
+                    key_topics_count = len(topics) if isinstance(topics, list) else 0
+                except:
+                    key_topics_count = 0
+
+            return RealtimeStatsResponse(
+                session_id=session_id,
+                current_duration=current_duration,
+                participant_count=session.participant_count,
+                active_participants=active_participants,
+                recording_duration=recording_duration,
+                transcription_count=transcription_count,
+                analysis_progress=analysis_progress,
+                sentiment_score=session.sentiment_score,
+                key_topics_count=key_topics_count,
+                last_activity=session.updated_at or session.created_at,
+                is_live=session.status == "active",
+            )
+
+        except (NotFoundException, PermissionException):
+            raise
+        except Exception as e:
+            logger.error(f"Failed to get realtime stats for session {session_id}: {e}")
+            raise ValidationException("Failed to get realtime stats")
+
+    async def get_session_progress(
+        self, session_id: str, user_id: int
+    ) -> SessionProgressResponse:
+        """セッション進行状況を取得"""
+        try:
+            session = await self.get_session_by_session_id(session_id)
+            if not session:
+                raise NotFoundException("Voice session not found")
+
+            # 権限チェック（参加者またはオーナー）
+            if not await self._can_view_session(session, user_id):
+                raise PermissionException("Access denied")
+
+            # 進行状況を計算
+            progress_percentage = 0.0
+            current_phase = "preparation"
+            completed_steps = []
+            remaining_steps = [
+                "session_start",
+                "recording",
+                "transcription",
+                "analysis",
+                "completion",
+            ]
+
+            # セッション開始済み
+            if session.started_at:
+                completed_steps.append("session_start")
+                current_phase = "active"
+                progress_percentage = 20.0
+
+            # 録音中
+            recording_status = self._parse_recording_status(session.participants)
+            if recording_status.get("is_recording", False):
+                completed_steps.append("recording")
+                current_phase = "recording"
+                progress_percentage = 40.0
+
+            # 文字起こし完了
+            if session.transcriptions and len(session.transcriptions) > 0:
+                completed_steps.append("transcription")
+                current_phase = "transcription"
+                progress_percentage = 60.0
+
+            # 分析完了
+            if session.is_analyzed:
+                completed_steps.append("analysis")
+                current_phase = "analysis"
+                progress_percentage = 80.0
+
+            # セッション完了
+            if session.status == "completed":
+                completed_steps.append("completion")
+                current_phase = "completed"
+                progress_percentage = 100.0
+
+            # 残りのステップを更新
+            remaining_steps = [
+                step for step in remaining_steps if step not in completed_steps
+            ]
+
+            # 推定完了時刻を計算
+            estimated_completion = None
+            if session.started_at and not session.ended_at:
+                # 平均セッション時間を60分と仮定
+                avg_session_duration = 3600  # 60分
+                estimated_completion = session.started_at + timedelta(
+                    seconds=avg_session_duration
+                )
+
+            # 総継続時間を計算
+            total_duration = 0.0
+            if session.started_at:
+                if session.ended_at:
+                    total_duration = (
+                        session.ended_at - session.started_at
+                    ).total_seconds()
+                else:
+                    total_duration = (
+                        datetime.now() - session.started_at
+                    ).total_seconds()
+
+            # 録音状態を取得
+            recording_status_enum = RecordingStatusEnum(
+                recording_status.get("status", "idle")
+            )
+
+            # 分析状態を取得
+            analysis_status = "not_started"
+            if session.is_analyzed:
+                analysis_status = "completed"
+            elif session.analyses and len(session.analyses) > 0:
+                analysis_status = "in_progress"
+            elif session.transcriptions and len(session.transcriptions) > 0:
+                analysis_status = "ready"
+
+            return SessionProgressResponse(
+                session_id=session_id,
+                status=session.status,
+                progress_percentage=progress_percentage,
+                current_phase=current_phase,
+                estimated_completion=estimated_completion,
+                completed_steps=completed_steps,
+                remaining_steps=remaining_steps,
+                total_duration=total_duration,
+                recording_status=recording_status_enum,
+                analysis_status=analysis_status,
+            )
+
+        except (NotFoundException, PermissionException):
+            raise
+        except Exception as e:
+            logger.error(
+                f"Failed to get session progress for session {session_id}: {e}"
+            )
+            raise ValidationException("Failed to get session progress")
+
+    async def _can_view_session(self, session: VoiceSession, user_id: int) -> bool:
+        """セッション閲覧権限があるかチェック"""
+        # オーナーの場合
+        if session.user_id == user_id:
+            return True
+
+        # 参加者の場合
+        participants = self._parse_participants(session.participants)
+        for participant in participants:
+            if participant["user_id"] == user_id:
+                return True
+
+        return False

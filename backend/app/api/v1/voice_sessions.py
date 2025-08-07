@@ -13,9 +13,18 @@ from app.schemas.voice_session import (
     VoiceSessionResponse,
     VoiceSessionListResponse,
     VoiceSessionDetailResponse,
+    VoiceSessionFilters,
     VoiceSessionQueryParams,
     VoiceSessionStats,
     VoiceSessionAudioUpdate,
+    ParticipantAddRequest,
+    ParticipantListResponse,
+    ParticipantUpdateRequest,
+    RecordingControlRequest,
+    RecordingStatusResponse,
+    RecordingStatusEnum,
+    RealtimeStatsResponse,
+    SessionProgressResponse,
 )
 from app.core.exceptions import (
     BridgeLineException,
@@ -353,6 +362,412 @@ async def generate_session_id(
 
     except Exception as e:
         logger.error(f"Failed to generate session ID: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"message": "Internal server error"},
+        )
+
+
+@router.post("/{session_id}/start", response_model=VoiceSessionResponse)
+async def start_voice_session(
+    session_id: str,
+    current_user: User = Depends(get_current_active_user),
+    voice_session_service: VoiceSessionService = Depends(get_voice_session_service),
+):
+    """音声セッションを開始"""
+    try:
+        # サービス呼び出し
+        result = await voice_session_service.start_session(
+            session_id=session_id, user_id=current_user.id
+        )
+
+        return result
+
+    except BridgeLineException as e:
+        raise handle_bridge_line_exceptions(e)
+    except Exception as e:
+        logger.error(f"Failed to start voice session {session_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"message": "Internal server error"},
+        )
+
+
+@router.post("/{session_id}/end", response_model=VoiceSessionResponse)
+async def end_voice_session(
+    session_id: str,
+    current_user: User = Depends(get_current_active_user),
+    voice_session_service: VoiceSessionService = Depends(get_voice_session_service),
+):
+    """音声セッションを終了"""
+    try:
+        # サービス呼び出し
+        result = await voice_session_service.end_session(
+            session_id=session_id, user_id=current_user.id
+        )
+
+        return result
+
+    except BridgeLineException as e:
+        raise handle_bridge_line_exceptions(e)
+    except Exception as e:
+        logger.error(f"Failed to end voice session {session_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"message": "Internal server error"},
+        )
+
+
+@router.post("/{session_id}/pause", response_model=VoiceSessionResponse)
+async def pause_voice_session(
+    session_id: str,
+    current_user: User = Depends(get_current_active_user),
+    voice_session_service: VoiceSessionService = Depends(get_voice_session_service),
+):
+    """音声セッションを一時停止"""
+    try:
+        # 一時停止用の更新データ
+        update_data = VoiceSessionUpdate(status="paused")
+
+        # サービス呼び出し
+        result = await voice_session_service.update_session(
+            session_id=session_id, user_id=current_user.id, update_data=update_data
+        )
+
+        return result
+
+    except BridgeLineException as e:
+        raise handle_bridge_line_exceptions(e)
+    except Exception as e:
+        logger.error(f"Failed to pause voice session {session_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"message": "Internal server error"},
+        )
+
+
+@router.post("/{session_id}/resume", response_model=VoiceSessionResponse)
+async def resume_voice_session(
+    session_id: str,
+    current_user: User = Depends(get_current_active_user),
+    voice_session_service: VoiceSessionService = Depends(get_voice_session_service),
+):
+    """音声セッションを再開"""
+    try:
+        # 再開用の更新データ
+        update_data = VoiceSessionUpdate(status="active")
+
+        # サービス呼び出し
+        result = await voice_session_service.update_session(
+            session_id=session_id, user_id=current_user.id, update_data=update_data
+        )
+
+        return result
+
+    except BridgeLineException as e:
+        raise handle_bridge_line_exceptions(e)
+    except Exception as e:
+        logger.error(f"Failed to resume voice session {session_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"message": "Internal server error"},
+        )
+
+
+# 参加者管理API
+@router.post("/{session_id}/participants", response_model=VoiceSessionResponse)
+async def add_participant(
+    session_id: str,
+    participant_data: ParticipantAddRequest,
+    current_user: User = Depends(get_current_active_user),
+    voice_session_service: VoiceSessionService = Depends(get_voice_session_service),
+):
+    """音声セッションに参加者を追加"""
+    try:
+        # サービス呼び出し
+        result = await voice_session_service.add_participant(
+            session_id=session_id,
+            user_id=current_user.id,
+            participant_user_id=participant_data.user_id,
+            role=participant_data.role,
+        )
+
+        return result
+
+    except BridgeLineException as e:
+        raise handle_bridge_line_exceptions(e)
+    except Exception as e:
+        logger.error(f"Failed to add participant to session {session_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"message": "Internal server error"},
+        )
+
+
+@router.delete(
+    "/{session_id}/participants/{participant_user_id}",
+    response_model=VoiceSessionResponse,
+)
+async def remove_participant(
+    session_id: str,
+    participant_user_id: int,
+    current_user: User = Depends(get_current_active_user),
+    voice_session_service: VoiceSessionService = Depends(get_voice_session_service),
+):
+    """音声セッションから参加者を削除"""
+    try:
+        # サービス呼び出し
+        result = await voice_session_service.remove_participant(
+            session_id=session_id,
+            user_id=current_user.id,
+            participant_user_id=participant_user_id,
+        )
+
+        return result
+
+    except BridgeLineException as e:
+        raise handle_bridge_line_exceptions(e)
+    except Exception as e:
+        logger.error(f"Failed to remove participant from session {session_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"message": "Internal server error"},
+        )
+
+
+@router.get("/{session_id}/participants", response_model=ParticipantListResponse)
+async def get_participants(
+    session_id: str,
+    current_user: User = Depends(get_current_active_user),
+    voice_session_service: VoiceSessionService = Depends(get_voice_session_service),
+):
+    """音声セッションの参加者一覧を取得"""
+    try:
+        # サービス呼び出し
+        result = await voice_session_service.get_participants(
+            session_id=session_id, user_id=current_user.id
+        )
+
+        return result
+
+    except BridgeLineException as e:
+        raise handle_bridge_line_exceptions(e)
+    except Exception as e:
+        logger.error(f"Failed to get participants for session {session_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"message": "Internal server error"},
+        )
+
+
+@router.put(
+    "/{session_id}/participants/{participant_user_id}/role",
+    response_model=VoiceSessionResponse,
+)
+async def update_participant_role(
+    session_id: str,
+    participant_user_id: int,
+    role_data: ParticipantUpdateRequest,
+    current_user: User = Depends(get_current_active_user),
+    voice_session_service: VoiceSessionService = Depends(get_voice_session_service),
+):
+    """参加者の権限を更新"""
+    try:
+        # サービス呼び出し
+        result = await voice_session_service.update_participant_role(
+            session_id=session_id,
+            user_id=current_user.id,
+            participant_user_id=participant_user_id,
+            new_role=role_data.role,
+        )
+
+        return result
+
+    except BridgeLineException as e:
+        raise handle_bridge_line_exceptions(e)
+    except Exception as e:
+        logger.error(f"Failed to update participant role in session {session_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"message": "Internal server error"},
+        )
+
+
+# 録音制御API
+@router.post("/{session_id}/recording/start", response_model=RecordingStatusResponse)
+async def start_recording(
+    session_id: str,
+    recording_data: RecordingControlRequest,
+    current_user: User = Depends(get_current_active_user),
+    voice_session_service: VoiceSessionService = Depends(get_voice_session_service),
+):
+    """録音を開始"""
+    try:
+        # サービス呼び出し
+        result = await voice_session_service.start_recording(
+            session_id=session_id,
+            user_id=current_user.id,
+            quality=recording_data.quality,
+            format=recording_data.format,
+        )
+
+        return result
+
+    except BridgeLineException as e:
+        raise handle_bridge_line_exceptions(e)
+    except Exception as e:
+        logger.error(f"Failed to start recording for session {session_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"message": "Internal server error"},
+        )
+
+
+@router.post("/{session_id}/recording/stop", response_model=RecordingStatusResponse)
+async def stop_recording(
+    session_id: str,
+    current_user: User = Depends(get_current_active_user),
+    voice_session_service: VoiceSessionService = Depends(get_voice_session_service),
+):
+    """録音を停止"""
+    try:
+        # サービス呼び出し
+        result = await voice_session_service.stop_recording(
+            session_id=session_id, user_id=current_user.id
+        )
+
+        return result
+
+    except BridgeLineException as e:
+        raise handle_bridge_line_exceptions(e)
+    except Exception as e:
+        logger.error(f"Failed to stop recording for session {session_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"message": "Internal server error"},
+        )
+
+
+@router.post("/{session_id}/recording/pause", response_model=RecordingStatusResponse)
+async def pause_recording(
+    session_id: str,
+    current_user: User = Depends(get_current_active_user),
+    voice_session_service: VoiceSessionService = Depends(get_voice_session_service),
+):
+    """録音を一時停止"""
+    try:
+        # サービス呼び出し
+        result = await voice_session_service.pause_recording(
+            session_id=session_id, user_id=current_user.id
+        )
+
+        return result
+
+    except BridgeLineException as e:
+        raise handle_bridge_line_exceptions(e)
+    except Exception as e:
+        logger.error(f"Failed to pause recording for session {session_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"message": "Internal server error"},
+        )
+
+
+@router.post("/{session_id}/recording/resume", response_model=RecordingStatusResponse)
+async def resume_recording(
+    session_id: str,
+    current_user: User = Depends(get_current_active_user),
+    voice_session_service: VoiceSessionService = Depends(get_voice_session_service),
+):
+    """録音を再開"""
+    try:
+        # サービス呼び出し
+        result = await voice_session_service.resume_recording(
+            session_id=session_id, user_id=current_user.id
+        )
+
+        return result
+
+    except BridgeLineException as e:
+        raise handle_bridge_line_exceptions(e)
+    except Exception as e:
+        logger.error(f"Failed to resume recording for session {session_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"message": "Internal server error"},
+        )
+
+
+@router.get("/{session_id}/recording/status", response_model=RecordingStatusResponse)
+async def get_recording_status(
+    session_id: str,
+    current_user: User = Depends(get_current_active_user),
+    voice_session_service: VoiceSessionService = Depends(get_voice_session_service),
+):
+    """録音状態を取得"""
+    try:
+        # サービス呼び出し
+        result = await voice_session_service.get_recording_status(
+            session_id=session_id, user_id=current_user.id
+        )
+
+        return result
+
+    except BridgeLineException as e:
+        raise handle_bridge_line_exceptions(e)
+    except Exception as e:
+        logger.error(f"Failed to get recording status for session {session_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"message": "Internal server error"},
+        )
+
+
+# リアルタイム統計API
+@router.get("/{session_id}/stats/realtime", response_model=RealtimeStatsResponse)
+async def get_realtime_stats(
+    session_id: str,
+    current_user: User = Depends(get_current_active_user),
+    voice_session_service: VoiceSessionService = Depends(get_voice_session_service),
+):
+    """リアルタイム統計を取得"""
+    try:
+        # サービス呼び出し
+        result = await voice_session_service.get_realtime_stats(
+            session_id=session_id, user_id=current_user.id
+        )
+
+        return result
+
+    except BridgeLineException as e:
+        raise handle_bridge_line_exceptions(e)
+    except Exception as e:
+        logger.error(f"Failed to get realtime stats for session {session_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"message": "Internal server error"},
+        )
+
+
+@router.get("/{session_id}/progress", response_model=SessionProgressResponse)
+async def get_session_progress(
+    session_id: str,
+    current_user: User = Depends(get_current_active_user),
+    voice_session_service: VoiceSessionService = Depends(get_voice_session_service),
+):
+    """セッション進行状況を取得"""
+    try:
+        # サービス呼び出し
+        result = await voice_session_service.get_session_progress(
+            session_id=session_id, user_id=current_user.id
+        )
+
+        return result
+
+    except BridgeLineException as e:
+        raise handle_bridge_line_exceptions(e)
+    except Exception as e:
+        logger.error(f"Failed to get session progress for session {session_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"message": "Internal server error"},
