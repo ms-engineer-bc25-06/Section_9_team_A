@@ -261,15 +261,59 @@ class WebSocketMessageHandler:
         session_id: str, connection_id: str, user: User, message: dict
     ):
         """音声データ処理"""
-        # 音声データを他の参加者に転送
-        await manager.broadcast_to_session(
-            {
-                "type": "audio_data",
-                "user_id": user.id,
-                "data": message.get("data"),
-                "timestamp": message.get("timestamp"),
-                "session_id": session_id,
-            },
-            session_id,
-            exclude_connection=connection_id,
-        )
+        try:
+            from app.services.audio_processing_service import audio_processor
+            from app.schemas.websocket import AudioDataMessage
+
+            # 音声データメッセージを作成
+            audio_message = AudioDataMessage(
+                session_id=session_id,
+                user_id=user.id,
+                data=message.get("data"),
+                timestamp=message.get("timestamp"),
+                chunk_id=message.get("chunk_id"),
+                sample_rate=message.get("sample_rate"),
+                channels=message.get("channels"),
+            )
+
+            # 音声データを処理
+            chunk = await audio_processor.process_audio_data(audio_message)
+
+            # 音声レベルを計算
+            audio_level = audio_processor._calculate_audio_level(chunk)
+
+            # 音声レベルメッセージを送信
+            await manager.send_personal_message(
+                {
+                    "type": "audio_level",
+                    "session_id": session_id,
+                    "user_id": user.id,
+                    "level": audio_level.level,
+                    "is_speaking": audio_level.is_speaking,
+                    "timestamp": audio_level.timestamp.isoformat(),
+                },
+                connection_id,
+            )
+
+            # 音声データを他の参加者に転送
+            await manager.broadcast_to_session(
+                {
+                    "type": "audio_data",
+                    "user_id": user.id,
+                    "data": message.get("data"),
+                    "timestamp": message.get("timestamp"),
+                    "session_id": session_id,
+                    "chunk_id": message.get("chunk_id"),
+                    "sample_rate": message.get("sample_rate"),
+                    "channels": message.get("channels"),
+                },
+                session_id,
+                exclude_connection=connection_id,
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to process audio data: {e}")
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to process audio data"},
+                connection_id,
+            )

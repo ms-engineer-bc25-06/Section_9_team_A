@@ -2,6 +2,7 @@ import json
 from typing import Optional
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, status
 import structlog
+from datetime import datetime
 
 from app.core.websocket import manager, WebSocketAuth, WebSocketMessageHandler
 from app.services.voice_session_service import VoiceSessionService
@@ -202,3 +203,103 @@ async def get_session_status(session_id: str):
         "participants": list(participants),
         "is_active": connection_count > 0,
     }
+
+
+@router.post("/voice-sessions/{session_id}/recording/start")
+async def start_session_recording(session_id: str):
+    """セッション録音を開始"""
+    try:
+        from app.services.audio_processing_service import audio_processor
+
+        await audio_processor.start_recording(session_id)
+
+        return {
+            "session_id": session_id,
+            "status": "recording_started",
+            "timestamp": datetime.now().isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"Failed to start recording for session {session_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to start recording")
+
+
+@router.post("/voice-sessions/{session_id}/recording/stop")
+async def stop_session_recording(session_id: str):
+    """セッション録音を停止"""
+    try:
+        from app.services.audio_processing_service import audio_processor
+
+        await audio_processor.stop_recording(session_id)
+
+        return {
+            "session_id": session_id,
+            "status": "recording_stopped",
+            "timestamp": datetime.now().isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"Failed to stop recording for session {session_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to stop recording")
+
+
+@router.get("/voice-sessions/{session_id}/audio-levels")
+async def get_session_audio_levels(session_id: str, user_id: Optional[int] = None):
+    """セッションの音声レベルを取得"""
+    try:
+        from app.services.audio_processing_service import audio_processor
+
+        if user_id:
+            # 特定ユーザーの音声レベル履歴
+            levels = await audio_processor.get_session_audio_levels(session_id, user_id)
+            return {
+                "session_id": session_id,
+                "user_id": user_id,
+                "levels": [
+                    {
+                        "level": level.level,
+                        "is_speaking": level.is_speaking,
+                        "rms": level.rms,
+                        "peak": level.peak,
+                        "timestamp": level.timestamp.isoformat(),
+                    }
+                    for level in levels
+                ],
+            }
+        else:
+            # 全参加者の現在の音声レベル
+            participant_levels = (
+                await audio_processor.get_session_participants_audio_levels(session_id)
+            )
+            return {
+                "session_id": session_id,
+                "participant_levels": {
+                    str(user_id): {
+                        "level": level.level,
+                        "is_speaking": level.is_speaking,
+                        "rms": level.rms,
+                        "peak": level.peak,
+                        "timestamp": level.timestamp.isoformat(),
+                    }
+                    for user_id, level in participant_levels.items()
+                },
+            }
+    except Exception as e:
+        logger.error(f"Failed to get audio levels for session {session_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get audio levels")
+
+
+@router.delete("/voice-sessions/{session_id}/audio-buffer")
+async def clear_session_audio_buffer(session_id: str):
+    """セッションの音声バッファをクリア"""
+    try:
+        from app.services.audio_processing_service import audio_processor
+
+        await audio_processor.clear_session_buffer(session_id)
+
+        return {
+            "session_id": session_id,
+            "status": "buffer_cleared",
+            "timestamp": datetime.now().isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"Failed to clear audio buffer for session {session_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to clear audio buffer")
