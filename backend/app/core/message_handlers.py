@@ -94,6 +94,23 @@ async def initialize_message_handlers():
         WebSocketMessageType.TRANSCRIPTION_STOP, handle_transcription_stop_message
     )
 
+    # セッション関連
+    message_router.register_handler(
+        WebSocketMessageType.JOIN_SESSION, handle_join_session_message
+    )
+    message_router.register_handler(
+        WebSocketMessageType.LEAVE_SESSION, handle_leave_session_message
+    )
+    message_router.register_handler(
+        WebSocketMessageType.SESSION_STATE_REQUEST, handle_session_state_request_message
+    )
+    message_router.register_handler(
+        WebSocketMessageType.SESSION_CONTROL, handle_session_control_message
+    )
+    message_router.register_handler(
+        WebSocketMessageType.PARTICIPANT_STATE_UPDATE, handle_participant_state_update_message
+    )
+
     # メッセージ処理開始
     await message_router.start_processing()
 
@@ -505,4 +522,61 @@ async def handle_transcription_stop_message(queued_message: QueuedMessage):
 
     except Exception as e:
         logger.error(f"Failed to handle transcription stop message: {e}")
+        raise
+
+
+async def handle_session_state_request_message(queued_message: QueuedMessage):
+    """セッション状態リクエストメッセージ処理"""
+    try:
+        message = queued_message.message
+        connection_id = queued_message.metadata.get("connection_id")
+
+        if connection_id and connection_id in manager.connection_info:
+            user = manager.connection_info[connection_id]["user"]
+            await WebSocketMessageHandler.handle_session_state_request(
+                queued_message.session_id, connection_id, user, message
+            )
+        else:
+            logger.warning(f"Connection not found for message: {queued_message.id}")
+
+    except Exception as e:
+        logger.error(f"Failed to handle session state request message: {e}")
+        raise
+
+
+async def handle_session_control_message(queued_message: QueuedMessage):
+    """セッション制御メッセージ処理"""
+    try:
+        message = queued_message.message
+        connection_id = queued_message.metadata.get("connection_id")
+
+        if connection_id and connection_id in manager.connection_info:
+            user = manager.connection_info[connection_id]["user"]
+            await WebSocketMessageHandler.handle_session_control(
+                queued_message.session_id, connection_id, user, message
+            )
+        else:
+            logger.warning(f"Connection not found for message: {queued_message.id}")
+
+    except Exception as e:
+        logger.error(f"Failed to handle session control message: {e}")
+        raise
+
+
+async def handle_participant_state_update_message(queued_message: QueuedMessage):
+    """参加者状態更新メッセージ処理"""
+    try:
+        message = queued_message.message
+        connection_id = queued_message.metadata.get("connection_id")
+
+        if connection_id and connection_id in manager.connection_info:
+            user = manager.connection_info[connection_id]["user"]
+            await WebSocketMessageHandler.handle_participant_state_update(
+                queued_message.session_id, connection_id, user, message
+            )
+        else:
+            logger.warning(f"Connection not found for message: {queued_message.id}")
+
+    except Exception as e:
+        logger.error(f"Failed to handle participant state update message: {e}")
         raise

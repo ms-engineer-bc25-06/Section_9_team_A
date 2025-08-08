@@ -18,6 +18,17 @@ class WebSocketMessageType(str, Enum):
     USER_JOINED = "user_joined"
     USER_LEFT = "user_left"
     SESSION_PARTICIPANTS = "session_participants"
+    SESSION_STATE_REQUEST = "session_state_request"
+    SESSION_CONTROL = "session_control"
+    PARTICIPANT_STATE_UPDATE = "participant_state_update"
+    SESSION_STATE_INFO = "session_state_info"
+    SESSION_PARTICIPANTS_INFO = "session_participants_info"
+    SESSION_HISTORY_INFO = "session_history_info"
+    SESSION_STARTED = "session_started"
+    SESSION_PAUSED = "session_paused"
+    SESSION_RESUMED = "session_resumed"
+    SESSION_ENDED = "session_ended"
+    PARTICIPANT_STATE_UPDATED = "participant_state_updated"
 
     # 音声関連
     AUDIO_DATA = "audio_data"
@@ -160,6 +171,107 @@ class SessionParticipantsMessage(WebSocketBaseMessage):
     type: WebSocketMessageType = WebSocketMessageType.SESSION_PARTICIPANTS
     session_id: str
     participants: List[int]
+
+
+class SessionStateRequestMessage(WebSocketBaseMessage):
+    """セッション状態リクエストメッセージ"""
+
+    type: WebSocketMessageType = WebSocketMessageType.SESSION_STATE_REQUEST
+    session_id: str
+    request_type: str = "current"  # current, participants, history
+
+
+class SessionControlMessage(WebSocketBaseMessage):
+    """セッション制御メッセージ"""
+
+    type: WebSocketMessageType = WebSocketMessageType.SESSION_CONTROL
+    session_id: str
+    action: str  # start, pause, resume, end
+
+
+class ParticipantStateUpdateMessage(WebSocketBaseMessage):
+    """参加者状態更新メッセージ"""
+
+    type: WebSocketMessageType = WebSocketMessageType.PARTICIPANT_STATE_UPDATE
+    session_id: str
+    state: str  # connecting, connected, speaking, listening, muted, disconnected
+    data: Optional[Dict[str, Any]] = None
+
+
+class SessionStateInfoMessage(WebSocketBaseMessage):
+    """セッション状態情報メッセージ"""
+
+    type: WebSocketMessageType = WebSocketMessageType.SESSION_STATE_INFO
+    session_id: str
+    state: Dict[str, Any]
+
+
+class SessionParticipantsInfoMessage(WebSocketBaseMessage):
+    """セッション参加者情報メッセージ"""
+
+    type: WebSocketMessageType = WebSocketMessageType.SESSION_PARTICIPANTS_INFO
+    session_id: str
+    participants: List[Dict[str, Any]]
+
+
+class SessionHistoryInfoMessage(WebSocketBaseMessage):
+    """セッション履歴情報メッセージ"""
+
+    type: WebSocketMessageType = WebSocketMessageType.SESSION_HISTORY_INFO
+    session_id: str
+    history: List[Dict[str, Any]]
+
+
+class SessionStartedMessage(WebSocketBaseMessage):
+    """セッション開始メッセージ"""
+
+    type: WebSocketMessageType = WebSocketMessageType.SESSION_STARTED
+    session_id: str
+    user_id: int
+    state: str
+    timestamp: datetime = Field(default_factory=datetime.now)
+
+
+class SessionPausedMessage(WebSocketBaseMessage):
+    """セッション一時停止メッセージ"""
+
+    type: WebSocketMessageType = WebSocketMessageType.SESSION_PAUSED
+    session_id: str
+    user_id: int
+    state: str
+    timestamp: datetime = Field(default_factory=datetime.now)
+
+
+class SessionResumedMessage(WebSocketBaseMessage):
+    """セッション再開メッセージ"""
+
+    type: WebSocketMessageType = WebSocketMessageType.SESSION_RESUMED
+    session_id: str
+    user_id: int
+    state: str
+    timestamp: datetime = Field(default_factory=datetime.now)
+
+
+class SessionEndedMessage(WebSocketBaseMessage):
+    """セッション終了メッセージ"""
+
+    type: WebSocketMessageType = WebSocketMessageType.SESSION_ENDED
+    session_id: str
+    user_id: int
+    state: str
+    duration: float
+    timestamp: datetime = Field(default_factory=datetime.now)
+
+
+class ParticipantStateUpdatedMessage(WebSocketBaseMessage):
+    """参加者状態更新通知メッセージ"""
+
+    type: WebSocketMessageType = WebSocketMessageType.PARTICIPANT_STATE_UPDATED
+    session_id: str
+    user_id: int
+    state: str
+    data: Optional[Dict[str, Any]] = None
+    timestamp: datetime = Field(default_factory=datetime.now)
 
 
 class AudioDataMessage(WebSocketBaseMessage):
@@ -707,6 +819,17 @@ WebSocketMessage = (
     | UserJoinedMessage
     | UserLeftMessage
     | SessionParticipantsMessage
+    | SessionStateRequestMessage
+    | SessionControlMessage
+    | ParticipantStateUpdateMessage
+    | SessionStateInfoMessage
+    | SessionParticipantsInfoMessage
+    | SessionHistoryInfoMessage
+    | SessionStartedMessage
+    | SessionPausedMessage
+    | SessionResumedMessage
+    | SessionEndedMessage
+    | ParticipantStateUpdatedMessage
     | AudioDataMessage
     | AudioStartMessage
     | AudioStopMessage

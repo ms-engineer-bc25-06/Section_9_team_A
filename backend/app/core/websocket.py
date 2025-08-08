@@ -1399,3 +1399,239 @@ class WebSocketMessageHandler:
                 {"type": "error", "message": "Failed to update network metrics"},
                 connection_id,
             )
+
+    @staticmethod
+    async def handle_session_state_request(
+        session_id: str, connection_id: str, user: User, message: dict
+    ):
+        """セッション状態リクエスト処理"""
+        try:
+            from app.services.session_state_service import session_state_manager
+
+            request_type = message.get("request_type", "current")
+            
+            if request_type == "current":
+                # 現在のセッション状態を取得
+                session_state = await session_state_manager.get_session_state(session_id)
+                
+                if session_state:
+                    await manager.send_personal_message(
+                        {
+                            "type": "session_state_info",
+                            "session_id": session_id,
+                            "state": {
+                                "session_state": session_state.state.value,
+                                "created_at": session_state.created_at.isoformat(),
+                                "started_at": session_state.started_at.isoformat() if session_state.started_at else None,
+                                "ended_at": session_state.ended_at.isoformat() if session_state.ended_at else None,
+                                "duration": session_state.duration,
+                                "participants_count": len(session_state.participants),
+                                "recording_state": session_state.recording.state.value,
+                                "transcription_active": session_state.transcription.is_active,
+                                "analytics_active": session_state.analytics.is_active,
+                                "last_update": session_state.last_update.isoformat(),
+                            },
+                            "timestamp": datetime.now().isoformat(),
+                        },
+                        connection_id,
+                    )
+                else:
+                    await manager.send_personal_message(
+                        {
+                            "type": "error",
+                            "message": "Session state not found",
+                        },
+                        connection_id,
+                    )
+                    
+            elif request_type == "participants":
+                # 参加者情報を取得
+                participants = await session_state_manager.get_session_participants(session_id)
+                
+                participants_data = []
+                for participant in participants:
+                    participants_data.append({
+                        "user_id": participant.user_id,
+                        "display_name": participant.display_name,
+                        "state": participant.state.value,
+                        "connected_at": participant.connected_at.isoformat() if participant.connected_at else None,
+                        "last_activity": participant.last_activity.isoformat() if participant.last_activity else None,
+                        "is_speaking": participant.is_speaking,
+                        "is_muted": participant.is_muted,
+                        "audio_level": participant.audio_level,
+                    })
+                
+                await manager.send_personal_message(
+                    {
+                        "type": "session_participants_info",
+                        "session_id": session_id,
+                        "participants": participants_data,
+                        "timestamp": datetime.now().isoformat(),
+                    },
+                    connection_id,
+                )
+                
+            elif request_type == "history":
+                # セッション履歴を取得
+                history = await session_state_manager.get_session_history(session_id)
+                
+                history_data = []
+                for state in history:
+                    history_data.append({
+                        "state": state.state.value,
+                        "timestamp": state.last_update.isoformat(),
+                        "duration": state.duration,
+                        "participants_count": len(state.participants),
+                    })
+                
+                await manager.send_personal_message(
+                    {
+                        "type": "session_history_info",
+                        "session_id": session_id,
+                        "history": history_data,
+                        "timestamp": datetime.now().isoformat(),
+                    },
+                    connection_id,
+                )
+
+        except Exception as e:
+            logger.error(f"Failed to handle session state request: {e}")
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to handle session state request"},
+                connection_id,
+            )
+
+    @staticmethod
+    async def handle_session_control(
+        session_id: str, connection_id: str, user: User, message: dict
+    ):
+        """セッション制御処理"""
+        try:
+            from app.services.session_state_service import session_state_manager, SessionState
+
+            action = message.get("action")
+            
+            if action == "start":
+                # セッション開始
+                session_state = await session_state_manager.start_session(session_id, user.id)
+                
+                await manager.broadcast_to_session(
+                    {
+                        "type": "session_started",
+                        "session_id": session_id,
+                        "user_id": user.id,
+                        "state": session_state.state.value,
+                        "timestamp": datetime.now().isoformat(),
+                    },
+                    session_id,
+                )
+                
+            elif action == "pause":
+                # セッション一時停止
+                session_state = await session_state_manager.pause_session(session_id, user.id)
+                
+                await manager.broadcast_to_session(
+                    {
+                        "type": "session_paused",
+                        "session_id": session_id,
+                        "user_id": user.id,
+                        "state": session_state.state.value,
+                        "timestamp": datetime.now().isoformat(),
+                    },
+                    session_id,
+                )
+                
+            elif action == "resume":
+                # セッション再開
+                session_state = await session_state_manager.resume_session(session_id, user.id)
+                
+                await manager.broadcast_to_session(
+                    {
+                        "type": "session_resumed",
+                        "session_id": session_id,
+                        "user_id": user.id,
+                        "state": session_state.state.value,
+                        "timestamp": datetime.now().isoformat(),
+                    },
+                    session_id,
+                )
+                
+            elif action == "end":
+                # セッション終了
+                session_state = await session_state_manager.end_session(session_id, user.id)
+                
+                await manager.broadcast_to_session(
+                    {
+                        "type": "session_ended",
+                        "session_id": session_id,
+                        "user_id": user.id,
+                        "state": session_state.state.value,
+                        "duration": session_state.duration,
+                        "timestamp": datetime.now().isoformat(),
+                    },
+                    session_id,
+                )
+
+        except Exception as e:
+            logger.error(f"Failed to handle session control: {e}")
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to handle session control"},
+                connection_id,
+            )
+
+    @staticmethod
+    async def handle_participant_state_update(
+        session_id: str, connection_id: str, user: User, message: dict
+    ):
+        """参加者状態更新処理"""
+        try:
+            from app.services.session_state_service import session_state_manager, ParticipantState
+
+            state = message.get("state")
+            additional_data = message.get("data", {})
+            
+            if state and hasattr(ParticipantState, state.upper()):
+                participant_state = getattr(ParticipantState, state.upper())
+                
+                # 参加者状態を更新
+                success = await session_state_manager.update_participant_state(
+                    session_id, user.id, participant_state, **additional_data
+                )
+                
+                if success:
+                    # 他の参加者に通知
+                    await manager.broadcast_to_session(
+                        {
+                            "type": "participant_state_updated",
+                            "session_id": session_id,
+                            "user_id": user.id,
+                            "state": state,
+                            "data": additional_data,
+                            "timestamp": datetime.now().isoformat(),
+                        },
+                        session_id,
+                        exclude_connection=connection_id,
+                    )
+                else:
+                    await manager.send_personal_message(
+                        {
+                            "type": "error",
+                            "message": "Failed to update participant state",
+                        },
+                        connection_id,
+                    )
+            else:
+                await manager.send_personal_message(
+                    {
+                        "type": "error",
+                        "message": "Invalid participant state",
+                    },
+                    connection_id,
+                )
+
+        except Exception as e:
+            logger.error(f"Failed to handle participant state update: {e}")
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to handle participant state update"},
+                connection_id,
+            )
