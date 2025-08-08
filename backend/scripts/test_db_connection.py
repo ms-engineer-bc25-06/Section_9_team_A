@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-データベース接続テストスクリプト
+Database connection test script
 """
 
 import asyncio
@@ -8,7 +8,7 @@ import sys
 import os
 from sqlalchemy import text
 
-# プロジェクトルートをPythonパスに追加
+# Add project root to Python path
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from app.core.database import test_database_connection, get_database_url
@@ -19,24 +19,24 @@ logger = structlog.get_logger()
 
 
 async def main():
-    """メイン関数"""
-    logger.info("データベース接続テストを開始します")
+    """Main function"""
+    logger.info("Starting database connection test")
 
-    # 環境情報の表示
+    # Display environment information
     logger.info(f"Environment: {os.environ.get('ENVIRONMENT', 'development')}")
     logger.info(f"Database URL: {get_database_url()}")
 
     if settings.TEST_DATABASE_URL:
         logger.info(f"Test Database URL: {settings.TEST_DATABASE_URL}")
 
-    # データベース接続テスト
+    # Test database connection
     success = await test_database_connection()
 
     if success:
-        logger.info("✅ データベース接続テストが成功しました")
+        logger.info("Database connection test successful")
         return 0
     else:
-        logger.error("❌ データベース接続テストが失敗しました")
+        logger.error("Database connection test failed")
         return 1
 
 

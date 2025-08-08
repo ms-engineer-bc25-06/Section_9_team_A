@@ -299,8 +299,6 @@ def upgrade() -> None:
         sa.UniqueConstraint(
             "token",
             name=op.f("invitations_token_key"),
-            postgresql_include=[],
-            postgresql_nulls_not_distinct=False,
         ),
     )
     op.create_index(op.f("ix_invitations_id"), "invitations", ["id"], unique=False)

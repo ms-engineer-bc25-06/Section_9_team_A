@@ -64,11 +64,11 @@ def upgrade() -> None:
             nullable=True,
         ),
         sa.ForeignKeyConstraint(
-            ["created_by"], ["users.id"], name="chat_rooms_created_by_fkey"
+            ["created_by"], ["users.id"], name=op.f("chat_rooms_created_by_fkey")
         ),
-        sa.ForeignKeyConstraint(
-            ["team_id"], ["teams.id"], name="chat_rooms_team_id_fkey"
-        ),
+        # sa.ForeignKeyConstraint(
+        #     ["team_id"], ["teams.id"], name=op.f("chat_rooms_team_id_fkey")
+        # ),
         sa.PrimaryKeyConstraint("id", name="chat_rooms_pkey"),
         sa.UniqueConstraint("room_id", name="chat_rooms_room_id_key"),
     )

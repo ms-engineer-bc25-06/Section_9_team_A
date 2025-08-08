@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-マイグレーション状態確認スクリプト
+Migration status check script
 """
 
 import asyncio
@@ -8,7 +8,7 @@ import sys
 import os
 from sqlalchemy import text
 
-# プロジェクトルートをPythonパスに追加
+# Add project root to Python path
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from app.core.database import engine
@@ -19,10 +19,10 @@ logger = structlog.get_logger()
 
 
 async def check_migration_status():
-    """マイグレーションの状態を確認"""
+    """Check migration status"""
     try:
         async with engine.begin() as conn:
-            # alembic_versionテーブルの存在確認
+            # Check if alembic_version table exists
             result = await conn.execute(
                 text("""
                 SELECT EXISTS (
@@ -34,19 +34,19 @@ async def check_migration_status():
             alembic_exists = await result.fetchone()
 
             if not alembic_exists[0]:
-                logger.warning("alembic_versionテーブルが存在しません")
+                logger.warning("alembic_version table does not exist")
                 return False
 
-            # 現在のマイグレーションバージョンを取得
+            # Get current migration version
             result = await conn.execute(text("SELECT version_num FROM alembic_version"))
             current_version = await result.fetchone()
 
             if current_version:
-                logger.info(f"現在のマイグレーションバージョン: {current_version[0]}")
+                logger.info(f"Current migration version: {current_version[0]}")
             else:
-                logger.warning("マイグレーションバージョンが設定されていません")
+                logger.warning("Migration version not set")
 
-            # テーブルの存在確認
+            # Check table existence
             tables = [
                 "users",
                 "teams",
@@ -82,28 +82,28 @@ async def check_migration_status():
                 else:
                     missing_tables.append(table)
 
-            logger.info(f"存在するテーブル: {existing_tables}")
+            logger.info(f"Existing tables: {existing_tables}")
             if missing_tables:
-                logger.warning(f"存在しないテーブル: {missing_tables}")
+                logger.warning(f"Missing tables: {missing_tables}")
 
             return True
 
     except Exception as e:
-        logger.error(f"マイグレーション状態確認エラー: {e}")
+        logger.error(f"Migration status check error: {e}")
         return False
 
 
 async def main():
-    """メイン関数"""
-    logger.info("マイグレーション状態確認を開始します")
+    """Main function"""
+    logger.info("Starting migration status check")
 
     success = await check_migration_status()
 
     if success:
-        logger.info("✅ マイグレーション状態確認が完了しました")
+        logger.info("Migration status check completed successfully")
         return 0
     else:
-        logger.error("❌ マイグレーション状態確認で問題が発生しました")
+        logger.error("Migration status check failed")
         return 1
 
 
