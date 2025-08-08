@@ -1,4 +1,4 @@
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 from pydantic import BaseModel, Field
 from datetime import datetime
 from decimal import Decimal
@@ -100,8 +100,8 @@ class TranscriptionExportRequest(BaseModel):
     """転写エクスポートリクエストスキーマ"""
 
     voice_session_id: int = Field(..., description="音声セッションID")
-    format: str = Field(
-        default="json", regex="^(json|srt|txt)$", description="エクスポート形式"
+    format: Literal["json", "srt", "txt"] = Field(
+        default="json", description="エクスポート形式"
     )
     include_partial: bool = Field(default=False, description="部分転写を含むか")
     include_metadata: bool = Field(default=True, description="メタデータを含むか")
@@ -133,8 +133,8 @@ class TranscriptionAnalysisRequest(BaseModel):
     """転写分析リクエストスキーマ"""
 
     voice_session_id: int = Field(..., description="音声セッションID")
-    analysis_type: str = Field(
-        ..., regex="^(sentiment|topics|summary|keywords)$", description="分析タイプ"
+    analysis_type: Literal["sentiment", "topics", "summary", "keywords"] = Field(
+        ..., description="分析タイプ"
     )
     include_partial: bool = Field(default=False, description="部分転写を含むか")
 

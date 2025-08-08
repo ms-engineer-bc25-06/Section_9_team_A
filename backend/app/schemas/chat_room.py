@@ -1,5 +1,5 @@
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
 from enum import Enum
 
@@ -64,7 +64,7 @@ class ChatRoomCreate(ChatRoomBase):
     room_id: Optional[str] = Field(None, description="ルームID（自動生成）")
     team_id: Optional[int] = Field(None, description="チームID")
 
-    @validator("room_id")
+    @field_validator("room_id")
     def validate_room_id(cls, v):
         if v is not None and len(v) > 255:
             raise ValueError("Room ID must be 255 characters or less")
@@ -139,7 +139,7 @@ class ChatMessageCreate(ChatMessageBase):
     audio_duration: Optional[int] = Field(None, ge=0, description="音声長（秒）")
     transcription: Optional[str] = Field(None, description="文字起こしテキスト")
 
-    @validator("message_id")
+    @field_validator("message_id")
     def validate_message_id(cls, v):
         if v is not None and len(v) > 255:
             raise ValueError("Message ID must be 255 characters or less")

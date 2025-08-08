@@ -1,27 +1,40 @@
 // 管理者ログインページ。認証フォームを表示。
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Mail, Lock, Shield } from "lucide-react"
+import { useAuth } from "@/components/auth/AuthProvider"
+import { auth } from "@/lib/firebase"
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const { login } = useAuth()
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
 
-    // 管理者ログイン処理のシミュレーション
-    setTimeout(() => {
-      setIsLoading(false)
+    try {
+      await login(email, password)
+      const user = auth.currentUser
+      const userEmail = user?.email
+
+      if (userEmail !== "admin@example.com") {
+        alert("このアカウントは管理者ではありません。")
+        return
+      }
+
       router.push("/admin/dashboard")
-    }, 1000)
+    } catch (error) {
+      console.error("管理者ログイン失敗:", error)
+      alert("ログインに失敗しました")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (

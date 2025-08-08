@@ -1,4 +1,4 @@
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 from pydantic import BaseModel, Field
 from datetime import datetime
 from enum import Enum
@@ -267,7 +267,7 @@ class EmojiReactionMessage(WebSocketBaseMessage):
     session_id: str
     target_message_id: str
     emoji: str
-    action: str = Field(..., regex="^(add|remove)$")  # add or remove
+    action: Literal["add", "remove"]
 
 
 class EditMessageMessage(WebSocketBaseMessage):

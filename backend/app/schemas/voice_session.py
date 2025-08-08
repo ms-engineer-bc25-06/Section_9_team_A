@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
@@ -30,12 +30,15 @@ class VoiceSessionCreate(VoiceSessionBase):
 
     session_id: str = Field(..., max_length=255, description="セッションID")
 
-    @validator("session_id")
+    @field_validator("session_id")
     def validate_session_id(cls, v):
         """セッションIDのバリデーション"""
-        if not v or len(v.strip()) == 0:
+        if v is None:
             raise ValueError("session_id cannot be empty")
-        return v.strip()
+        value = str(v).strip()
+        if len(value) == 0:
+            raise ValueError("session_id cannot be empty")
+        return value
 
 
 class VoiceSessionUpdate(BaseModel):
@@ -74,7 +77,7 @@ class VoiceSessionResponse(VoiceSessionBase, TimestampMixin):
     """音声セッション応答スキーマ"""
 
     id: int
-    session_id: str
+    session_id: str = Field(..., description="セッションID")
     audio_file_path: Optional[str] = None
     audio_duration: Optional[float] = None
     audio_format: Optional[AudioFormatEnum] = None
@@ -85,13 +88,37 @@ class VoiceSessionResponse(VoiceSessionBase, TimestampMixin):
     analysis_summary: Optional[str] = None
     sentiment_score: Optional[float] = None
     key_topics: Optional[str] = None
-    user_id: int
+    user_id: int = Field(..., description="ユーザーID")
     team_id: Optional[int] = None
     started_at: Optional[datetime] = None
     ended_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
+        populate_by_name = True
+
+    @classmethod
+    def model_validate(cls, obj):
+        """VoiceSessionモデルからVoiceSessionResponseを作成"""
+        if hasattr(obj, "room_id"):
+            # VoiceSessionモデルの場合
+            data = {
+                "id": obj.id,
+                "session_id": obj.room_id,  # room_idをsession_idにマッピング
+                "title": obj.title,
+                "description": obj.description,
+                "status": obj.status,
+                "is_public": obj.is_public,
+                "participant_count": obj.participant_count,
+                "user_id": obj.host_id,  # host_idをuser_idにマッピング
+                "team_id": obj.team_id,
+                "started_at": obj.started_at,
+                "ended_at": obj.ended_at,
+                "created_at": obj.created_at,
+                "updated_at": obj.updated_at,
+            }
+            return cls(**data)
+        return super().model_validate(obj)
 
 
 class VoiceSessionListResponse(BaseModel):

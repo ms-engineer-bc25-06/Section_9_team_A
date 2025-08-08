@@ -1,9 +1,19 @@
 # TODO: 仮TeamMemberテーブル（後ほど消す）
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Enum
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
+import enum
 
 from app.core.database import Base
+
+
+class TeamRole(enum.Enum):
+    """チームメンバーの役割"""
+
+    OWNER = "owner"
+    ADMIN = "admin"
+    MEMBER = "member"
+    GUEST = "guest"
 
 
 class TeamMember(Base):
@@ -12,18 +22,20 @@ class TeamMember(Base):
     __tablename__ = "team_members"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
-    role = Column(String(50), default="member")  # owner, admin, member
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    # メンバー情報
+    role = Column(Enum(TeamRole), default=TeamRole.MEMBER)
     is_active = Column(Boolean, default=True)
 
     # タイムスタンプ
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    joined_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # リレーションシップ
-    user = relationship("User", back_populates="teams")
     team = relationship("Team", back_populates="members")
+    user = relationship("User", back_populates="teams")
 
     def __repr__(self):
-        return f"<TeamMember(id={self.id}, user_id={self.user_id}, team_id={self.team_id})>"
+        return f"<TeamMember(team_id={self.team_id}, user_id={self.user_id}, role='{self.role.value}')>"

@@ -1,8 +1,3 @@
-# TODO: 仮Baseモデル（後ほど消す）
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import DeclarativeBase
+from app.core.database import Base
 
-
-# SQLAlchemy 2.0スタイルのベースクラス
-class Base(DeclarativeBase):
-    pass
+__all__ = ["Base"]

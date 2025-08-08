@@ -2,6 +2,7 @@ import pytest
 from httpx import AsyncClient
 from unittest.mock import AsyncMock, patch
 from datetime import datetime
+from tests.conftest import CombinedTestClient
 
 from app.models.voice_session import VoiceSession
 from app.models.user import User
@@ -14,13 +15,19 @@ def mock_voice_session():
     """モック音声セッション"""
     return VoiceSession(
         id=1,
-        session_id="test-session-123",
+        room_id="test-session-123",
         title="Test Session",
         description="Test Description",
-        status=StatusEnum.ACTIVE,
-        is_public=False,
+        status="active",
+        host_id=1,
+        team_id=None,
+        duration_minutes=0.0,
         participant_count=2,
-        user_id=1,
+        recording_url=None,
+        is_public=False,
+        allow_recording=True,
+        started_at=datetime.now(),
+        ended_at=None,
         created_at=datetime.now(),
         updated_at=datetime.now(),
     )
@@ -33,6 +40,7 @@ def mock_user():
         id=1,
         email="test@example.com",
         username="testuser",
+        display_name="Test User",
         is_active=True,
     )
 
@@ -42,7 +50,7 @@ class TestVoiceSessionControlAPI:
 
     @pytest.mark.asyncio
     async def test_start_voice_session_success(
-        self, client: AsyncClient, mock_voice_session, mock_user
+        self, client: CombinedTestClient, mock_voice_session, mock_user
     ):
         """セッション開始成功テスト"""
         with (
@@ -72,7 +80,7 @@ class TestVoiceSessionControlAPI:
 
     @pytest.mark.asyncio
     async def test_end_voice_session_success(
-        self, client: AsyncClient, mock_voice_session, mock_user
+        self, client: CombinedTestClient, mock_voice_session, mock_user
     ):
         """セッション終了成功テスト"""
         with (
@@ -101,7 +109,7 @@ class TestVoiceSessionControlAPI:
 
     @pytest.mark.asyncio
     async def test_pause_voice_session_success(
-        self, client: AsyncClient, mock_voice_session, mock_user
+        self, client: CombinedTestClient, mock_voice_session, mock_user
     ):
         """セッション一時停止成功テスト"""
         with (
@@ -132,7 +140,7 @@ class TestVoiceSessionControlAPI:
 
     @pytest.mark.asyncio
     async def test_resume_voice_session_success(
-        self, client: AsyncClient, mock_voice_session, mock_user
+        self, client: CombinedTestClient, mock_voice_session, mock_user
     ):
         """セッション再開成功テスト"""
         with (
@@ -162,7 +170,9 @@ class TestVoiceSessionControlAPI:
             assert data["status"] == "active"
 
     @pytest.mark.asyncio
-    async def test_start_voice_session_not_found(self, client: AsyncClient, mock_user):
+    async def test_start_voice_session_not_found(
+        self, client: CombinedTestClient, mock_user
+    ):
         """セッション開始 - セッションが見つからない場合"""
         with (
             patch(
@@ -188,7 +198,7 @@ class TestVoiceSessionControlAPI:
 
     @pytest.mark.asyncio
     async def test_start_voice_session_permission_denied(
-        self, client: AsyncClient, mock_user
+        self, client: CombinedTestClient, mock_user
     ):
         """セッション開始 - 権限がない場合"""
         with (
@@ -221,7 +231,7 @@ class TestVoiceSessionCRUDAPI:
 
     @pytest.mark.asyncio
     async def test_get_voice_sessions(
-        self, client: AsyncClient, mock_voice_session, mock_user
+        self, client: CombinedTestClient, mock_voice_session, mock_user
     ):
         """音声セッション一覧取得テスト"""
         with (
@@ -257,7 +267,7 @@ class TestVoiceSessionCRUDAPI:
 
     @pytest.mark.asyncio
     async def test_create_voice_session(
-        self, client: AsyncClient, mock_voice_session, mock_user
+        self, client: CombinedTestClient, mock_voice_session, mock_user
     ):
         """音声セッション作成テスト"""
         with (

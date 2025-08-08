@@ -10,7 +10,7 @@ import structlog
 
 from app.config import settings
 from app.models.user import User
-from app.core.database import get_db
+from app.core.database import get_db, AsyncSessionLocal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -143,3 +143,22 @@ def authenticate_user(email: str, password: str, db: AsyncSession) -> Optional[U
     """ユーザー認証"""
     # この関数は後でAuthServiceで実装
     pass
+
+
+async def get_current_user_from_token(token: str) -> Optional[User]:
+    """トークンから現在のユーザーを取得（WebSocket等の非依存性コンテキスト用）"""
+    try:
+        payload = await verify_token(token)
+        if payload is None:
+            return None
+        email: Optional[str] = payload.get("sub")
+        if not email:
+            return None
+
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(User).where(User.email == email))
+            user = result.scalar_one_or_none()
+            return user
+    except Exception as e:
+        logger.error(f"get_current_user_from_token failed: {e}")
+        return None
