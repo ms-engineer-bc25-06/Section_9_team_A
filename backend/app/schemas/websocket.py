@@ -60,6 +60,18 @@ class WebSocketMessageType(str, Enum):
     SYSTEM_MESSAGE = "system_message"
     NOTIFICATION = "notification"
     ANNOUNCEMENT = "announcement"
+    NOTIFICATION_REQUEST = "notification_request"
+    ANNOUNCEMENT_REQUEST = "announcement_request"
+    NOTIFICATION_DISMISS = "notification_dismiss"
+    ANNOUNCEMENT_DISMISS = "announcement_dismiss"
+    GET_NOTIFICATIONS = "get_notifications"
+    GET_ANNOUNCEMENTS = "get_announcements"
+    NOTIFICATIONS_LIST = "notifications_list"
+    ANNOUNCEMENTS_LIST = "announcements_list"
+    NOTIFICATION_SENT = "notification_sent"
+    ANNOUNCEMENT_SENT = "announcement_sent"
+    NOTIFICATION_DISMISSED = "notification_dismissed"
+    ANNOUNCEMENT_DISMISSED = "announcement_dismissed"
 
     # エラー関連
     ERROR = "error"
@@ -478,6 +490,102 @@ class AnnouncementMessage(WebSocketBaseMessage):
     expires_at: Optional[datetime] = None
 
 
+class NotificationRequestMessage(WebSocketBaseMessage):
+    """通知リクエスト"""
+
+    type: WebSocketMessageType = WebSocketMessageType.NOTIFICATION_REQUEST
+    session_id: str
+    title: str
+    content: str
+    notification_type: str = "info"
+    priority: MessagePriority = MessagePriority.NORMAL
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class AnnouncementRequestMessage(WebSocketBaseMessage):
+    """アナウンスメントリクエスト"""
+
+    type: WebSocketMessageType = WebSocketMessageType.ANNOUNCEMENT_REQUEST
+    session_id: str
+    title: str
+    content: str
+    announcement_type: str = "general"
+    priority: MessagePriority = MessagePriority.NORMAL
+    metadata: Optional[Dict[str, Any]] = None
+    expires_at: Optional[str] = None
+
+
+class NotificationDismissMessage(WebSocketBaseMessage):
+    """通知却下"""
+
+    type: WebSocketMessageType = WebSocketMessageType.NOTIFICATION_DISMISS
+    notification_id: str
+
+
+class AnnouncementDismissMessage(WebSocketBaseMessage):
+    """アナウンスメント却下"""
+
+    type: WebSocketMessageType = WebSocketMessageType.ANNOUNCEMENT_DISMISS
+    announcement_id: str
+
+
+class GetNotificationsMessage(WebSocketBaseMessage):
+    """通知取得"""
+
+    type: WebSocketMessageType = WebSocketMessageType.GET_NOTIFICATIONS
+    unread_only: bool = False
+    limit: int = 50
+
+
+class GetAnnouncementsMessage(WebSocketBaseMessage):
+    """アナウンスメント取得"""
+
+    type: WebSocketMessageType = WebSocketMessageType.GET_ANNOUNCEMENTS
+    limit: int = 50
+
+
+class NotificationsListMessage(WebSocketBaseMessage):
+    """通知リスト"""
+
+    type: WebSocketMessageType = WebSocketMessageType.NOTIFICATIONS_LIST
+    notifications: List[Dict[str, Any]]
+
+
+class AnnouncementsListMessage(WebSocketBaseMessage):
+    """アナウンスメントリスト"""
+
+    type: WebSocketMessageType = WebSocketMessageType.ANNOUNCEMENTS_LIST
+    announcements: List[Dict[str, Any]]
+
+
+class NotificationSentMessage(WebSocketBaseMessage):
+    """通知送信確認"""
+
+    type: WebSocketMessageType = WebSocketMessageType.NOTIFICATION_SENT
+    notification_id: str
+
+
+class AnnouncementSentMessage(WebSocketBaseMessage):
+    """アナウンスメント送信確認"""
+
+    type: WebSocketMessageType = WebSocketMessageType.ANNOUNCEMENT_SENT
+    announcement_id: str
+
+
+class NotificationDismissedMessage(WebSocketBaseMessage):
+    """通知却下確認"""
+
+    type: WebSocketMessageType = WebSocketMessageType.NOTIFICATION_DISMISSED
+    notification_id: str
+
+
+class AnnouncementDismissedMessage(WebSocketBaseMessage):
+    """アナウンスメント却下確認"""
+
+    type: WebSocketMessageType = WebSocketMessageType.ANNOUNCEMENT_DISMISSED
+    announcement_id: str
+
+
 # メッセージ型のユニオン
 WebSocketMessage = (
     ConnectionEstablishedMessage
@@ -516,6 +624,18 @@ WebSocketMessage = (
     | SystemMessage
     | NotificationMessage
     | AnnouncementMessage
+    | NotificationRequestMessage
+    | AnnouncementRequestMessage
+    | NotificationDismissMessage
+    | AnnouncementDismissMessage
+    | GetNotificationsMessage
+    | GetAnnouncementsMessage
+    | NotificationsListMessage
+    | AnnouncementsListMessage
+    | NotificationSentMessage
+    | AnnouncementSentMessage
+    | NotificationDismissedMessage
+    | AnnouncementDismissedMessage
     | ErrorMessage
     | WarningMessage
 )

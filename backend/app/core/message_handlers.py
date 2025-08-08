@@ -67,6 +67,14 @@ async def initialize_message_handlers():
         WebSocketMessageType.POLL_VOTE, handle_poll_vote_message
     )
 
+    # 通知・アナウンスメントハンドラーの登録
+    message_router.register_handler(
+        WebSocketMessageType.NOTIFICATION, handle_notification_request_message
+    )
+    message_router.register_handler(
+        WebSocketMessageType.ANNOUNCEMENT, handle_announcement_request_message
+    )
+
     # メッセージ処理開始
     await message_router.start_processing()
 
@@ -345,4 +353,42 @@ async def handle_poll_vote_message(queued_message: QueuedMessage):
 
     except Exception as e:
         logger.error(f"Failed to handle poll vote message: {e}")
+        raise
+
+
+async def handle_notification_request_message(queued_message: QueuedMessage):
+    """通知リクエストメッセージ処理"""
+    try:
+        message = queued_message.message
+        connection_id = queued_message.metadata.get("connection_id")
+
+        if connection_id and connection_id in manager.connection_info:
+            user = manager.connection_info[connection_id]["user"]
+            await WebSocketMessageHandler.handle_notification_request(
+                queued_message.session_id, connection_id, user, message
+            )
+        else:
+            logger.warning(f"Connection not found for message: {queued_message.id}")
+
+    except Exception as e:
+        logger.error(f"Failed to handle notification request message: {e}")
+        raise
+
+
+async def handle_announcement_request_message(queued_message: QueuedMessage):
+    """アナウンスメントリクエストメッセージ処理"""
+    try:
+        message = queued_message.message
+        connection_id = queued_message.metadata.get("connection_id")
+
+        if connection_id and connection_id in manager.connection_info:
+            user = manager.connection_info[connection_id]["user"]
+            await WebSocketMessageHandler.handle_announcement_request(
+                queued_message.session_id, connection_id, user, message
+            )
+        else:
+            logger.warning(f"Connection not found for message: {queued_message.id}")
+
+    except Exception as e:
+        logger.error(f"Failed to handle announcement request message: {e}")
         raise

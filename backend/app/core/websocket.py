@@ -893,3 +893,281 @@ class WebSocketMessageHandler:
             await manager.send_personal_message(
                 {"type": "error", "message": "Failed to vote"}, connection_id
             )
+
+    @staticmethod
+    async def handle_notification_request(
+        session_id: str, connection_id: str, user: User, message: dict
+    ):
+        """通知リクエスト処理"""
+        try:
+            from app.services.notification_service import (
+                notification_service,
+                NotificationType,
+                NotificationPriority,
+            )
+
+            notification_type = NotificationType(
+                message.get("notification_type", "info")
+            )
+            title = message.get("title", "")
+            content = message.get("content", "")
+            priority = NotificationPriority(message.get("priority", "normal"))
+            metadata = message.get("metadata", {})
+
+            # 通知を作成・送信
+            notification = await notification_service.send_session_notification(
+                session_id=session_id,
+                title=title,
+                content=content,
+                notification_type=notification_type,
+                priority=priority,
+                metadata=metadata,
+            )
+
+            # 送信確認を返信
+            await manager.send_personal_message(
+                {
+                    "type": "notification_sent",
+                    "notification_id": notification.id,
+                    "timestamp": datetime.now().isoformat(),
+                },
+                connection_id,
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to handle notification request: {e}")
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to send notification"},
+                connection_id,
+            )
+
+    @staticmethod
+    async def handle_announcement_request(
+        session_id: str, connection_id: str, user: User, message: dict
+    ):
+        """アナウンスメントリクエスト処理"""
+        try:
+            from app.services.announcement_service import (
+                announcement_service,
+                AnnouncementType,
+                AnnouncementPriority,
+            )
+
+            announcement_type = AnnouncementType(
+                message.get("announcement_type", "general")
+            )
+            title = message.get("title", "")
+            content = message.get("content", "")
+            priority = AnnouncementPriority(message.get("priority", "normal"))
+            metadata = message.get("metadata", {})
+            expires_at_str = message.get("expires_at")
+            expires_at = None
+            if expires_at_str:
+                expires_at = datetime.fromisoformat(expires_at_str)
+
+            # アナウンスメントを作成・送信
+            announcement = await announcement_service.send_session_announcement(
+                session_id=session_id,
+                title=title,
+                content=content,
+                sender=user.display_name,
+                announcement_type=announcement_type,
+                priority=priority,
+                metadata=metadata,
+                expires_at=expires_at,
+            )
+
+            # 送信確認を返信
+            await manager.send_personal_message(
+                {
+                    "type": "announcement_sent",
+                    "announcement_id": announcement.id,
+                    "timestamp": datetime.now().isoformat(),
+                },
+                connection_id,
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to handle announcement request: {e}")
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to send announcement"},
+                connection_id,
+            )
+
+    @staticmethod
+    async def handle_notification_dismiss(
+        session_id: str, connection_id: str, user: User, message: dict
+    ):
+        """通知却下処理"""
+        try:
+            from app.services.notification_service import notification_service
+
+            notification_id = message.get("notification_id")
+
+            # 通知を却下
+            success = await notification_service.mark_notification_read(
+                notification_id, user.id
+            )
+
+            if success:
+                await manager.send_personal_message(
+                    {
+                        "type": "notification_dismissed",
+                        "notification_id": notification_id,
+                        "timestamp": datetime.now().isoformat(),
+                    },
+                    connection_id,
+                )
+            else:
+                await manager.send_personal_message(
+                    {"type": "error", "message": "Failed to dismiss notification"},
+                    connection_id,
+                )
+
+        except Exception as e:
+            logger.error(f"Failed to handle notification dismiss: {e}")
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to dismiss notification"},
+                connection_id,
+            )
+
+    @staticmethod
+    async def handle_announcement_dismiss(
+        session_id: str, connection_id: str, user: User, message: dict
+    ):
+        """アナウンスメント却下処理"""
+        try:
+            from app.services.announcement_service import announcement_service
+
+            announcement_id = message.get("announcement_id")
+
+            # アナウンスメントを却下
+            success = await announcement_service.dismiss_announcement(
+                announcement_id, user.id
+            )
+
+            if success:
+                await manager.send_personal_message(
+                    {
+                        "type": "announcement_dismissed",
+                        "announcement_id": announcement_id,
+                        "timestamp": datetime.now().isoformat(),
+                    },
+                    connection_id,
+                )
+            else:
+                await manager.send_personal_message(
+                    {"type": "error", "message": "Failed to dismiss announcement"},
+                    connection_id,
+                )
+
+        except Exception as e:
+            logger.error(f"Failed to handle announcement dismiss: {e}")
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to dismiss announcement"},
+                connection_id,
+            )
+
+    @staticmethod
+    async def handle_get_notifications(
+        session_id: str, connection_id: str, user: User, message: dict
+    ):
+        """通知取得処理"""
+        try:
+            from app.services.notification_service import notification_service
+
+            unread_only = message.get("unread_only", False)
+            limit = message.get("limit", 50)
+
+            # ユーザーの通知を取得
+            notifications = await notification_service.get_user_notifications(
+                user.id, unread_only=unread_only, limit=limit
+            )
+
+            # 通知リストを送信
+            notification_list = [
+                {
+                    "id": n.id,
+                    "type": n.type.value,
+                    "title": n.title,
+                    "content": n.content,
+                    "priority": n.priority.value,
+                    "action_url": n.action_url,
+                    "auto_dismiss": n.auto_dismiss,
+                    "duration": n.duration,
+                    "metadata": n.metadata,
+                    "created_at": n.created_at.isoformat(),
+                    "delivered_at": n.delivered_at.isoformat()
+                    if n.delivered_at
+                    else None,
+                    "read_at": n.read_at.isoformat() if n.read_at else None,
+                }
+                for n in notifications
+            ]
+
+            await manager.send_personal_message(
+                {
+                    "type": "notifications_list",
+                    "notifications": notification_list,
+                    "timestamp": datetime.now().isoformat(),
+                },
+                connection_id,
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to handle get notifications: {e}")
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to get notifications"},
+                connection_id,
+            )
+
+    @staticmethod
+    async def handle_get_announcements(
+        session_id: str, connection_id: str, user: User, message: dict
+    ):
+        """アナウンスメント取得処理"""
+        try:
+            from app.services.announcement_service import announcement_service
+
+            limit = message.get("limit", 50)
+
+            # アクティブなアナウンスメントを取得
+            announcements = await announcement_service.get_active_announcements(
+                user_id=user.id, session_id=session_id
+            )
+
+            # アナウンスメントリストを送信
+            announcement_list = [
+                {
+                    "id": a.id,
+                    "type": a.type.value,
+                    "title": a.title,
+                    "content": a.content,
+                    "priority": a.priority.value,
+                    "sender": a.sender,
+                    "action_url": a.action_url,
+                    "expires_at": a.expires_at.isoformat() if a.expires_at else None,
+                    "metadata": a.metadata,
+                    "created_at": a.created_at.isoformat(),
+                    "delivered_at": a.delivered_at.isoformat()
+                    if a.delivered_at
+                    else None,
+                }
+                for a in announcements
+            ]
+
+            await manager.send_personal_message(
+                {
+                    "type": "announcements_list",
+                    "announcements": announcement_list,
+                    "timestamp": datetime.now().isoformat(),
+                },
+                connection_id,
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to handle get announcements: {e}")
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to get announcements"},
+                connection_id,
+            )
