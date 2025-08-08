@@ -11,7 +11,7 @@ from app.schemas.transcription import TranscriptionCreate, TranscriptionUpdate
 logger = structlog.get_logger()
 
 
-class TranscriptionRepository(BaseRepository[Transcription]):
+class TranscriptionRepository(BaseRepository[Transcription, TranscriptionCreate, TranscriptionUpdate]):
     """転写リポジトリ"""
 
     def __init__(self):

@@ -31,6 +31,14 @@ class WebSocketMessageType(str, Enum):
     # 文字起こし関連
     TRANSCRIPTION_PARTIAL = "transcription_partial"
     TRANSCRIPTION_FINAL = "transcription_final"
+    TRANSCRIPTION_REQUEST = "transcription_request"
+    TRANSCRIPTION_START = "transcription_start"
+    TRANSCRIPTION_STOP = "transcription_stop"
+    TRANSCRIPTION_STATS = "transcription_stats"
+    TRANSCRIPTION_PARTIAL_LIST = "transcription_partial_list"
+    TRANSCRIPTION_PARTIAL_CLEARED = "transcription_partial_cleared"
+    TRANSCRIPTION_STARTED = "transcription_started"
+    TRANSCRIPTION_STOPPED = "transcription_stopped"
 
     # メッセージング関連
     TEXT_MESSAGE = "text_message"
@@ -215,6 +223,76 @@ class TranscriptionFinalMessage(WebSocketBaseMessage):
     confidence: float = Field(ge=0.0, le=1.0)
     start_time: Optional[float] = None
     end_time: Optional[float] = None
+    speaker_id: Optional[int] = None
+    speaker_confidence: Optional[float] = None
+    language: str = "ja"
+    quality: str = "medium"
+    words: Optional[List[Dict[str, Any]]] = None
+
+
+class TranscriptionRequestMessage(WebSocketBaseMessage):
+    """転写リクエストメッセージ"""
+
+    type: WebSocketMessageType = WebSocketMessageType.TRANSCRIPTION_REQUEST
+    session_id: str
+    request_type: str = "stats"  # stats, partial, clear_partial
+    user_id: Optional[int] = None
+
+
+class TranscriptionStartMessage(WebSocketBaseMessage):
+    """転写開始メッセージ"""
+
+    type: WebSocketMessageType = WebSocketMessageType.TRANSCRIPTION_START
+    session_id: str
+    language: str = "ja"
+
+
+class TranscriptionStopMessage(WebSocketBaseMessage):
+    """転写停止メッセージ"""
+
+    type: WebSocketMessageType = WebSocketMessageType.TRANSCRIPTION_STOP
+    session_id: str
+
+
+class TranscriptionStatsMessage(WebSocketBaseMessage):
+    """転写統計メッセージ"""
+
+    type: WebSocketMessageType = WebSocketMessageType.TRANSCRIPTION_STATS
+    session_id: str
+    stats: Dict[str, Any]
+
+
+class TranscriptionPartialListMessage(WebSocketBaseMessage):
+    """部分転写リストメッセージ"""
+
+    type: WebSocketMessageType = WebSocketMessageType.TRANSCRIPTION_PARTIAL_LIST
+    session_id: str
+    partial_transcriptions: Dict[int, str]
+
+
+class TranscriptionPartialClearedMessage(WebSocketBaseMessage):
+    """部分転写クリアメッセージ"""
+
+    type: WebSocketMessageType = WebSocketMessageType.TRANSCRIPTION_PARTIAL_CLEARED
+    session_id: str
+    user_id: Optional[int] = None
+
+
+class TranscriptionStartedMessage(WebSocketBaseMessage):
+    """転写開始確認メッセージ"""
+
+    type: WebSocketMessageType = WebSocketMessageType.TRANSCRIPTION_STARTED
+    session_id: str
+    user_id: int
+    language: str
+
+
+class TranscriptionStoppedMessage(WebSocketBaseMessage):
+    """転写停止確認メッセージ"""
+
+    type: WebSocketMessageType = WebSocketMessageType.TRANSCRIPTION_STOPPED
+    session_id: str
+    user_id: int
 
 
 class ErrorMessage(WebSocketBaseMessage):
@@ -635,6 +713,14 @@ WebSocketMessage = (
     | AudioLevelMessage
     | TranscriptionPartialMessage
     | TranscriptionFinalMessage
+    | TranscriptionRequestMessage
+    | TranscriptionStartMessage
+    | TranscriptionStopMessage
+    | TranscriptionStatsMessage
+    | TranscriptionPartialListMessage
+    | TranscriptionPartialClearedMessage
+    | TranscriptionStartedMessage
+    | TranscriptionStoppedMessage
     | TextMessageMessage
     | EmojiReactionMessage
     | EditMessageMessage

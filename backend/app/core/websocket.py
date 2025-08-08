@@ -437,7 +437,7 @@ class WebSocketMessageHandler:
         """音声データ処理"""
         try:
             from app.services.audio_processing_service import audio_processor
-            from app.services.transcription_service import transcription_service
+            from app.services.transcription_service import realtime_transcription_manager
             from app.schemas.websocket import AudioDataMessage
             import base64
 
@@ -465,41 +465,19 @@ class WebSocketMessageHandler:
             # バッファ統計を取得
             buffer_stats = await audio_processor.get_buffer_stats(session_id)
 
-            # 音声レベルメッセージを送信（品質情報を含む）
-            await manager.send_personal_message(
+            # 音声レベルをブロードキャスト
+            await manager.broadcast_to_session(
                 {
                     "type": "audio_level",
                     "session_id": session_id,
                     "user_id": user.id,
                     "level": audio_level.level,
                     "is_speaking": audio_level.is_speaking,
-                    "timestamp": audio_level.timestamp.isoformat(),
-                    "quality_metrics": {
-                        "snr": latest_metrics.snr if latest_metrics else 0.0,
-                        "clarity": latest_metrics.clarity if latest_metrics else 0.0,
-                        "latency": latest_metrics.latency if latest_metrics else 0.0,
-                        "packet_loss": latest_metrics.packet_loss if latest_metrics else 0.0,
-                        "jitter": latest_metrics.jitter if latest_metrics else 0.0,
-                    } if latest_metrics else None,
+                    "quality_metrics": latest_metrics.dict() if latest_metrics else None,
                     "buffer_stats": buffer_stats,
-                },
-                connection_id,
-            )
-
-            # 音声データを他の参加者に転送
-            await manager.broadcast_to_session(
-                {
-                    "type": "audio_data",
-                    "user_id": user.id,
-                    "data": message.get("data"),
-                    "timestamp": message.get("timestamp"),
-                    "session_id": session_id,
-                    "chunk_id": message.get("chunk_id"),
-                    "sample_rate": message.get("sample_rate"),
-                    "channels": message.get("channels"),
+                    "timestamp": datetime.now().isoformat(),
                 },
                 session_id,
-                exclude_connection=connection_id,
             )
 
             # 転写処理
@@ -508,8 +486,8 @@ class WebSocketMessageHandler:
                 audio_data = base64.b64decode(message.get("data"))
                 timestamp = datetime.fromisoformat(message.get("timestamp"))
 
-                # 転写処理
-                transcription_chunk = await transcription_service.process_audio_chunk(
+                # リアルタイム転写処理
+                final_chunk, partial_chunk = await realtime_transcription_manager.process_audio_chunk(
                     session_id=session_id,
                     user_id=user.id,
                     audio_data=audio_data,
@@ -517,43 +495,186 @@ class WebSocketMessageHandler:
                     sample_rate=message.get("sample_rate", 16000),
                 )
 
-                if transcription_chunk:
-                    # 確定転写の場合
-                    if transcription_chunk.is_final:
-                        await manager.broadcast_to_session(
-                            {
-                                "type": "transcription_final",
-                                "session_id": session_id,
-                                "user_id": user.id,
-                                "text": transcription_chunk.text,
-                                "confidence": transcription_chunk.confidence,
-                                "start_time": transcription_chunk.start_time,
-                                "end_time": transcription_chunk.end_time,
-                                "timestamp": datetime.now().isoformat(),
-                            },
-                            session_id,
-                        )
-                    else:
-                        # 部分転写の場合
-                        await manager.broadcast_to_session(
-                            {
-                                "type": "transcription_partial",
-                                "session_id": session_id,
-                                "user_id": user.id,
-                                "text": transcription_chunk.text,
-                                "is_final": False,
-                                "confidence": transcription_chunk.confidence,
-                                "start_time": transcription_chunk.start_time,
-                                "end_time": transcription_chunk.end_time,
-                                "timestamp": datetime.now().isoformat(),
-                            },
-                            session_id,
-                        )
+                # 確定転写の処理
+                if final_chunk:
+                    await manager.broadcast_to_session(
+                        {
+                            "type": "transcription_final",
+                            "session_id": session_id,
+                            "user_id": user.id,
+                            "text": final_chunk.text,
+                            "confidence": final_chunk.confidence,
+                            "start_time": final_chunk.start_time,
+                            "end_time": final_chunk.end_time,
+                            "speaker_id": final_chunk.speaker_id,
+                            "speaker_confidence": final_chunk.speaker_confidence,
+                            "language": final_chunk.language,
+                            "quality": final_chunk.quality.value,
+                            "words": final_chunk.words,
+                            "timestamp": datetime.now().isoformat(),
+                        },
+                        session_id,
+                    )
+
+                # 部分転写の処理
+                if partial_chunk:
+                    await manager.broadcast_to_session(
+                        {
+                            "type": "transcription_partial",
+                            "session_id": session_id,
+                            "user_id": user.id,
+                            "text": partial_chunk.text,
+                            "is_final": False,
+                            "confidence": partial_chunk.confidence,
+                            "start_time": partial_chunk.start_time,
+                            "end_time": partial_chunk.end_time,
+                            "speaker_id": partial_chunk.speaker_id,
+                            "language": partial_chunk.language,
+                            "quality": partial_chunk.quality.value,
+                            "timestamp": datetime.now().isoformat(),
+                        },
+                        session_id,
+                    )
 
         except Exception as e:
             logger.error(f"Failed to process audio data: {e}")
             await manager.send_personal_message(
                 {"type": "error", "message": "Failed to process audio data"},
+                connection_id,
+            )
+
+    @staticmethod
+    async def handle_transcription_request(
+        session_id: str, connection_id: str, user: User, message: dict
+    ):
+        """転写リクエスト処理"""
+        try:
+            from app.services.transcription_service import realtime_transcription_manager
+
+            request_type = message.get("request_type", "stats")
+            
+            if request_type == "stats":
+                # リアルタイム統計を取得
+                stats = await realtime_transcription_manager.get_realtime_stats(session_id)
+                
+                if stats:
+                    await manager.send_personal_message(
+                        {
+                            "type": "transcription_stats",
+                            "session_id": session_id,
+                            "stats": {
+                                "total_chunks": stats.total_chunks,
+                                "total_duration": stats.total_duration,
+                                "average_confidence": stats.average_confidence,
+                                "unique_speakers": stats.unique_speakers,
+                                "languages_detected": stats.languages_detected,
+                                "quality_distribution": stats.quality_distribution,
+                                "error_count": stats.error_count,
+                                "last_update": stats.last_update.isoformat() if stats.last_update else None,
+                            },
+                            "timestamp": datetime.now().isoformat(),
+                        },
+                        connection_id,
+                    )
+                else:
+                    await manager.send_personal_message(
+                        {
+                            "type": "error",
+                            "message": "No transcription stats available for this session",
+                        },
+                        connection_id,
+                    )
+                    
+            elif request_type == "partial":
+                # 部分転写を取得
+                partial_transcriptions = await realtime_transcription_manager.get_partial_transcriptions(session_id)
+                
+                await manager.send_personal_message(
+                    {
+                        "type": "transcription_partial_list",
+                        "session_id": session_id,
+                        "partial_transcriptions": partial_transcriptions,
+                        "timestamp": datetime.now().isoformat(),
+                    },
+                    connection_id,
+                )
+                
+            elif request_type == "clear_partial":
+                # 部分転写をクリア
+                user_id = message.get("user_id")
+                await realtime_transcription_manager.clear_partial_transcriptions(session_id, user_id)
+                
+                await manager.send_personal_message(
+                    {
+                        "type": "transcription_partial_cleared",
+                        "session_id": session_id,
+                        "user_id": user_id,
+                        "timestamp": datetime.now().isoformat(),
+                    },
+                    connection_id,
+                )
+
+        except Exception as e:
+            logger.error(f"Failed to handle transcription request: {e}")
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to handle transcription request"},
+                connection_id,
+            )
+
+    @staticmethod
+    async def handle_transcription_start(
+        session_id: str, connection_id: str, user: User, message: dict
+    ):
+        """転写開始処理"""
+        try:
+            from app.services.transcription_service import realtime_transcription_manager
+
+            initial_language = message.get("language", "ja")
+            
+            await realtime_transcription_manager.start_session(session_id, initial_language)
+            
+            await manager.broadcast_to_session(
+                {
+                    "type": "transcription_started",
+                    "session_id": session_id,
+                    "user_id": user.id,
+                    "language": initial_language,
+                    "timestamp": datetime.now().isoformat(),
+                },
+                session_id,
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to start transcription: {e}")
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to start transcription"},
+                connection_id,
+            )
+
+    @staticmethod
+    async def handle_transcription_stop(
+        session_id: str, connection_id: str, user: User, message: dict
+    ):
+        """転写停止処理"""
+        try:
+            from app.services.transcription_service import realtime_transcription_manager
+
+            await realtime_transcription_manager.stop_session(session_id)
+            
+            await manager.broadcast_to_session(
+                {
+                    "type": "transcription_stopped",
+                    "session_id": session_id,
+                    "user_id": user.id,
+                    "timestamp": datetime.now().isoformat(),
+                },
+                session_id,
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to stop transcription: {e}")
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to stop transcription"},
                 connection_id,
             )
 
