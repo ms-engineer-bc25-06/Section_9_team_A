@@ -46,10 +46,28 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to create database tables: {e}")
 
+    # メッセージハンドラーの初期化
+    try:
+        from app.core.message_handlers import initialize_message_handlers
+
+        await initialize_message_handlers()
+        logger.info("Message handlers initialized")
+    except Exception as e:
+        logger.error(f"Failed to initialize message handlers: {e}")
+
     yield
 
     # シャットダウン時
     logger.info("Shutting down Bridge Line API server")
+
+    # メッセージハンドラーのシャットダウン
+    try:
+        from app.core.message_handlers import shutdown_message_handlers
+
+        await shutdown_message_handlers()
+        logger.info("Message handlers shut down")
+    except Exception as e:
+        logger.error(f"Failed to shut down message handlers: {e}")
 
 
 # FastAPIアプリケーション作成

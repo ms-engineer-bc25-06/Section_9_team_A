@@ -29,6 +29,38 @@ class WebSocketMessageType(str, Enum):
     TRANSCRIPTION_PARTIAL = "transcription_partial"
     TRANSCRIPTION_FINAL = "transcription_final"
 
+    # メッセージング関連
+    TEXT_MESSAGE = "text_message"
+    EMOJI_REACTION = "emoji_reaction"
+    EDIT_MESSAGE = "edit_message"
+    DELETE_MESSAGE = "delete_message"
+    MESSAGE_DELIVERED = "message_delivered"
+    MESSAGE_READ = "message_read"
+
+    # ユーザー状態関連
+    TYPING_START = "typing_start"
+    TYPING_STOP = "typing_stop"
+    PRESENCE_UPDATE = "presence_update"
+    STATUS_UPDATE = "status_update"
+
+    # コラボレーション関連
+    FILE_SHARE = "file_share"
+    SCREEN_SHARE_START = "screen_share_start"
+    SCREEN_SHARE_STOP = "screen_share_stop"
+    HAND_RAISE = "hand_raise"
+    HAND_LOWER = "hand_lower"
+
+    # 投票関連
+    POLL_CREATE = "poll_create"
+    POLL_VOTE = "poll_vote"
+    POLL_UPDATE = "poll_update"
+    POLL_CLOSE = "poll_close"
+
+    # システム関連
+    SYSTEM_MESSAGE = "system_message"
+    NOTIFICATION = "notification"
+    ANNOUNCEMENT = "announcement"
+
     # エラー関連
     ERROR = "error"
     WARNING = "warning"
@@ -187,6 +219,265 @@ class WarningMessage(WebSocketBaseMessage):
     code: Optional[str] = None
 
 
+# メッセージ優先度
+class MessagePriority(str, Enum):
+    """メッセージ優先度"""
+
+    LOW = "low"
+    NORMAL = "normal"
+    HIGH = "high"
+    URGENT = "urgent"
+
+
+# ユーザー状態
+class UserPresenceStatus(str, Enum):
+    """ユーザー状態"""
+
+    ONLINE = "online"
+    AWAY = "away"
+    BUSY = "busy"
+    OFFLINE = "offline"
+
+
+class UserActivityStatus(str, Enum):
+    """ユーザー活動状態"""
+
+    ACTIVE = "active"
+    IDLE = "idle"
+    TYPING = "typing"
+    SPEAKING = "speaking"
+    LISTENING = "listening"
+
+
+# メッセージングメッセージ
+class TextMessageMessage(WebSocketBaseMessage):
+    """テキストメッセージ"""
+
+    type: WebSocketMessageType = WebSocketMessageType.TEXT_MESSAGE
+    session_id: str
+    content: str
+    priority: MessagePriority = MessagePriority.NORMAL
+    reply_to: Optional[str] = None  # 返信先メッセージID
+
+
+class EmojiReactionMessage(WebSocketBaseMessage):
+    """絵文字リアクション"""
+
+    type: WebSocketMessageType = WebSocketMessageType.EMOJI_REACTION
+    session_id: str
+    target_message_id: str
+    emoji: str
+    action: str = Field(..., regex="^(add|remove)$")  # add or remove
+
+
+class EditMessageMessage(WebSocketBaseMessage):
+    """メッセージ編集"""
+
+    type: WebSocketMessageType = WebSocketMessageType.EDIT_MESSAGE
+    session_id: str
+    message_id: str
+    new_content: str
+
+
+class DeleteMessageMessage(WebSocketBaseMessage):
+    """メッセージ削除"""
+
+    type: WebSocketMessageType = WebSocketMessageType.DELETE_MESSAGE
+    session_id: str
+    message_id: str
+
+
+class MessageDeliveredMessage(WebSocketBaseMessage):
+    """メッセージ配信確認"""
+
+    type: WebSocketMessageType = WebSocketMessageType.MESSAGE_DELIVERED
+    session_id: str
+    message_id: str
+    user_id: int
+
+
+class MessageReadMessage(WebSocketBaseMessage):
+    """メッセージ既読確認"""
+
+    type: WebSocketMessageType = WebSocketMessageType.MESSAGE_READ
+    session_id: str
+    message_id: str
+    user_id: int
+
+
+# ユーザー状態メッセージ
+class TypingStartMessage(WebSocketBaseMessage):
+    """入力開始"""
+
+    type: WebSocketMessageType = WebSocketMessageType.TYPING_START
+    session_id: str
+    user_id: int
+
+
+class TypingStopMessage(WebSocketBaseMessage):
+    """入力停止"""
+
+    type: WebSocketMessageType = WebSocketMessageType.TYPING_STOP
+    session_id: str
+    user_id: int
+
+
+class PresenceUpdateMessage(WebSocketBaseMessage):
+    """プレゼンス更新"""
+
+    type: WebSocketMessageType = WebSocketMessageType.PRESENCE_UPDATE
+    user_id: int
+    status: UserPresenceStatus
+    activity: UserActivityStatus = UserActivityStatus.ACTIVE
+    custom_status: Optional[str] = None
+
+
+class StatusUpdateMessage(WebSocketBaseMessage):
+    """ステータス更新"""
+
+    type: WebSocketMessageType = WebSocketMessageType.STATUS_UPDATE
+    session_id: str
+    user_id: int
+    status: Dict[str, Any]
+
+
+# コラボレーションメッセージ
+class FileShareMessage(WebSocketBaseMessage):
+    """ファイル共有"""
+
+    type: WebSocketMessageType = WebSocketMessageType.FILE_SHARE
+    session_id: str
+    file_name: str
+    file_size: int
+    file_type: str
+    file_url: Optional[str] = None
+    description: Optional[str] = None
+
+
+class ScreenShareStartMessage(WebSocketBaseMessage):
+    """画面共有開始"""
+
+    type: WebSocketMessageType = WebSocketMessageType.SCREEN_SHARE_START
+    session_id: str
+    user_id: int
+    stream_id: str
+    quality: str = "high"
+
+
+class ScreenShareStopMessage(WebSocketBaseMessage):
+    """画面共有停止"""
+
+    type: WebSocketMessageType = WebSocketMessageType.SCREEN_SHARE_STOP
+    session_id: str
+    user_id: int
+    stream_id: str
+
+
+class HandRaiseMessage(WebSocketBaseMessage):
+    """挙手"""
+
+    type: WebSocketMessageType = WebSocketMessageType.HAND_RAISE
+    session_id: str
+    user_id: int
+    reason: Optional[str] = None
+
+
+class HandLowerMessage(WebSocketBaseMessage):
+    """挙手解除"""
+
+    type: WebSocketMessageType = WebSocketMessageType.HAND_LOWER
+    session_id: str
+    user_id: int
+
+
+# 投票メッセージ
+class PollOption(BaseModel):
+    """投票選択肢"""
+
+    id: str
+    text: str
+    votes: int = 0
+
+
+class PollCreateMessage(WebSocketBaseMessage):
+    """投票作成"""
+
+    type: WebSocketMessageType = WebSocketMessageType.POLL_CREATE
+    session_id: str
+    poll_id: str
+    question: str
+    options: List[PollOption]
+    multiple_choice: bool = False
+    anonymous: bool = False
+    duration: Optional[int] = None  # 秒
+
+
+class PollVoteMessage(WebSocketBaseMessage):
+    """投票"""
+
+    type: WebSocketMessageType = WebSocketMessageType.POLL_VOTE
+    session_id: str
+    poll_id: str
+    option_ids: List[str]
+    user_id: int
+
+
+class PollUpdateMessage(WebSocketBaseMessage):
+    """投票結果更新"""
+
+    type: WebSocketMessageType = WebSocketMessageType.POLL_UPDATE
+    session_id: str
+    poll_id: str
+    options: List[PollOption]
+    total_votes: int
+
+
+class PollCloseMessage(WebSocketBaseMessage):
+    """投票終了"""
+
+    type: WebSocketMessageType = WebSocketMessageType.POLL_CLOSE
+    session_id: str
+    poll_id: str
+    final_results: List[PollOption]
+
+
+# システムメッセージ
+class SystemMessage(WebSocketBaseMessage):
+    """システムメッセージ"""
+
+    type: WebSocketMessageType = WebSocketMessageType.SYSTEM_MESSAGE
+    session_id: str
+    content: str
+    priority: MessagePriority = MessagePriority.NORMAL
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class NotificationMessage(WebSocketBaseMessage):
+    """通知メッセージ"""
+
+    type: WebSocketMessageType = WebSocketMessageType.NOTIFICATION
+    session_id: Optional[str] = None
+    user_id: Optional[int] = None
+    title: str
+    content: str
+    notification_type: str = "info"  # info, warning, error, success
+    action_url: Optional[str] = None
+    auto_dismiss: bool = True
+    duration: int = 5000  # ミリ秒
+
+
+class AnnouncementMessage(WebSocketBaseMessage):
+    """アナウンス"""
+
+    type: WebSocketMessageType = WebSocketMessageType.ANNOUNCEMENT
+    session_id: Optional[str] = None
+    title: str
+    content: str
+    priority: MessagePriority = MessagePriority.HIGH
+    sender: str
+    expires_at: Optional[datetime] = None
+
+
 # メッセージ型のユニオン
 WebSocketMessage = (
     ConnectionEstablishedMessage
@@ -203,6 +494,28 @@ WebSocketMessage = (
     | AudioLevelMessage
     | TranscriptionPartialMessage
     | TranscriptionFinalMessage
+    | TextMessageMessage
+    | EmojiReactionMessage
+    | EditMessageMessage
+    | DeleteMessageMessage
+    | MessageDeliveredMessage
+    | MessageReadMessage
+    | TypingStartMessage
+    | TypingStopMessage
+    | PresenceUpdateMessage
+    | StatusUpdateMessage
+    | FileShareMessage
+    | ScreenShareStartMessage
+    | ScreenShareStopMessage
+    | HandRaiseMessage
+    | HandLowerMessage
+    | PollCreateMessage
+    | PollVoteMessage
+    | PollUpdateMessage
+    | PollCloseMessage
+    | SystemMessage
+    | NotificationMessage
+    | AnnouncementMessage
     | ErrorMessage
     | WarningMessage
 )

@@ -301,75 +301,41 @@ class WebSocketMessageHandler:
             # ハートビートを更新
             await manager.update_heartbeat(connection_id)
 
-            message_type = message.get("type")
+            # メッセージルーターを使用してメッセージを処理
+            from app.core.message_router import message_router
 
-            if message_type == "ping":
-                await manager.send_personal_message({"type": "pong"}, connection_id)
-
-            elif message_type == "join_session":
-                session_id = message.get("session_id")
-                if session_id:
-                    await WebSocketMessageHandler.handle_join_session(
-                        session_id, connection_id, user
-                    )
-
-            elif message_type == "leave_session":
-                session_id = message.get("session_id")
-                if session_id:
-                    await WebSocketMessageHandler.handle_leave_session(
-                        session_id, connection_id, user
-                    )
-
-            elif message_type == "audio_data":
-                session_id = message.get("session_id")
-                if session_id:
-                    await WebSocketMessageHandler.handle_audio_data(
-                        session_id, connection_id, user, message
-                    )
-
-            elif message_type == "text_message":
-                session_id = message.get("session_id")
-                content = message.get("content")
-                if session_id and content:
-                    await WebSocketMessageHandler.handle_text_message(
-                        session_id, connection_id, user, message
-                    )
-
-            elif message_type == "emoji_reaction":
-                session_id = message.get("session_id")
-                target_message_id = message.get("target_message_id")
-                emoji = message.get("emoji")
-                if session_id and target_message_id and emoji:
-                    await WebSocketMessageHandler.handle_emoji_reaction(
-                        session_id, connection_id, user, message
-                    )
-
-            elif message_type == "edit_message":
-                session_id = message.get("session_id")
-                message_id = message.get("message_id")
-                new_content = message.get("new_content")
-                if session_id and message_id and new_content:
-                    await WebSocketMessageHandler.handle_edit_message(
-                        session_id, connection_id, user, message
-                    )
-
-            elif message_type == "delete_message":
-                session_id = message.get("session_id")
-                message_id = message.get("message_id")
-                if session_id and message_id:
-                    await WebSocketMessageHandler.handle_delete_message(
-                        session_id, connection_id, user, message
-                    )
-
-            else:
-                logger.warning(f"Unknown message type: {message_type}")
-                await manager.send_personal_message(
-                    {
-                        "type": "error",
-                        "message": f"Unknown message type: {message_type}",
-                    },
-                    connection_id,
+            session_id = message.get("session_id")
+            if session_id:
+                # メッセージルーターにメッセージを送信
+                success = await message_router.route_message(
+                    message, user, session_id, connection_id
                 )
+                if not success:
+                    await manager.send_personal_message(
+                        {"type": "error", "message": "Failed to process message"},
+                        connection_id,
+                    )
+            else:
+                # セッションIDが不要なメッセージは直接処理
+                message_type = message.get("type")
+
+                if message_type == "ping":
+                    await manager.send_personal_message({"type": "pong"}, connection_id)
+                elif message_type == "presence_update":
+                    await WebSocketMessageHandler.handle_presence_update(
+                        connection_id, user, message
+                    )
+                else:
+                    logger.warning(
+                        f"Unknown message type or missing session_id: {message_type}"
+                    )
+                    await manager.send_personal_message(
+                        {
+                            "type": "error",
+                            "message": f"Unknown message type or missing session_id: {message_type}",
+                        },
+                        connection_id,
+                    )
 
         except Exception as e:
             logger.error(f"Failed to handle message: {e}")
@@ -664,4 +630,266 @@ class WebSocketMessageHandler:
             logger.error(f"Failed to handle delete message: {e}")
             await manager.send_personal_message(
                 {"type": "error", "message": "Failed to delete message"}, connection_id
+            )
+
+    @staticmethod
+    async def handle_presence_update(connection_id: str, user: User, message: dict):
+        """プレゼンス更新処理"""
+        try:
+            from app.schemas.websocket import UserPresenceStatus, UserActivityStatus
+
+            status = UserPresenceStatus(message.get("status", "online"))
+            activity = UserActivityStatus(message.get("activity", "active"))
+            custom_status = message.get("custom_status")
+
+            # プレゼンス更新をブロードキャスト
+            presence_message = {
+                "type": "presence_update",
+                "user_id": user.id,
+                "status": status.value,
+                "activity": activity.value,
+                "custom_status": custom_status,
+                "timestamp": datetime.now().isoformat(),
+            }
+
+            # 全ユーザーの接続にプレゼンス更新を送信
+            await manager.broadcast_to_user(
+                presence_message, user.id, exclude_connection=connection_id
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to handle presence update: {e}")
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to update presence"}, connection_id
+            )
+
+    @staticmethod
+    async def handle_typing_start(
+        session_id: str, connection_id: str, user: User, message: dict
+    ):
+        """入力開始処理"""
+        try:
+            typing_message = {
+                "type": "typing_start",
+                "session_id": session_id,
+                "user_id": user.id,
+                "user_name": user.display_name,
+                "timestamp": datetime.now().isoformat(),
+            }
+
+            # セッション内の他の参加者に通知
+            await manager.broadcast_to_session(
+                typing_message, session_id, exclude_connection=connection_id
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to handle typing start: {e}")
+
+    @staticmethod
+    async def handle_typing_stop(
+        session_id: str, connection_id: str, user: User, message: dict
+    ):
+        """入力停止処理"""
+        try:
+            typing_message = {
+                "type": "typing_stop",
+                "session_id": session_id,
+                "user_id": user.id,
+                "timestamp": datetime.now().isoformat(),
+            }
+
+            # セッション内の他の参加者に通知
+            await manager.broadcast_to_session(
+                typing_message, session_id, exclude_connection=connection_id
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to handle typing stop: {e}")
+
+    @staticmethod
+    async def handle_file_share(
+        session_id: str, connection_id: str, user: User, message: dict
+    ):
+        """ファイル共有処理"""
+        try:
+            from app.services.messaging_service import (
+                messaging_service,
+                MessagePriority,
+            )
+
+            file_name = message.get("file_name")
+            file_size = message.get("file_size")
+            file_type = message.get("file_type")
+            file_url = message.get("file_url")
+            description = message.get("description", "")
+
+            # ファイル共有メッセージを作成
+            file_share_content = f"ファイルを共有しました: {file_name}"
+            if description:
+                file_share_content += f" - {description}"
+
+            # メッセージとして保存
+            await messaging_service.send_text_message(
+                session_id, user.id, file_share_content, MessagePriority.NORMAL
+            )
+
+            # ファイル共有通知をブロードキャスト
+            file_share_message = {
+                "type": "file_share",
+                "session_id": session_id,
+                "user_id": user.id,
+                "user_name": user.display_name,
+                "file_name": file_name,
+                "file_size": file_size,
+                "file_type": file_type,
+                "file_url": file_url,
+                "description": description,
+                "timestamp": datetime.now().isoformat(),
+            }
+
+            await manager.broadcast_to_session(file_share_message, session_id)
+
+        except Exception as e:
+            logger.error(f"Failed to handle file share: {e}")
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to share file"}, connection_id
+            )
+
+    @staticmethod
+    async def handle_hand_raise(
+        session_id: str, connection_id: str, user: User, message: dict
+    ):
+        """挙手処理"""
+        try:
+            from app.services.participant_management_service import participant_manager
+
+            reason = message.get("reason")
+
+            # 参加者の状態を更新
+            await participant_manager.update_participant_status(
+                session_id,
+                user.id,
+                status="speaking",  # 仮の状態
+                metadata={"hand_raised": True, "reason": reason},
+            )
+
+            # 挙手通知をブロードキャスト
+            hand_raise_message = {
+                "type": "hand_raise",
+                "session_id": session_id,
+                "user_id": user.id,
+                "user_name": user.display_name,
+                "reason": reason,
+                "timestamp": datetime.now().isoformat(),
+            }
+
+            await manager.broadcast_to_session(hand_raise_message, session_id)
+
+        except Exception as e:
+            logger.error(f"Failed to handle hand raise: {e}")
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to raise hand"}, connection_id
+            )
+
+    @staticmethod
+    async def handle_hand_lower(
+        session_id: str, connection_id: str, user: User, message: dict
+    ):
+        """挙手解除処理"""
+        try:
+            from app.services.participant_management_service import participant_manager
+
+            # 参加者の状態を更新
+            await participant_manager.update_participant_status(
+                session_id, user.id, status="connected", metadata={"hand_raised": False}
+            )
+
+            # 挙手解除通知をブロードキャスト
+            hand_lower_message = {
+                "type": "hand_lower",
+                "session_id": session_id,
+                "user_id": user.id,
+                "timestamp": datetime.now().isoformat(),
+            }
+
+            await manager.broadcast_to_session(hand_lower_message, session_id)
+
+        except Exception as e:
+            logger.error(f"Failed to handle hand lower: {e}")
+
+    @staticmethod
+    async def handle_poll_create(
+        session_id: str, connection_id: str, user: User, message: dict
+    ):
+        """投票作成処理"""
+        try:
+            from app.services.messaging_service import messaging_service
+
+            poll_id = message.get("poll_id")
+            question = message.get("question")
+            options = message.get("options", [])
+            multiple_choice = message.get("multiple_choice", False)
+            anonymous = message.get("anonymous", False)
+            duration = message.get("duration")
+
+            # システムメッセージとして投票を通知
+            poll_content = f"投票が作成されました: {question}"
+            await messaging_service.send_system_message(session_id, poll_content)
+
+            # 投票作成をブロードキャスト
+            poll_create_message = {
+                "type": "poll_create",
+                "session_id": session_id,
+                "poll_id": poll_id,
+                "question": question,
+                "options": options,
+                "multiple_choice": multiple_choice,
+                "anonymous": anonymous,
+                "duration": duration,
+                "created_by": user.id,
+                "created_by_name": user.display_name,
+                "timestamp": datetime.now().isoformat(),
+            }
+
+            await manager.broadcast_to_session(poll_create_message, session_id)
+
+        except Exception as e:
+            logger.error(f"Failed to handle poll create: {e}")
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to create poll"}, connection_id
+            )
+
+    @staticmethod
+    async def handle_poll_vote(
+        session_id: str, connection_id: str, user: User, message: dict
+    ):
+        """投票処理"""
+        try:
+            poll_id = message.get("poll_id")
+            option_ids = message.get("option_ids", [])
+
+            # 投票結果を更新（実際の投票ロジックはここで実装）
+            # 今回は簡単な通知のみ実装
+
+            vote_message = {
+                "type": "poll_vote",
+                "session_id": session_id,
+                "poll_id": poll_id,
+                "user_id": user.id,
+                "option_ids": option_ids,
+                "timestamp": datetime.now().isoformat(),
+            }
+
+            # 投票者本人に確認を送信
+            await manager.send_personal_message(
+                {"type": "poll_vote_confirmed", **vote_message}, connection_id
+            )
+
+            # 匿名でない場合は他の参加者にも通知
+            # （匿名投票の場合は結果のみ更新）
+
+        except Exception as e:
+            logger.error(f"Failed to handle poll vote: {e}")
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to vote"}, connection_id
             )

@@ -218,6 +218,22 @@ async def cleanup_inactive_connections():
         raise HTTPException(status_code=500, detail="Failed to cleanup connections")
 
 
+@router.get("/messages/stats")
+async def get_message_stats():
+    """メッセージ処理統計を取得"""
+    try:
+        from app.core.message_router import message_router
+
+        stats = message_router.get_stats()
+        return {
+            "message_stats": stats,
+            "timestamp": datetime.now().isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"Failed to get message stats: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get message stats")
+
+
 @router.get("/voice-sessions/{session_id}/participants")
 async def get_session_participants(session_id: str):
     """セッション参加者一覧を取得"""
