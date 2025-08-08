@@ -66,9 +66,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(
             ["created_by"], ["users.id"], name="chat_rooms_created_by_fkey"
         ),
-        sa.ForeignKeyConstraint(
-            ["team_id"], ["teams.id"], name="chat_rooms_team_id_fkey"
-        ),
+        # team_idの外部キー制約を削除（teamsテーブルが存在しないため）
         sa.PrimaryKeyConstraint("id", name="chat_rooms_pkey"),
         sa.UniqueConstraint("room_id", name="chat_rooms_room_id_key"),
     )

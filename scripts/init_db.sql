@@ -7,11 +7,6 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 
--- 基本的なテーブル構造の作成
--- 注意: 実際のテーブルはAlembicマイグレーションで作成されます
--- テスト用データベースの作成（開発環境用）
--- このスクリプトは本番データベースでのみ実行されるため、
--- テストデータベースは別途作成が必要
 -- 基本的な権限設定
 GRANT ALL PRIVILEGES ON DATABASE bridge_line_db TO bridge_user;
 

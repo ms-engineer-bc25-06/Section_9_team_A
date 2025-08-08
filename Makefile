@@ -192,3 +192,26 @@ deps-check:
 		echo "Node.js: $$(node --version 2>/dev/null || echo '未インストール')"; \
 		echo "npm: $$(npm --version 2>/dev/null || echo '未インストール')"; \
 	fi 
+
+# データベース関連
+migrate:
+	docker exec bridge_line_backend alembic upgrade head
+
+migrate-test:
+	docker-compose down -v
+	docker-compose up -d
+	sleep 10
+	docker exec bridge_line_backend alembic upgrade head
+	docker exec bridge_line_postgres psql -U bridge_user -d bridge_line_db -c "\dt"
+
+migrate-sql:
+	docker exec bridge_line_backend alembic upgrade --sql head
+
+migrate-create:
+	docker exec bridge_line_backend alembic revision --autogenerate -m "$(message)"
+
+migrate-current:
+	docker exec bridge_line_backend alembic current
+
+migrate-history:
+	docker exec bridge_line_backend alembic history 

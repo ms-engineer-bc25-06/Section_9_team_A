@@ -5,7 +5,7 @@ import structlog
 from datetime import datetime
 
 from app.models.user import User
-from app.schemas.auth import UserCreate, UserLogin
+from app.schemas.auth import UserCreate
 from app.core.auth import get_user_by_firebase_uid, create_user_from_firebase
 
 logger = structlog.get_logger()
