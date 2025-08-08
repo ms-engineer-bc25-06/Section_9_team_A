@@ -458,7 +458,14 @@ class WebSocketMessageHandler:
             # 音声レベルを計算
             audio_level = audio_processor._calculate_audio_level(chunk)
 
-            # 音声レベルメッセージを送信
+            # 音声品質メトリクスを取得
+            quality_metrics = await audio_processor.get_audio_quality_metrics(session_id)
+            latest_metrics = quality_metrics[-1] if quality_metrics else None
+
+            # バッファ統計を取得
+            buffer_stats = await audio_processor.get_buffer_stats(session_id)
+
+            # 音声レベルメッセージを送信（品質情報を含む）
             await manager.send_personal_message(
                 {
                     "type": "audio_level",
@@ -467,6 +474,14 @@ class WebSocketMessageHandler:
                     "level": audio_level.level,
                     "is_speaking": audio_level.is_speaking,
                     "timestamp": audio_level.timestamp.isoformat(),
+                    "quality_metrics": {
+                        "snr": latest_metrics.snr if latest_metrics else 0.0,
+                        "clarity": latest_metrics.clarity if latest_metrics else 0.0,
+                        "latency": latest_metrics.latency if latest_metrics else 0.0,
+                        "packet_loss": latest_metrics.packet_loss if latest_metrics else 0.0,
+                        "jitter": latest_metrics.jitter if latest_metrics else 0.0,
+                    } if latest_metrics else None,
+                    "buffer_stats": buffer_stats,
                 },
                 connection_id,
             )
@@ -1169,5 +1184,97 @@ class WebSocketMessageHandler:
             logger.error(f"Failed to handle get announcements: {e}")
             await manager.send_personal_message(
                 {"type": "error", "message": "Failed to get announcements"},
+                connection_id,
+            )
+
+    @staticmethod
+    async def handle_audio_quality_request(
+        session_id: str, connection_id: str, user: User, message: dict
+    ):
+        """音声品質情報要求処理"""
+        try:
+            from app.services.audio_processing_service import audio_processor
+
+            # 音声品質メトリクスを取得
+            quality_metrics = await audio_processor.get_audio_quality_metrics(session_id)
+            
+            # バッファ統計を取得
+            buffer_stats = await audio_processor.get_buffer_stats(session_id)
+            
+            # 音声レベル履歴を取得
+            audio_levels = await audio_processor.get_session_audio_levels(session_id, user.id)
+
+            # 音声品質情報を送信
+            await manager.send_personal_message(
+                {
+                    "type": "audio_quality_info",
+                    "session_id": session_id,
+                    "user_id": user.id,
+                    "quality_metrics": [
+                        {
+                            "snr": metrics.snr,
+                            "clarity": metrics.clarity,
+                            "latency": metrics.latency,
+                            "packet_loss": metrics.packet_loss,
+                            "jitter": metrics.jitter,
+                            "timestamp": metrics.timestamp.isoformat(),
+                        }
+                        for metrics in quality_metrics[-10:]  # 最新10件
+                    ],
+                    "buffer_stats": buffer_stats,
+                    "audio_levels": [
+                        {
+                            "level": level.level,
+                            "is_speaking": level.is_speaking,
+                            "rms": level.rms,
+                            "peak": level.peak,
+                            "timestamp": level.timestamp.isoformat(),
+                        }
+                        for level in audio_levels
+                    ],
+                },
+                connection_id,
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to get audio quality info: {e}")
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to get audio quality info"},
+                connection_id,
+            )
+
+    @staticmethod
+    async def handle_network_metrics_update(
+        session_id: str, connection_id: str, user: User, message: dict
+    ):
+        """ネットワークメトリクス更新処理"""
+        try:
+            from app.services.audio_processing_service import audio_processor, NetworkMetrics
+
+            # ネットワークメトリクスを作成
+            network_metrics = NetworkMetrics(
+                bandwidth=message.get("bandwidth", 0.0),
+                latency=message.get("latency", 0.0),
+                packet_loss=message.get("packet_loss", 0.0),
+                jitter=message.get("jitter", 0.0),
+                quality_score=message.get("quality_score", 0.5),
+                timestamp=datetime.now(),
+            )
+
+            # ネットワークメトリクスを更新
+            await audio_processor.update_network_metrics(session_id, network_metrics)
+
+            logger.info(
+                f"Updated network metrics for session {session_id}",
+                user_id=user.id,
+                bandwidth=network_metrics.bandwidth,
+                latency=network_metrics.latency,
+                quality_score=network_metrics.quality_score,
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to update network metrics: {e}")
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to update network metrics"},
                 connection_id,
             )

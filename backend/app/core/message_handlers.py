@@ -75,6 +75,14 @@ async def initialize_message_handlers():
         WebSocketMessageType.ANNOUNCEMENT, handle_announcement_request_message
     )
 
+    # 音声品質管理ハンドラーの登録
+    message_router.register_handler(
+        WebSocketMessageType.AUDIO_QUALITY_REQUEST, handle_audio_quality_request_message
+    )
+    message_router.register_handler(
+        WebSocketMessageType.NETWORK_METRICS_UPDATE, handle_network_metrics_update_message
+    )
+
     # メッセージ処理開始
     await message_router.start_processing()
 
@@ -391,4 +399,42 @@ async def handle_announcement_request_message(queued_message: QueuedMessage):
 
     except Exception as e:
         logger.error(f"Failed to handle announcement request message: {e}")
+        raise
+
+
+async def handle_audio_quality_request_message(queued_message: QueuedMessage):
+    """音声品質情報要求メッセージ処理"""
+    try:
+        message = queued_message.message
+        connection_id = queued_message.metadata.get("connection_id")
+
+        if connection_id and connection_id in manager.connection_info:
+            user = manager.connection_info[connection_id]["user"]
+            await WebSocketMessageHandler.handle_audio_quality_request(
+                queued_message.session_id, connection_id, user, message
+            )
+        else:
+            logger.warning(f"Connection not found for message: {queued_message.id}")
+
+    except Exception as e:
+        logger.error(f"Failed to handle audio quality request message: {e}")
+        raise
+
+
+async def handle_network_metrics_update_message(queued_message: QueuedMessage):
+    """ネットワークメトリクス更新メッセージ処理"""
+    try:
+        message = queued_message.message
+        connection_id = queued_message.metadata.get("connection_id")
+
+        if connection_id and connection_id in manager.connection_info:
+            user = manager.connection_info[connection_id]["user"]
+            await WebSocketMessageHandler.handle_network_metrics_update(
+                queued_message.session_id, connection_id, user, message
+            )
+        else:
+            logger.warning(f"Connection not found for message: {queued_message.id}")
+
+    except Exception as e:
+        logger.error(f"Failed to handle network metrics update message: {e}")
         raise

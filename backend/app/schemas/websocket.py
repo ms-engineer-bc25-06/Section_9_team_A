@@ -24,6 +24,9 @@ class WebSocketMessageType(str, Enum):
     AUDIO_START = "audio_start"
     AUDIO_STOP = "audio_stop"
     AUDIO_LEVEL = "audio_level"
+    AUDIO_QUALITY_REQUEST = "audio_quality_request"
+    AUDIO_QUALITY_INFO = "audio_quality_info"
+    NETWORK_METRICS_UPDATE = "network_metrics_update"
 
     # 文字起こし関連
     TRANSCRIPTION_PARTIAL = "transcription_partial"
@@ -584,6 +587,36 @@ class AnnouncementDismissedMessage(WebSocketBaseMessage):
 
     type: WebSocketMessageType = WebSocketMessageType.ANNOUNCEMENT_DISMISSED
     announcement_id: str
+
+
+class AudioQualityRequestMessage(WebSocketBaseMessage):
+    """音声品質情報要求"""
+
+    type: WebSocketMessageType = WebSocketMessageType.AUDIO_QUALITY_REQUEST
+    session_id: str
+
+
+class AudioQualityInfoMessage(WebSocketBaseMessage):
+    """音声品質情報"""
+
+    type: WebSocketMessageType = WebSocketMessageType.AUDIO_QUALITY_INFO
+    session_id: str
+    user_id: int
+    quality_metrics: List[Dict[str, Any]]
+    buffer_stats: Dict[str, Any]
+    audio_levels: List[Dict[str, Any]]
+
+
+class NetworkMetricsUpdateMessage(WebSocketBaseMessage):
+    """ネットワークメトリクス更新"""
+
+    type: WebSocketMessageType = WebSocketMessageType.NETWORK_METRICS_UPDATE
+    session_id: str
+    bandwidth: float
+    latency: float
+    packet_loss: float
+    jitter: float
+    quality_score: float
 
 
 # メッセージ型のユニオン
