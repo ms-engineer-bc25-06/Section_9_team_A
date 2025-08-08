@@ -1,0 +1,28 @@
+[33mcommit ae2c085f7000c3c59b64200bc7aba9945b8d0c5b[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature/WebSocket_rui[m[33m)[m
+Author: ruioomura <asxnr2525@gmail.com>
+Date:   Fri Aug 8 16:38:33 2025 +0900
+
+    chore: .venv311ディレクトリをGit追跡から除外
+
+.gitignore
+.venv311/Scripts/Activate.ps1
+.venv311/Scripts/activate
+.venv311/Scripts/activate.bat
+.venv311/Scripts/coverage-3.11.exe
+.venv311/Scripts/coverage.exe
+.venv311/Scripts/coverage3.exe
+.venv311/Scripts/deactivate.bat
+.venv311/Scripts/dotenv.exe
+.venv311/Scripts/httpx.exe
+.venv311/Scripts/pip.exe
+.venv311/Scripts/pip3.11.exe
+.venv311/Scripts/pip3.exe
+.venv311/Scripts/py.test.exe
+.venv311/Scripts/pytest.exe
+.venv311/Scripts/python.exe
+.venv311/Scripts/pythonw.exe
+.venv311/Scripts/uvicorn.exe
+.venv311/Scripts/watchfiles.exe
+.venv311/Scripts/wheel.exe
+.venv311/Scripts/wsdump.exe
+.venv311/pyvenv.cfg
