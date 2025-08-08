@@ -301,12 +301,19 @@ class WebSocketMessageHandler:
             # ハートビートを更新
             await manager.update_heartbeat(connection_id)
 
-            # メッセージルーターを使用してメッセージを処理
-            from app.core.message_router import message_router
+            # メッセージタイプを取得
+            message_type = message.get("type")
 
+            # pingメッセージは直接処理
+            if message_type == "ping":
+                await manager.send_personal_message({"type": "pong"}, connection_id)
+                return
+
+            # セッションIDが必要なメッセージの処理
             session_id = message.get("session_id")
             if session_id:
                 # メッセージルーターにメッセージを送信
+                from app.core.message_router import message_router
                 success = await message_router.route_message(
                     message, user, session_id, connection_id
                 )
@@ -317,11 +324,7 @@ class WebSocketMessageHandler:
                     )
             else:
                 # セッションIDが不要なメッセージは直接処理
-                message_type = message.get("type")
-
-                if message_type == "ping":
-                    await manager.send_personal_message({"type": "pong"}, connection_id)
-                elif message_type == "presence_update":
+                if message_type == "presence_update":
                     await WebSocketMessageHandler.handle_presence_update(
                         connection_id, user, message
                     )

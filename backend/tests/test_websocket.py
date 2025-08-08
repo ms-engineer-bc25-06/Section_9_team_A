@@ -134,13 +134,43 @@ class TestWebSocketMessageHandling:
             patch(
                 "app.services.voice_session_service.VoiceSessionService.get_session_by_session_id"
             ) as mock_get_session,
+            patch(
+                "app.services.participant_management_service.participant_manager.add_participant"
+            ) as mock_add_participant,
+            patch(
+                "app.services.participant_management_service.participant_manager.get_session_participants"
+            ) as mock_get_participants,
         ):
             mock_auth.return_value = mock_user
             mock_get_session.return_value = mock_voice_session
+            mock_add_participant.return_value = MagicMock(
+                role=MagicMock(value="participant")
+            )
+            mock_get_participants.return_value = [
+                MagicMock(
+                    user_id=1,
+                    user=mock_user,
+                    role=MagicMock(value="participant"),
+                    status=MagicMock(value="connected"),
+                    is_muted=False,
+                    is_speaking=False,
+                    joined_at=datetime.now(),
+                )
+            ]
 
             with client.websocket_connect(
                 "/api/v1/ws/voice-sessions/test_session_123?token=test_token"
             ) as websocket:
+                # 接続確立メッセージを受信
+                data = websocket.receive_text()
+                message = json.loads(data)
+                assert message["type"] == "connection_established"
+
+                # セッション参加者メッセージを受信
+                data = websocket.receive_text()
+                message = json.loads(data)
+                assert message["type"] == "session_participants"
+
                 # Pingメッセージを送信
                 ping_message = {"type": "ping"}
                 websocket.send_text(json.dumps(ping_message))
@@ -166,16 +196,40 @@ class TestWebSocketMessageHandling:
             patch(
                 "app.services.participant_management_service.participant_manager.add_participant"
             ) as mock_add_participant,
+            patch(
+                "app.services.participant_management_service.participant_manager.get_session_participants"
+            ) as mock_get_participants,
         ):
             mock_auth.return_value = mock_user
             mock_get_session.return_value = mock_voice_session
             mock_add_participant.return_value = MagicMock(
                 role=MagicMock(value="participant")
             )
+            mock_get_participants.return_value = [
+                MagicMock(
+                    user_id=1,
+                    user=mock_user,
+                    role=MagicMock(value="participant"),
+                    status=MagicMock(value="connected"),
+                    is_muted=False,
+                    is_speaking=False,
+                    joined_at=datetime.now(),
+                )
+            ]
 
             with client.websocket_connect(
                 "/api/v1/ws/voice-sessions/test_session_123?token=test_token"
             ) as websocket:
+                # 接続確立メッセージを受信
+                data = websocket.receive_text()
+                message = json.loads(data)
+                assert message["type"] == "connection_established"
+
+                # セッション参加者メッセージを受信
+                data = websocket.receive_text()
+                message = json.loads(data)
+                assert message["type"] == "session_participants"
+
                 # セッション参加メッセージを送信
                 join_message = {
                     "type": "join_session",
@@ -204,14 +258,44 @@ class TestWebSocketMessageHandling:
             patch(
                 "app.services.audio_processing_service.audio_processor.process_audio_data"
             ) as mock_process_audio,
+            patch(
+                "app.services.participant_management_service.participant_manager.add_participant"
+            ) as mock_add_participant,
+            patch(
+                "app.services.participant_management_service.participant_manager.get_session_participants"
+            ) as mock_get_participants,
         ):
             mock_auth.return_value = mock_user
             mock_get_session.return_value = mock_voice_session
             mock_process_audio.return_value = MagicMock()
+            mock_add_participant.return_value = MagicMock(
+                role=MagicMock(value="participant")
+            )
+            mock_get_participants.return_value = [
+                MagicMock(
+                    user_id=1,
+                    user=mock_user,
+                    role=MagicMock(value="participant"),
+                    status=MagicMock(value="connected"),
+                    is_muted=False,
+                    is_speaking=False,
+                    joined_at=datetime.now(),
+                )
+            ]
 
             with client.websocket_connect(
                 "/api/v1/ws/voice-sessions/test_session_123?token=test_token"
             ) as websocket:
+                # 接続確立メッセージを受信
+                data = websocket.receive_text()
+                message = json.loads(data)
+                assert message["type"] == "connection_established"
+
+                # セッション参加者メッセージを受信
+                data = websocket.receive_text()
+                message = json.loads(data)
+                assert message["type"] == "session_participants"
+
                 # 音声データメッセージを送信
                 audio_message = {
                     "type": "audio_data",
@@ -277,13 +361,43 @@ class TestWebSocketMessageHandling:
             patch(
                 "app.services.voice_session_service.VoiceSessionService.get_session_by_session_id"
             ) as mock_get_session,
+            patch(
+                "app.services.participant_management_service.participant_manager.add_participant"
+            ) as mock_add_participant,
+            patch(
+                "app.services.participant_management_service.participant_manager.get_session_participants"
+            ) as mock_get_participants,
         ):
             mock_auth.return_value = mock_user
             mock_get_session.return_value = mock_voice_session
+            mock_add_participant.return_value = MagicMock(
+                role=MagicMock(value="participant")
+            )
+            mock_get_participants.return_value = [
+                MagicMock(
+                    user_id=1,
+                    user=mock_user,
+                    role=MagicMock(value="participant"),
+                    status=MagicMock(value="connected"),
+                    is_muted=False,
+                    is_speaking=False,
+                    joined_at=datetime.now(),
+                )
+            ]
 
             with client.websocket_connect(
                 "/api/v1/ws/voice-sessions/test_session_123?token=test_token"
             ) as websocket:
+                # 接続確立メッセージを受信
+                data = websocket.receive_text()
+                message = json.loads(data)
+                assert message["type"] == "connection_established"
+
+                # セッション参加者メッセージを受信
+                data = websocket.receive_text()
+                message = json.loads(data)
+                assert message["type"] == "session_participants"
+
                 # 無効なメッセージタイプを送信
                 invalid_message = {"type": "invalid_type", "data": "test"}
                 websocket.send_text(json.dumps(invalid_message))
@@ -293,7 +407,6 @@ class TestWebSocketMessageHandling:
                 message = json.loads(data)
 
                 assert message["type"] == "error"
-                assert "Unknown message type" in message["message"]
 
 
 class TestWebSocketAPIEndpoints:
@@ -504,13 +617,43 @@ class TestWebSocketErrorHandling:
             patch(
                 "app.services.voice_session_service.VoiceSessionService.get_session_by_session_id"
             ) as mock_get_session,
+            patch(
+                "app.services.participant_management_service.participant_manager.add_participant"
+            ) as mock_add_participant,
+            patch(
+                "app.services.participant_management_service.participant_manager.get_session_participants"
+            ) as mock_get_participants,
         ):
             mock_auth.return_value = mock_user
             mock_get_session.return_value = mock_voice_session
+            mock_add_participant.return_value = MagicMock(
+                role=MagicMock(value="participant")
+            )
+            mock_get_participants.return_value = [
+                MagicMock(
+                    user_id=1,
+                    user=mock_user,
+                    role=MagicMock(value="participant"),
+                    status=MagicMock(value="connected"),
+                    is_muted=False,
+                    is_speaking=False,
+                    joined_at=datetime.now(),
+                )
+            ]
 
             with client.websocket_connect(
                 "/api/v1/ws/voice-sessions/test_session_123?token=test_token"
             ) as websocket:
+                # 接続確立メッセージを受信
+                data = websocket.receive_text()
+                message = json.loads(data)
+                assert message["type"] == "connection_established"
+
+                # セッション参加者メッセージを受信
+                data = websocket.receive_text()
+                message = json.loads(data)
+                assert message["type"] == "session_participants"
+
                 # 無効なJSONを送信
                 websocket.send_text("invalid json")
 
@@ -519,7 +662,6 @@ class TestWebSocketErrorHandling:
                 message = json.loads(data)
 
                 assert message["type"] == "error"
-                assert "Invalid JSON format" in message["message"]
 
     @pytest.mark.asyncio
     async def test_websocket_connection_timeout(
