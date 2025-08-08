@@ -171,9 +171,15 @@ deps-check:
 
 # Database related commands
 db-test-connection:
+	docker-compose run --rm backend python scripts/test_db_connection.py
+
+db-test-connection-local:
 	cd backend && python scripts/test_db_connection.py
 
 db-check-migrations:
+	docker-compose run --rm backend python scripts/check_migrations.py
+
+db-check-migrations-local:
 	cd backend && python scripts/check_migrations.py
 
 db-init:

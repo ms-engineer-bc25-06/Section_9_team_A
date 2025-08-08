@@ -31,7 +31,7 @@ async def check_migration_status():
                 )
             """)
             )
-            alembic_exists = await result.fetchone()
+            alembic_exists = result.fetchone()
 
             if not alembic_exists[0]:
                 logger.warning("alembic_version table does not exist")
@@ -39,7 +39,7 @@ async def check_migration_status():
 
             # Get current migration version
             result = await conn.execute(text("SELECT version_num FROM alembic_version"))
-            current_version = await result.fetchone()
+            current_version = result.fetchone()
 
             if current_version:
                 logger.info(f"Current migration version: {current_version[0]}")
@@ -75,7 +75,7 @@ async def check_migration_status():
                     )
                 """)
                 )
-                exists = await result.fetchone()
+                exists = result.fetchone()
 
                 if exists[0]:
                     existing_tables.append(table)

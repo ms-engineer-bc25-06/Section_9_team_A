@@ -2,6 +2,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.pool import NullPool
+from sqlalchemy import text
 import structlog
 import os
 
@@ -72,14 +73,15 @@ async def test_database_connection():
     try:
         async with engine.begin() as conn:
             # 基本的な接続テスト
-            result = await conn.execute("SELECT 1")
-            await result.fetchone()
+            result = await conn.execute(text("SELECT 1"))
+            row = result.fetchone()
+            logger.info(f"Basic connection test: {row[0]}")
 
             # データベース情報の取得
             db_info = await conn.execute(
-                "SELECT current_database(), current_user, version()"
+                text("SELECT current_database(), current_user, version()")
             )
-            db_data = await db_info.fetchone()
+            db_data = db_info.fetchone()
             logger.info(f"Connected to database: {db_data[0]}, User: {db_data[1]}")
 
         logger.info("Database connection successful")
