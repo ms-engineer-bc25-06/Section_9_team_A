@@ -23,8 +23,30 @@ export default function AdminLoginPage() {
       const user = auth.currentUser
       const userEmail = user?.email
 
-      if (userEmail !== "admin@example.com") {
-        alert("このアカウントは管理者ではありません。")
+      // 管理者権限をチェック
+      try {
+        const idToken = await user?.getIdToken()
+        
+        // デバッグログ（必要に応じてコメントアウト）
+        // console.log("=== 管理者チェック開始 ===")
+        // console.log("Firebase UID:", user?.uid)
+        // console.log("Email:", user?.email)
+        // console.log("🔑 ID Token (最初の50文字):", idToken?.substring(0, 50))
+        
+        const response = await fetch('http://localhost:8000/api/v1/admin-role/check-admin', {
+          headers: {
+            'Authorization': `Bearer ${idToken}`,
+            'Content-Type': 'application/json'
+          }
+        })
+        
+        if (!response.ok) {
+          alert("このアカウントは管理者ではありません")
+          return
+        }
+      } catch (error) {
+        console.error("管理者権限チェック失敗:", error)
+        alert("管理者権限の確認に失敗しました")
         return
       }
 

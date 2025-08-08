@@ -11,14 +11,14 @@ const HomePage: React.FC = () => {
   const { user, isLoading } = useAuth()
   const router = useRouter()
 
-  // ✅ ログイン済みのユーザーがいたら dashboard にリダイレクト
+  // ログイン済みのユーザーがいたら dashboard にリダイレクト
   useEffect(() => {
     if (!isLoading && user) {
       router.push("/dashboard")
     }
   }, [user, isLoading, router])
 
-  // ✅ ローディング中（Firebaseなどの認証確認中）
+  // ローディング中（Firebaseなどの認証確認中）
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -27,7 +27,7 @@ const HomePage: React.FC = () => {
     )
   }
 
-  // ✅ 未ログインユーザーにはログイン画面を表示
+  // 未ログインユーザーにはログイン画面を表示
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <Card className="w-full max-w-md">
