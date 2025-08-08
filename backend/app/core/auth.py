@@ -2,8 +2,6 @@ from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import JWTError, jwt
-from passlib.context import CryptContext
 import firebase_admin
 from firebase_admin import auth, credentials
 import structlog
@@ -15,14 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 logger = structlog.get_logger()
-
-# パスワードハッシュ化
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# JWT設定
-SECRET_KEY = settings.SECRET_KEY
-ALGORITHM = settings.ALGORITHM
-ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
 
 # Firebase初期化
 try:
@@ -49,40 +39,6 @@ except Exception as e:
     logger.warning(f"Firebase initialization failed: {e}")
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """パスワード検証"""
-    return pwd_context.verify(plain_password, hashed_password)
-
-
-def get_password_hash(password: str) -> str:
-    """パスワードハッシュ化"""
-    return pwd_context.hash(password)
-
-
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-    """アクセストークン作成"""
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
-
-
-async def verify_token(token: str) -> Optional[dict]:
-    """JWTトークン検証"""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
-        if email is None:
-            return None
-        return payload
-    except JWTError:
-        return None
-
-
 async def verify_firebase_token(id_token: str) -> Optional[dict]:
     """Firebaseトークン検証"""
     try:
@@ -97,7 +53,7 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    """現在のユーザー取得"""
+    """現在のユーザー取得（Firebase認証）"""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -107,27 +63,76 @@ async def get_current_user(
     try:
         token = credentials.credentials
 
-        # JWTトークン検証
-        payload = await verify_token(token)
-        if payload is None:
+        # Firebaseトークン検証
+        decoded_token = await verify_firebase_token(token)
+        if decoded_token is None:
             raise credentials_exception
 
-        email: str = payload.get("sub")
-        if email is None:
+        firebase_uid = decoded_token.get("uid")
+        email = decoded_token.get("email")
+
+        if not firebase_uid or not email:
             raise credentials_exception
 
-        # ユーザー取得
-        result = await db.execute(select(User).where(User.email == email))
+        # ユーザー取得（Firebase UIDまたはメールアドレスで検索）
+        result = await db.execute(
+            select(User).where(
+                (User.firebase_uid == firebase_uid) | (User.email == email)
+            )
+        )
         user = result.scalar_one_or_none()
 
         if user is None:
+            # ユーザーが存在しない場合は作成
+            user = await create_user_from_firebase(decoded_token, db)
+
+        if not user:
             raise credentials_exception
+
+        # 最終ログイン時刻更新
+        user.last_login_at = datetime.utcnow()
+        await db.commit()
 
         return user
 
     except Exception as e:
         logger.error(f"Authentication failed: {e}")
         raise credentials_exception
+
+
+async def create_user_from_firebase(
+    firebase_user: dict, db: AsyncSession
+) -> Optional[User]:
+    """Firebaseユーザー情報からユーザーを作成"""
+    try:
+        firebase_uid = firebase_user.get("uid")
+        email = firebase_user.get("email")
+        name = firebase_user.get("name", "")
+
+        if not firebase_uid or not email:
+            return None
+
+        # ユーザー作成
+        user = User(
+            email=email,
+            username=email.split("@")[0],  # メールアドレスの@前をユーザー名として使用
+            full_name=name,
+            firebase_uid=firebase_uid,
+            is_verified=firebase_user.get("email_verified", False),
+            is_active=True,
+        )
+
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+
+        logger.info(f"User created from Firebase: {email}")
+        return user
+
+    except Exception as e:
+        logger.error(f"Failed to create user from Firebase: {e}")
+        await db.rollback()
+        return None
 
 
 async def get_current_active_user(
@@ -139,7 +144,13 @@ async def get_current_active_user(
     return current_user
 
 
-def authenticate_user(email: str, password: str, db: AsyncSession) -> Optional[User]:
-    """ユーザー認証"""
-    # この関数は後でAuthServiceで実装
-    pass
+async def get_user_by_firebase_uid(
+    firebase_uid: str, db: AsyncSession
+) -> Optional[User]:
+    """Firebase UIDでユーザー取得"""
+    try:
+        result = await db.execute(select(User).where(User.firebase_uid == firebase_uid))
+        return result.scalar_one_or_none()
+    except Exception as e:
+        logger.error(f"Failed to get user by Firebase UID {firebase_uid}: {e}")
+        return None

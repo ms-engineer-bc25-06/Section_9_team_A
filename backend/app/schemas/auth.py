@@ -4,7 +4,7 @@ from datetime import datetime, date
 
 
 class Token(BaseModel):
-    """トークンスキーマ"""
+    """トークンスキーマ（Firebase認証用）"""
 
     access_token: str
     token_type: str
@@ -15,6 +15,7 @@ class TokenData(BaseModel):
     """トークンデータスキーマ"""
 
     email: Optional[str] = None
+    firebase_uid: Optional[str] = None
 
 
 class UserBase(BaseModel):
@@ -33,7 +34,9 @@ class UserBase(BaseModel):
     hometown: Optional[str] = None  # 出身地
     residence: Optional[str] = None  # 居住地
     hobbies: Optional[str] = None  # 趣味・特技
-    student_activities: Optional[str] = None  # 学生時代の部活・サークル・力を入れていたこと
+    student_activities: Optional[str] = (
+        None  # 学生時代の部活・サークル・力を入れていたこと
+    )
     holiday_activities: Optional[str] = None  # 休日の過ごし方
     favorite_food: Optional[str] = None  # 好きな食べ物
     favorite_media: Optional[str] = None  # 好きな本・漫画・映画・ドラマ
@@ -45,23 +48,9 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    """ユーザー作成スキーマ"""
+    """ユーザー作成スキーマ（Firebase認証用）"""
 
-    password: str = Field(..., min_length=8)
-    firebase_uid: Optional[str] = None
-
-
-class UserLogin(BaseModel):
-    """ユーザーログインスキーマ"""
-
-    email: EmailStr
-    password: str
-
-
-class UserRegister(UserCreate):
-    """ユーザー登録スキーマ"""
-
-    confirm_password: str = Field(..., min_length=8)
+    firebase_uid: str
 
 
 class UserUpdate(BaseModel):
@@ -79,7 +68,9 @@ class UserUpdate(BaseModel):
     hometown: Optional[str] = None  # 出身地
     residence: Optional[str] = None  # 居住地
     hobbies: Optional[str] = None  # 趣味・特技
-    student_activities: Optional[str] = None  # 学生時代の部活・サークル・力を入れていたこと
+    student_activities: Optional[str] = (
+        None  # 学生時代の部活・サークル・力を入れていたこと
+    )
     holiday_activities: Optional[str] = None  # 休日の過ごし方
     favorite_food: Optional[str] = None  # 好きな食べ物
     favorite_media: Optional[str] = None  # 好きな本・漫画・映画・ドラマ
@@ -94,6 +85,7 @@ class UserResponse(UserBase):
     """ユーザー応答スキーマ"""
 
     id: int
+    firebase_uid: Optional[str] = None
     is_active: bool
     is_verified: bool
     is_premium: bool
@@ -115,27 +107,32 @@ class FirebaseAuthRequest(BaseModel):
     id_token: str
 
 
-class PasswordResetRequest(BaseModel):
-    """パスワードリセットリクエストスキーマ"""
+class TokenVerificationResponse(BaseModel):
+    """トークン検証応答スキーマ"""
 
-    email: EmailStr
-
-
-class PasswordResetConfirm(BaseModel):
-    """パスワードリセット確認スキーマ"""
-
-    token: str
-    new_password: str = Field(..., min_length=8)
-    confirm_password: str = Field(..., min_length=8)
+    valid: bool
+    user: Optional[dict] = None
 
 
-class EmailVerificationRequest(BaseModel):
-    """メール認証リクエストスキーマ"""
+class ProfileUpdateRequest(BaseModel):
+    """プロフィール更新リクエストスキーマ"""
 
-    email: EmailStr
-
-
-class EmailVerificationConfirm(BaseModel):
-    """メール認証確認スキーマ"""
-
-    token: str
+    full_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    bio: Optional[str] = None
+    nickname: Optional[str] = None
+    department: Optional[str] = None
+    join_date: Optional[date] = None
+    birth_date: Optional[date] = None
+    hometown: Optional[str] = None
+    residence: Optional[str] = None
+    hobbies: Optional[str] = None
+    student_activities: Optional[str] = None
+    holiday_activities: Optional[str] = None
+    favorite_food: Optional[str] = None
+    favorite_media: Optional[str] = None
+    favorite_music: Optional[str] = None
+    pets_oshi: Optional[str] = None
+    respected_person: Optional[str] = None
+    motto: Optional[str] = None
+    future_goals: Optional[str] = None
