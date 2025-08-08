@@ -192,3 +192,71 @@ deps-check:
 		echo "Node.js: $$(node --version 2>/dev/null || echo '未インストール')"; \
 		echo "npm: $$(npm --version 2>/dev/null || echo '未インストール')"; \
 	fi 
+
+# データベース関連
+db-test-connection:
+	cd backend && python scripts/test_db_connection.py
+
+db-check-migrations:
+	cd backend && python scripts/check_migrations.py
+
+db-init:
+	docker-compose exec postgres psql -U bridge_user -d bridge_line_db -f /docker-entrypoint-initdb.d/init_db.sql
+
+db-init-test:
+	docker-compose exec postgres psql -U bridge_user -d postgres -f /docker-entrypoint-initdb.d/init_test_db.sql
+
+db-migrate:
+	cd backend && alembic upgrade head
+
+db-migrate-create:
+	cd backend && alembic revision --autogenerate -m "$(message)"
+
+db-reset:
+	docker-compose down -v
+	docker-compose up -d postgres
+	sleep 10
+	$(MAKE) db-init
+	$(MAKE) db-migrate
+
+db-status:
+	cd backend && alembic current
+
+db-history:
+	cd backend && alembic history
+
+# テスト関連
+test-db:
+	cd backend && python -m pytest tests/ -v --tb=short
+
+test-db-unit:
+	cd backend && python -m pytest tests/ -v --tb=short -k "not integration"
+
+# 開発環境
+dev-setup:
+	docker-compose up -d postgres redis
+	sleep 10
+	$(MAKE) db-init
+	$(MAKE) db-migrate
+	cd backend && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+dev-stop:
+	docker-compose down
+
+# ヘルプ
+help:
+	@echo "利用可能なコマンド:"
+	@echo "  db-test-connection  - データベース接続テスト"
+	@echo "  db-check-migrations - マイグレーション状態確認"
+	@echo "  db-init             - データベース初期化"
+	@echo "  db-init-test        - テストデータベース初期化"
+	@echo "  db-migrate          - マイグレーション実行"
+	@echo "  db-migrate-create   - 新しいマイグレーション作成"
+	@echo "  db-reset            - データベースリセット"
+	@echo "  db-status           - 現在のマイグレーション状態"
+	@echo "  db-history          - マイグレーション履歴"
+	@echo "  test-db             - データベーステスト実行"
+	@echo "  test-db-unit        - ユニットテスト実行"
+	@echo "  dev-setup           - 開発環境セットアップ"
+	@echo "  dev-stop            - 開発環境停止"
+	@echo "  help                - このヘルプを表示" 

@@ -1,7 +1,7 @@
 """update_transcriptions_table_manual
 
-Revision ID: update_transcriptions_manual
-Revises: 525d369dc5b6
+Revision ID: f6e5d4c3b2a1
+Revises: 7b8f6314a525
 Create Date: 2025-08-07 19:30:00.000000
 
 """
@@ -11,8 +11,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = "update_transcriptions_manual"
-down_revision = "525d369dc5b6"
+revision = "f6e5d4c3b2a1"
+down_revision = "7b8f6314a525"
 branch_labels = None
 depends_on = None
 

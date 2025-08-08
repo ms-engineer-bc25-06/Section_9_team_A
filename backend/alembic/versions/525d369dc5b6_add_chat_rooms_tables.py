@@ -1,7 +1,7 @@
 """add_chat_rooms_tables
 
 Revision ID: 525d369dc5b6
-Revises: add_voice_sessions_table
+Revises: a1b2c3d4e5f6
 Create Date: 2025-08-06 00:36:06.962641
 
 """
@@ -12,7 +12,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = "525d369dc5b6"
-down_revision = "7107ad07c5a9"
+down_revision = "a1b2c3d4e5f6"
 branch_labels = None
 depends_on = None
 

@@ -18,9 +18,11 @@ class Settings(BaseSettings):
 
     # データベース設定
     DATABASE_URL: str = (
-        "postgresql+asyncpg://bridge_user:bridge_password@localhost/bridge_line_db"
+        "postgresql+asyncpg://bridge_user:bridge_password@postgres:5432/bridge_line_db"
     )
-    TEST_DATABASE_URL: Optional[str] = None
+    TEST_DATABASE_URL: Optional[str] = (
+        "postgresql+asyncpg://bridge_user:bridge_password@postgres:5432/bridge_line_test_db"
+    )
 
     # セキュリティ設定
     SECRET_KEY: str = "your-secret-key-here"

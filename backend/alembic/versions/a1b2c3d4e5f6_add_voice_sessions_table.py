@@ -1,6 +1,6 @@
 """add voice_sessions table
 
-Revision ID: add_voice_sessions_table
+Revision ID: a1b2c3d4e5f6
 Revises: 7107ad07c5a9
 Create Date: 2025-01-27 10:00:00.000000
 
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = "add_voice_sessions_table"
+revision = "a1b2c3d4e5f6"
 down_revision = "7107ad07c5a9"
 branch_labels = None
 depends_on = None

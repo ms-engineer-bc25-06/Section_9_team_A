@@ -10,6 +10,24 @@ from starlette.testclient import TestClient
 from app.main import app
 from app.core.database import Base, engine
 
+import pytest
+import asyncio
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.pool import StaticPool
+import os
+import sys
+
+# プロジェクトルートをPythonパスに追加
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
+from app.core.database import Base
+from app.config import settings
+
+# テスト用データベースURL
+TEST_DATABASE_URL = (
+    "postgresql+asyncpg://bridge_user:bridge_password@postgres:5432/bridge_line_test_db"
+)
+
 
 class CombinedTestClient:
     """HTTPの非同期呼び出しとWebSocket接続の両方を提供するテストクライアント。
@@ -50,10 +68,50 @@ class CombinedTestClient:
 
 @pytest.fixture(scope="session")
 def event_loop():
-    """各テストクラスで専用のイベントループを提供。"""
-    loop = asyncio.new_event_loop()
+    """テスト用のイベントループ"""
+    loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
+
+
+@pytest.fixture(scope="session")
+async def test_engine():
+    """テスト用データベースエンジン"""
+    # テスト環境であることを示す環境変数を設定
+    os.environ["TESTING"] = "1"
+
+    # テスト用エンジン作成
+    engine = create_async_engine(
+        TEST_DATABASE_URL,
+        echo=False,
+        poolclass=StaticPool,
+        future=True,
+    )
+
+    # テスト用データベースの初期化
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.create_all)
+
+    yield engine
+
+    # クリーンアップ
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+
+    await engine.dispose()
+
+
+@pytest.fixture
+async def test_session(test_engine):
+    """テスト用データベースセッション"""
+    async_session = async_sessionmaker(
+        test_engine, class_=AsyncSession, expire_on_commit=False
+    )
+
+    async with async_session() as session:
+        yield session
+        await session.rollback()
 
 
 @pytest.fixture(autouse=True)
