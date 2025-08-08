@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, Date
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from datetime import datetime
+from typing import Optional, cast
 
 from app.core.database import Base
 
@@ -75,11 +76,15 @@ class User(Base):
     @property
     def is_premium_user(self) -> bool:
         """プレミアムユーザーかどうか"""
-        if not self.subscription_end_date:
+        end_date = cast(Optional[datetime], self.subscription_end_date)
+        if not end_date:
             return False
-        return self.subscription_end_date > datetime.utcnow()
+        return end_date > datetime.utcnow()
 
     @property
     def has_active_subscription(self) -> bool:
         """アクティブなサブスクリプションがあるかどうか"""
-        return self.subscription_status in ["basic", "premium"] and self.is_premium_user
+        status = cast(Optional[str], self.subscription_status)
+        if status not in ["basic", "premium"]:
+            return False
+        return self.is_premium_user
