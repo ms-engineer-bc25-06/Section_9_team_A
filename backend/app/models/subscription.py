@@ -2,9 +2,7 @@ from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Bool
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from datetime import datetime
-
 from app.models.base import Base
-
 
 class Subscription(Base):
     """サブスクリプションモデル"""
@@ -12,6 +10,7 @@ class Subscription(Base):
     __tablename__ = "subscriptions"
 
     id = Column(Integer, primary_key=True, index=True)
+
     
     # サブスクリプション情報
     subscription_id = Column(String(255), unique=True, index=True, nullable=False)
@@ -40,6 +39,7 @@ class Subscription(Base):
     
     # 外部キー
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
     
     # タイムスタンプ
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -48,6 +48,7 @@ class Subscription(Base):
     
     # リレーションシップ
     user = relationship("User", back_populates="subscriptions")
+
     billing_records = relationship("Billing", back_populates="subscription")
 
     def __repr__(self):
@@ -66,5 +67,3 @@ class Subscription(Base):
         if not self.trial_end_date:
             return False
         return datetime.utcnow() <= self.trial_end_date
-
-

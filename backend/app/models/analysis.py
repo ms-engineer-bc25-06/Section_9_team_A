@@ -1,10 +1,11 @@
+
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Float, JSON
+
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
 from app.models.base import Base
-
 
 class Analysis(Base):
     """分析結果モデル"""
@@ -41,10 +42,13 @@ class Analysis(Base):
     voice_session_id = Column(Integer, ForeignKey("voice_sessions.id"), nullable=True)
     transcription_id = Column(Integer, ForeignKey("transcriptions.id"), nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
     
     # タイムスタンプ
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    
     processed_at = Column(DateTime(timezone=True), nullable=True)
     
     # リレーションシップ
@@ -59,5 +63,3 @@ class Analysis(Base):
     def is_completed(self) -> bool:
         """分析が完了しているかどうか"""
         return self.status == "completed" and self.processed_at is not None
-
-

@@ -2,9 +2,7 @@ from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Bool
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from datetime import datetime
-
 from app.models.base import Base
-
 
 class Billing(Base):
     """請求モデル"""
@@ -12,6 +10,7 @@ class Billing(Base):
     __tablename__ = "billings"
 
     id = Column(Integer, primary_key=True, index=True)
+
     
     # 請求情報
     billing_id = Column(String(255), unique=True, index=True, nullable=False)
@@ -30,7 +29,7 @@ class Billing(Base):
     # 外部サービス情報
     stripe_payment_intent_id = Column(String(255), nullable=True)
     stripe_invoice_id = Column(String(255), nullable=True)
-    
+
     # 請求詳細
     description = Column(Text, nullable=True)
     billing_metadata = Column(JSON, nullable=True)  # 追加情報

@@ -2,9 +2,7 @@ from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, Foreign
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from datetime import datetime
-
 from app.models.base import Base
-
 
 class Team(Base):
     """チームモデル"""
@@ -12,6 +10,7 @@ class Team(Base):
     __tablename__ = "teams"
 
     id = Column(Integer, primary_key=True, index=True)
+
     name = Column(String(255), nullable=False, index=True)
     description = Column(Text, nullable=True)
     avatar_url = Column(String(500), nullable=True)
@@ -28,6 +27,7 @@ class Team(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # リレーションシップ
+
     owner = relationship("User", foreign_keys=[owner_id])
     members = relationship("TeamMember", back_populates="team")
     voice_sessions = relationship("VoiceSession", back_populates="team")
@@ -35,5 +35,3 @@ class Team(Base):
 
     def __repr__(self):
         return f"<Team(id={self.id}, name='{self.name}', owner_id={self.owner_id})>"
-
-

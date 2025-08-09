@@ -1,10 +1,9 @@
+
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Float, JSON, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from datetime import datetime
-
 from app.models.base import Base
-
 
 class Transcription(Base):
     """文字起こしモデル"""
@@ -12,6 +11,7 @@ class Transcription(Base):
     __tablename__ = "transcriptions"
 
     id = Column(Integer, primary_key=True, index=True)
+
     
     # 文字起こし情報
     transcription_id = Column(String(255), unique=True, index=True, nullable=False)
@@ -40,10 +40,12 @@ class Transcription(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     processed_at = Column(DateTime(timezone=True), nullable=True)
+
     
     # リレーションシップ
     voice_session = relationship("VoiceSession", back_populates="transcriptions")
     user = relationship("User", back_populates="transcriptions")
+
     analyses = relationship("Analysis", back_populates="transcription")
 
     def __repr__(self):
@@ -53,5 +55,3 @@ class Transcription(Base):
     def is_completed(self) -> bool:
         """文字起こしが完了しているかどうか"""
         return self.status == "completed" and self.processed_at is not None
-
-

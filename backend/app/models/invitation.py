@@ -12,6 +12,7 @@ class Invitation(Base):
     __tablename__ = "invitations"
 
     id = Column(Integer, primary_key=True, index=True)
+
     
     # 招待情報
     invitation_id = Column(String(255), unique=True, index=True, nullable=False)
@@ -32,10 +33,11 @@ class Invitation(Base):
     team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
     invited_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     invited_user = Column(Integer, ForeignKey("users.id"), nullable=True)
-    
+
     # タイムスタンプ
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
     expires_at = Column(DateTime(timezone=True), nullable=True)
     accepted_at = Column(DateTime(timezone=True), nullable=True)
     
@@ -58,5 +60,3 @@ class Invitation(Base):
     def is_accepted(self) -> bool:
         """招待が承認されたかどうか"""
         return self.status == "accepted" and self.accepted_at is not None
-
-
