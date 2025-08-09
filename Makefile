@@ -65,7 +65,6 @@ start:
 	@echo "Access URLs:"
 	@echo "  Backend API: http://localhost:8000"
 	@echo "  API Docs: http://localhost:8000/docs"
-	@echo "  Frontend: http://localhost:3000"
 
 # Stop Docker environment
 stop:
