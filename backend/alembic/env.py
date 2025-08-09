@@ -14,8 +14,8 @@ os.environ["ALEMBIC_RUNNING"] = "1"
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from app.config import settings
-from app.core.database import Base
-from app.models import *  # すべてのモデルをインポート
+from app.models.base import Base
+from app.models import *  # すべてのモデルをインポートしてメタデータを集約
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
