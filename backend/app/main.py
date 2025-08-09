@@ -6,8 +6,6 @@ import structlog
 
 from app.config import settings
 from app.api.v1.api import api_router
-from app.core.database import engine
-from app.models.base import Base
 from app.core.exceptions import BridgeLineException
 from app.api.deps import handle_bridge_line_exceptions
 
@@ -39,13 +37,8 @@ async def lifespan(app: FastAPI):
     # 起動時
     logger.info("Starting Bridge Line API server")
 
-    # データベーステーブル作成
-    try:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-        logger.info("Database tables created successfully")
-    except Exception as e:
-        logger.error(f"Failed to create database tables: {e}")
+    # データベースマイグレーションは Alembic を使用（自動作成は行わない）
+    logger.info("Skipping automatic table creation. Use Alembic migrations instead.")
 
     # 初期管理者の自動設定
     try:
