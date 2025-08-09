@@ -1,35 +1,34 @@
-// FIXME (現在の音声チャット表示)
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar"
 import { Badge } from "@/components/ui/Badge"
 import { Mic, MicOff, Volume2, VolumeX, Phone, Users } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { useVoiceChat } from "@/hooks/useVoiceChat"
 
 interface Props {
   roomId: string
 }
-
-const mockParticipants = [
-  { id: 1, name: "田中太郎", isMuted: false, isActive: true },
-  { id: 2, name: "佐藤花子", isMuted: true, isActive: false },
-  { id: 3, name: "鈴木一郎", isMuted: false, isActive: true },
-]
 
 export function ActiveVoiceChat({ roomId }: Props) {
   const [isMuted, setIsMuted] = useState(false)
   const [isSpeakerOn, setIsSpeakerOn] = useState(true)
   const [duration, setDuration] = useState(0)
   const router = useRouter()
+  const sessionId = useMemo(() => roomId, [roomId])
+  const { isConnected, participants, join, leave } = useVoiceChat(sessionId)
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setDuration((prev) => prev + 1)
-    }, 1000)
+    if (isConnected) {
+      join()
+    }
+  }, [isConnected, join])
 
+  useEffect(() => {
+    const timer = setInterval(() => setDuration((prev) => prev + 1), 1000)
     return () => clearInterval(timer)
   }, [])
 
@@ -40,7 +39,11 @@ export function ActiveVoiceChat({ roomId }: Props) {
   }
 
   const handleEndCall = () => {
-    router.push("/voice-chat")
+    try {
+      leave()
+    } finally {
+      router.push("/voice-chat")
+    }
   }
 
   return (
@@ -48,7 +51,7 @@ export function ActiveVoiceChat({ roomId }: Props) {
       <div className="text-center mb-8">
         <div className="text-4xl font-bold mb-2">{formatDuration(duration)}</div>
         <Badge variant="secondary" className="text-lg px-4 py-2">
-          通話中 - Room {roomId}
+          {isConnected ? "接続中" : "接続中..."} - Room {roomId}
         </Badge>
       </div>
 
@@ -61,30 +64,42 @@ export function ActiveVoiceChat({ roomId }: Props) {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {mockParticipants.map((participant) => (
-              <div key={participant.id} className="text-center">
+            {participants.map((p: any) => (
+              <div key={p.user_id ?? p.id} className="text-center">
                 <div className="relative mb-3">
                   <Avatar className="h-20 w-20 mx-auto">
-                    <AvatarImage src={`/placeholder.svg?height=80&width=80&query=${participant.name}`} />
-                    <AvatarFallback className="text-xl">{participant.name.slice(0, 2)}</AvatarFallback>
+                    <AvatarImage src={p.avatar_url || "/placeholder.svg?height=80&width=80"} />
+                    <AvatarFallback className="text-xl">
+                      {(p.display_name || p.username || "U").slice(0, 2)}
+                    </AvatarFallback>
                   </Avatar>
-                  {participant.isActive && (
+                  {p.is_active && (
                     <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-2 border-gray-800 flex items-center justify-center">
                       <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
                     </div>
                   )}
-                  {participant.isMuted && (
+                  {p.is_muted && (
                     <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full border-2 border-gray-800 flex items-center justify-center">
                       <MicOff className="h-3 w-3 text-white" />
                     </div>
                   )}
                 </div>
-                <p className="text-white font-medium">{participant.name}</p>
-                <Badge variant={participant.isActive ? "default" : "secondary"} className="text-xs mt-1">
-                  {participant.isActive ? "発話中" : "待機中"}
-                </Badge>
+                <p className="text-white font-medium">{p.display_name || p.username || "参加者"}</p>
+                <div className="flex items-center justify-center gap-2 mt-1">
+                  {typeof p.is_active === "boolean" && (
+                    <Badge variant={p.is_active ? "default" : "secondary"} className="text-xs">
+                      {p.is_active ? "発話中" : "待機中"}
+                    </Badge>
+                  )}
+                  {p.role && (
+                    <Badge variant="secondary" className="text-xs">{p.role}</Badge>
+                  )}
+                </div>
               </div>
             ))}
+            {participants.length === 0 && (
+              <div className="text-sm text-gray-300">参加者情報を待機中...</div>
+            )}
           </div>
         </CardContent>
       </Card>
