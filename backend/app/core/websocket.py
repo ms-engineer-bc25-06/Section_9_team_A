@@ -6,9 +6,11 @@ from fastapi.security import HTTPBearer
 import structlog
 from datetime import datetime, timedelta
 
-from app.core.auth import get_current_user_from_token
+from app.core.auth import get_current_user_from_token, verify_firebase_token
 from app.models.user import User
 from app.core.exceptions import AuthenticationException, PermissionException
+from app.core.database import AsyncSessionLocal
+from sqlalchemy import select
 
 logger = structlog.get_logger()
 
@@ -273,10 +275,42 @@ class WebSocketAuth:
             if not token:
                 raise AuthenticationException("Token is required")
 
-            # トークンの検証
+            # 1) アプリJWTでの検証
             user = await get_current_user_from_token(token)
             if not user:
-                raise AuthenticationException("Invalid token")
+                # 2) Firebase ID トークンでの検証（フォールバック）
+                decoded = await verify_firebase_token(token)
+                if not decoded:
+                    raise AuthenticationException("Invalid token")
+
+                firebase_uid = decoded.get("uid")
+                email = decoded.get("email")
+                display_name = decoded.get("name") or email
+
+                async with AsyncSessionLocal() as db:
+                    # 既存ユーザー検索（firebase_uid 優先、なければ email）
+                    result = await db.execute(
+                        select(User).where(
+                            (User.firebase_uid == firebase_uid) if firebase_uid else (User.email == email)
+                        )
+                    )
+                    user = result.scalar_one_or_none()
+
+                    # 見つからない場合は作成（最小項目のみ設定）
+                    if not user:
+                        if not email:
+                            raise AuthenticationException("Email is required")
+                        user = User(
+                            firebase_uid=firebase_uid,
+                            email=email,
+                            username=email,
+                            full_name=display_name or email,
+                            is_active=True,
+                            is_verified=True,
+                        )
+                        db.add(user)
+                        await db.commit()
+                        await db.refresh(user)
 
             # ユーザーの有効性チェック
             if not user.is_active:
