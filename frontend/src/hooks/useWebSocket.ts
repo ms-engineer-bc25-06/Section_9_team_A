@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { getAuthToken } from "@/lib/api"
 
-type JsonValue = Record<string, unknown>
+type JsonValue = unknown
 
 export interface UseWebSocketOptions {
   autoReconnect?: boolean

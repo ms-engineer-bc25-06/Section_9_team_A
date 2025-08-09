@@ -3,6 +3,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useWebSocket } from "@/hooks/useWebSocket"
+import { WS_EVENT } from "@/../../shared/constants/websocket-events"
+import type {
+  IncomingWsMessage,
+  OutgoingWsMessage,
+  SessionParticipantsMessage,
+} from "@/../../shared/types/websocket"
 
 export interface UseVoiceChatOptions {
   onParticipants?: (participants: any[]) => void
@@ -25,9 +31,13 @@ export function useVoiceChat(sessionId: string, options: UseVoiceChatOptions = {
     {
       onMessage: (data) => {
         if (!data || typeof data !== "object") return
-        const type = (data as any).type
-        if (type === "session_participants" || type === "session_participants_info") {
-          const list = (data as any).participants ?? []
+        const msg = data as IncomingWsMessage
+        if (
+          msg.type === WS_EVENT.SESSION_PARTICIPANTS ||
+          msg.type === WS_EVENT.SESSION_PARTICIPANTS_INFO
+        ) {
+          const sp = msg as SessionParticipantsMessage
+          const list = sp.participants ?? []
           setParticipants(list)
           options.onParticipants?.(list)
         }
@@ -46,18 +56,23 @@ export function useVoiceChat(sessionId: string, options: UseVoiceChatOptions = {
 
   const send = useCallback(
     (type: string, payload: Record<string, unknown> = {}) => {
-      sendJson({ type, session_id: sessionId, ...payload })
+      const message: OutgoingWsMessage | Record<string, unknown> = {
+        type: type as any,
+        session_id: sessionId,
+        ...payload,
+      }
+      sendJson(message)
     },
     [sendJson, sessionId]
   )
 
   const join = useCallback(() => {
-    send("join_session")
+    send(WS_EVENT.JOIN_SESSION)
   }, [send])
 
   const leave = useCallback(() => {
     try {
-      send("leave_session")
+      send(WS_EVENT.LEAVE_SESSION)
     } finally {
       close()
     }
