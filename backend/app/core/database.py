@@ -1,6 +1,4 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.pool import NullPool
 import structlog
 
@@ -21,15 +19,30 @@ AsyncSessionLocal = async_sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False
 )
 
+# async_session エイリアス（startup.pyで使用）
+async_session = AsyncSessionLocal
 
-# ベースクラス
-class Base(DeclarativeBase):
-    pass
+
+# ベースクラスは後で import（循環import回避）
 
 
 # データベースセッション依存性
 async def get_db() -> AsyncSession:
     """データベースセッションを取得"""
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+        except Exception as e:
+            logger.error(f"Database session error: {e}")
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+
+
+# データベースセッション依存性（新しい名前）
+async def get_db_session() -> AsyncSession:
+    """データベースセッションを取得（新しい関数名）"""
     async with AsyncSessionLocal() as session:
         try:
             yield session
