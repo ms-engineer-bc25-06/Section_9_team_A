@@ -3,7 +3,7 @@ from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
-from app.core.database import Base
+from app.models.base import Base
 
 
 class User(Base):
@@ -16,8 +16,6 @@ class User(Base):
     username = Column(String(100), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=True)  # Firebase認証の場合はnull
     full_name = Column(String(255), nullable=True)
-    # REVIEW: display_nameを追加（るい）
-    display_name = Column(String(255), nullable=True)  # 表示名（full_nameのエイリアス）
     avatar_url = Column(String(500), nullable=True)
     bio = Column(Text, nullable=True)
 
@@ -29,9 +27,7 @@ class User(Base):
     hometown = Column(String(200), nullable=True)  # 出身地
     residence = Column(String(200), nullable=True)  # 居住地
     hobbies = Column(Text, nullable=True)  # 趣味・特技
-    student_activities = Column(
-        Text, nullable=True
-    )  # 学生時代の部活・サークル・力を入れていたこと
+    student_activities = Column(Text, nullable=True)  # 学生時代の部活・サークル・力を入れていたこと
     holiday_activities = Column(Text, nullable=True)  # 休日の過ごし方
     favorite_food = Column(Text, nullable=True)  # 好きな食べ物
     favorite_media = Column(Text, nullable=True)  # 好きな本・漫画・映画・ドラマ
@@ -39,9 +35,7 @@ class User(Base):
     pets_oshi = Column(Text, nullable=True)  # ペット・推し
     respected_person = Column(Text, nullable=True)  # 尊敬する人
     motto = Column(Text, nullable=True)  # 座右の銘
-    future_goals = Column(
-        Text, nullable=True
-    )  # 将来の目標・生きてるうちにやってみたいこと
+    future_goals = Column(Text, nullable=True)  # 将来の目標・生きてるうちにやってみたいこと
 
     # Firebase認証関連
     firebase_uid = Column(String(128), unique=True, index=True, nullable=True)
@@ -50,6 +44,7 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
     is_premium = Column(Boolean, default=False)
+    is_admin = Column(Boolean, default=False)
 
     # サブスクリプション関連
     subscription_status = Column(String(50), default="free")  # free, basic, premium
@@ -71,17 +66,11 @@ class User(Base):
     transcriptions = relationship("Transcription", back_populates="user")
     analyses = relationship("Analysis", back_populates="user")
     subscriptions = relationship("Subscription", back_populates="user")
-    billings = relationship("Billing", back_populates="user")
-    sent_invitations = relationship(
-        "Invitation", foreign_keys="Invitation.inviter_id", back_populates="inviter"
-    )
-    audit_logs = relationship("AuditLog", back_populates="user")
-    # REVIEW: Chat-room用の関係性を定義（るい）
+    billing_records = relationship("Billing", back_populates="user")
     created_chat_rooms = relationship("ChatRoom", back_populates="creator")
     chat_messages = relationship("ChatMessage", back_populates="sender")
-    chat_room_participations = relationship(
-        "ChatRoomParticipant", back_populates="user"
-    )
+    chat_room_participations = relationship("ChatRoomParticipant", back_populates="user")
+
 
     def __repr__(self):
         return f"<User(id={self.id}, email='{self.email}', username='{self.username}')>"

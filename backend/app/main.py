@@ -6,7 +6,8 @@ import structlog
 
 from app.config import settings
 from app.api.v1.api import api_router
-from app.core.database import engine, Base
+from app.core.database import engine
+from app.models.base import Base
 from app.core.exceptions import BridgeLineException
 from app.api.deps import handle_bridge_line_exceptions
 
@@ -46,28 +47,17 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to create database tables: {e}")
 
-    # メッセージハンドラーの初期化
+    # 初期管理者の自動設定
     try:
-        from app.core.message_handlers import initialize_message_handlers
-
-        await initialize_message_handlers()
-        logger.info("Message handlers initialized")
+        from app.core.startup import startup_events
+        await startup_events()
     except Exception as e:
-        logger.error(f"Failed to initialize message handlers: {e}")
+        logger.error(f"Failed to initialize admin user: {e}")
 
     yield
 
     # シャットダウン時
     logger.info("Shutting down Bridge Line API server")
-
-    # メッセージハンドラーのシャットダウン
-    try:
-        from app.core.message_handlers import shutdown_message_handlers
-
-        await shutdown_message_handlers()
-        logger.info("Message handlers shut down")
-    except Exception as e:
-        logger.error(f"Failed to shut down message handlers: {e}")
 
 
 # FastAPIアプリケーション作成

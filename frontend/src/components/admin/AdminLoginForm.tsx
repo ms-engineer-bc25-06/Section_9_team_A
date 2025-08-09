@@ -21,13 +21,63 @@ export function AdminLoginForm() {
     setIsLoading(true)
 
     try {
+      console.log("1. ログイン試行中:", email)
       await login(email, password)
+      console.log("2. Firebase ログイン成功")
+      
       const currentUser = auth.currentUser
-      const userEmail = currentUser?.email
+      console.log("3. Current User:", currentUser)
+      
+      if (!currentUser) {
+        alert("ログインに失敗しました")
+        return
+      }
 
-      // 管理者専用フォーム admin 以外は拒否
-      if (userEmail !== "admin@example.com") {
-        alert("管理者専用です")
+      // バックエンドにユーザー登録してから管理者権限をチェック
+      try {
+        console.log("4. IDトークン取得中...")
+        const idToken = await currentUser?.getIdToken()
+
+        // デバッグログ（トラブルシューティング時に有効化）
+        // console.log("IDトークン取得成功:", idToken?.substring(0, 50) + "...")
+        
+        // バックエンドにユーザー登録（必要に応じて有効化）
+        // try {
+        //   const loginResponse = await fetch('http://localhost:8000/api/v1/auth/login', {
+        //     method: 'POST',
+        //     headers: {
+        //       'Content-Type': 'application/json',
+        //       'Authorization': `Bearer ${idToken}`
+        //     },
+        //     body: JSON.stringify({
+        //       id_token: idToken,
+        //       display_name: currentUser.displayName || currentUser.email || "管理者"
+        //     })
+        //   })
+        // } catch (regError: any) {
+        //   console.warn("ユーザー登録失敗、管理者チェックを続行:", regError)
+        // }
+        
+        const response = await fetch('http://localhost:8000/api/v1/admin-role/check-admin', {
+          headers: {
+            'Authorization': `Bearer ${idToken}`,
+            'Content-Type': 'application/json'
+          }
+        })
+        
+        console.log("9. 管理者チェックレスポンス:", response.status, response.statusText)
+        
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error("管理者権限エラー:", errorText)
+          alert(`管理者権限がありません: ${response.status}`)
+          return
+        }
+        
+        console.log("10. 管理者権限確認成功!")
+      } catch (error) {
+        console.error("管理者権限チェック失敗:", error)
+        alert("管理者権限の確認に失敗しました")
         return
       }
 

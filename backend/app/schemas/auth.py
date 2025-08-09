@@ -113,6 +113,7 @@ class FirebaseAuthRequest(BaseModel):
     """Firebase認証リクエストスキーマ"""
 
     id_token: str
+    display_name: Optional[str] = None
 
 
 class PasswordResetRequest(BaseModel):

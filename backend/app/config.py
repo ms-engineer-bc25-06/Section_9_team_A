@@ -17,12 +17,8 @@ class Settings(BaseSettings):
     PORT: int = 8000
 
     # データベース設定
-    DATABASE_URL: str = (
-        "postgresql+asyncpg://bridge_user:bridge_password@postgres:5432/bridge_line_db"
-    )
-    TEST_DATABASE_URL: Optional[str] = (
-        "postgresql+asyncpg://bridge_user:bridge_password@postgres:5432/bridge_line_test_db"
-    )
+    DATABASE_URL: str = "postgresql+asyncpg://bridge_user:bridge_password@postgres/bridge_line_db"
+    TEST_DATABASE_URL: Optional[str] = "postgresql+asyncpg://bridge_user:bridge_password@postgres/bridge_line_test_db"
 
     # セキュリティ設定
     SECRET_KEY: str = "your-secret-key-here"
@@ -69,7 +65,7 @@ class Settings(BaseSettings):
     OPENAI_MODEL: str = "gpt-4"
 
     # Redis設定
-    REDIS_URL: str = "redis://localhost:6379"
+    REDIS_URL: str = "redis://redis:6379"
 
     # ストレージ設定
     STORAGE_BUCKET_NAME: Optional[str] = None
@@ -93,9 +89,15 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "json"
 
+    # 初期管理者設定（オプション - 手動設定済み）
+    INITIAL_ADMIN_FIREBASE_UID: Optional[str] = None  # 現在: g7lzX9SnUUeBpRAae9CjynV0CX43
+    INITIAL_ADMIN_EMAIL: Optional[str] = None         # 現在: admin@example.com
+    INITIAL_ADMIN_DISPLAY_NAME: Optional[str] = None  # 現在: 管理者1
+
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"  # 環境変数の追加フィールドを無視（トラブルシューティング用）
 
 
 # 設定インスタンス
