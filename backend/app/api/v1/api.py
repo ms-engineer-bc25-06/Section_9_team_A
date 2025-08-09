@@ -12,6 +12,7 @@ from app.api.v1 import (
     invitations,
     webhooks,
     chat_rooms,
+    admin_role,
 )
 
 api_router = APIRouter()
@@ -56,3 +57,6 @@ api_router.include_router(invitations.router, prefix="/invitations", tags=["招�
 
 # Webhook
 api_router.include_router(webhooks.router, prefix="/webhooks", tags=["Webhook"])
+
+# 管理者のルートを登録
+api_router.include_router(admin_role.router, prefix="/admin-role", tags=["管理者"])

@@ -6,7 +6,8 @@ import structlog
 
 from app.config import settings
 from app.api.v1.api import api_router
-from app.core.database import engine, Base
+from app.core.database import engine
+from app.models.base import Base
 from app.core.exceptions import BridgeLineException
 from app.api.deps import handle_bridge_line_exceptions
 
@@ -45,6 +46,13 @@ async def lifespan(app: FastAPI):
         logger.info("Database tables created successfully")
     except Exception as e:
         logger.error(f"Failed to create database tables: {e}")
+
+    # 初期管理者の自動設定
+    try:
+        from app.core.startup import startup_events
+        await startup_events()
+    except Exception as e:
+        logger.error(f"Failed to initialize admin user: {e}")
 
     yield
 

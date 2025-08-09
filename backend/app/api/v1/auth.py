@@ -5,7 +5,7 @@ import structlog
 
 from app.core.database import get_db
 from app.core.auth import get_current_user, create_access_token
-from app.schemas.auth import Token, TokenData, UserLogin, UserRegister
+from app.schemas.auth import Token, TokenData, UserLogin, UserRegister, FirebaseAuthRequest
 from app.services.auth_service import AuthService
 
 router = APIRouter()
@@ -15,7 +15,7 @@ logger = structlog.get_logger()
 
 @router.post("/login", response_model=Token)
 async def login(user_credentials: UserLogin, db: AsyncSession = Depends(get_db)):
-    """ユーザーログイン"""
+    """ユーザーログイン（従来のメール/パスワード認証）"""
     try:
         auth_service = AuthService(db)
         user = await auth_service.authenticate_user(
@@ -38,6 +38,71 @@ async def login(user_credentials: UserLogin, db: AsyncSession = Depends(get_db))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error",
+        )
+
+
+@router.post("/firebase-login")
+async def firebase_login(
+    request: FirebaseAuthRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """Firebase認証によるログイン"""
+    try:
+        from app.integrations.firebase_client import get_firebase_client
+        
+        # Firebaseトークンを検証
+        firebase_client = get_firebase_client()
+        decoded_token = firebase_client.verify_id_token(request.id_token)
+        
+        if not decoded_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid Firebase token"
+            )
+        
+        # ユーザー情報を取得
+        uid = decoded_token.get("uid")
+        email = decoded_token.get("email")
+        
+        if not uid or not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid token data"
+            )
+        
+        # データベースでユーザーを検索または作成
+        auth_service = AuthService(db)
+        user = await auth_service.get_or_create_firebase_user(
+            firebase_uid=uid,
+            email=email,
+            display_name=request.display_name or email
+        )
+        
+        # アクセストークンを作成
+        access_token = create_access_token(data={"sub": user.email, "uid": uid})
+        
+        logger.info(f"Firebase user logged in successfully: {email}")
+        
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "username": user.username,
+                "full_name": user.full_name,
+                "firebase_uid": user.firebase_uid,
+                "is_admin": user.is_admin
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Firebase login failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error"
         )
 
 

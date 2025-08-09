@@ -151,3 +151,48 @@ class AuthService:
             logger.error(f"User deletion failed: {e}")
             await self.db.rollback()
             return False
+
+    async def get_or_create_firebase_user(
+        self, firebase_uid: str, email: str, display_name: str = None
+    ) -> User:
+        """Firebaseユーザーを取得または作成"""
+        try:
+            # 既存ユーザーを検索
+            result = await self.db.execute(
+                select(User).where(User.firebase_uid == firebase_uid)
+            )
+            user = result.scalar_one_or_none()
+
+            if user:
+                # 既存ユーザーの情報を更新
+                user.email = email
+                user.last_login_at = datetime.utcnow()
+                if display_name:
+                    user.full_name = display_name
+                await self.db.commit()
+                await self.db.refresh(user)
+                logger.info(f"Existing Firebase user logged in: {email}")
+                return user
+
+            # 新しいユーザーを作成
+            user = User(
+                firebase_uid=firebase_uid,
+                email=email,
+                username=email,  # 一時的にメールアドレスをユーザー名として使用
+                full_name=display_name or email,
+                is_active=True,
+                is_verified=True,
+                last_login_at=datetime.utcnow()
+            )
+
+            self.db.add(user)
+            await self.db.commit()
+            await self.db.refresh(user)
+
+            logger.info(f"New Firebase user created: {email}")
+            return user
+
+        except Exception as e:
+            logger.error(f"Firebase user creation/update failed: {e}")
+            await self.db.rollback()
+            raise ValueError("Failed to create or update Firebase user")
