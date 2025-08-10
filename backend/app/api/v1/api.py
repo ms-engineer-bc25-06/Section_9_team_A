@@ -13,6 +13,7 @@ from app.api.v1 import (
     webhooks,
     chat_rooms,
     admin_role,
+    audio_enhancement,
 )
 
 api_router = APIRouter()
@@ -57,6 +58,11 @@ api_router.include_router(invitations.router, prefix="/invitations", tags=["招�
 
 # Webhook
 api_router.include_router(webhooks.router, prefix="/webhooks", tags=["Webhook"])
+
+# 音声品質向上
+api_router.include_router(
+    audio_enhancement.router, prefix="/audio-enhancement", tags=["音声品質向上"]
+)
 
 # 管理者のルートを登録
 api_router.include_router(admin_role.router, prefix="/admin-role", tags=["管理者"])
