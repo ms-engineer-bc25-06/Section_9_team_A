@@ -33,7 +33,7 @@ export function LoginForm() {
     }
   }
 
-  const handleAdminLogin = () => {
+  const handleGoToAdmin = () => {
     router.push("/admin/login")
   }
 
@@ -80,9 +80,13 @@ export function LoginForm() {
 
       <Separator />
 
-      <Button variant="outline" className="w-full bg-transparent" onClick={handleAdminLogin}>
+      <Button
+        variant="outline"
+        className="w-full bg-transparent"
+        onClick={handleGoToAdmin}
+      >
         <Shield className="mr-2 h-4 w-4" />
-        管理者ログイン
+        管理者ログインはこちら
       </Button>
     </div>
   )

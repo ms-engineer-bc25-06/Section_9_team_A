@@ -51,6 +51,30 @@ from .chat_room import (
     ChatRoomStats,
 )
 
+# WebSocket関連
+from .websocket import (
+    WebSocketMessageType,
+    WebSocketBaseMessage,
+    ConnectionEstablishedMessage,
+    PingMessage,
+    PongMessage,
+    JoinSessionMessage,
+    LeaveSessionMessage,
+    UserInfo,
+    UserJoinedMessage,
+    UserLeftMessage,
+    SessionParticipantsMessage,
+    AudioDataMessage,
+    AudioStartMessage,
+    AudioStopMessage,
+    AudioLevelMessage,
+    TranscriptionPartialMessage,
+    TranscriptionFinalMessage,
+    ErrorMessage,
+    WarningMessage,
+    WebSocketMessage,
+)
+
 # その他のスキーマ（今後実装予定）
 # from .user import *
 # from .team import *

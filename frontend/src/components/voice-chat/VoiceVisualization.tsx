@@ -43,7 +43,7 @@ export function VoiceVisualization({ isActive, audioLevel }: VoiceVisualizationP
   }, [isActive, audioLevel])
 
   return (
-    <div className="flex justify-center mb-4">
+    <div className="flex justify-center mb-4" data-testid="voice-visualization">
       <canvas ref={canvasRef} width={200} height={200} className="rounded-full bg-gray-800" />
     </div>
   )

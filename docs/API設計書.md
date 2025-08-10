@@ -8,12 +8,15 @@ Bridge LINE BtoB向けチームコミュニケーションアプリケーショ�
 
 ### 技術仕様
 
-- **フレームワーク**: FastAPI 0.110.x
+- **フレームワーク**: FastAPI 0.110.1
 - **認証方式**: Firebase Authentication + JWT Bearer Token
 - **データ形式**: JSON
 - **文字エンコーディング**: UTF-8
 - **タイムゾーン**: UTC
 - **バージョニング**: URLパス方式 (`/api/v1/`)
+- **WebSocket**: リアルタイム通信対応
+- **ログ**: structlog による構造化ログ
+- **例外処理**: カスタム例外クラス + 統一エラーハンドリング
 
 ### ベースURL
 
@@ -658,7 +661,185 @@ Firebase認証後のユーザー登録・ログイン処理
 
 ---
 
-### **5. 文字起こし (`/api/v1/transcriptions/`)**
+### **5. チャットルーム (`/api/v1/chat-rooms/`)**
+
+### **POST /chat-rooms**
+
+チャットルーム作成
+
+**リクエスト**
+
+```json
+{
+  "team_id": "550e8400-e29b-41d4-a716-446655440010",
+  "name": "開発チームのメインルーム",
+  "description": "開発チームのメインチャットルーム"
+}
+
+```
+
+**レスポンス (201)**
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440022",
+  "team_id": "550e8400-e29b-41d4-a716-446655440010",
+  "name": "開発チームのメインルーム",
+  "description": "開発チームのメインチャットルーム",
+  "is_active": true,
+  "created_at": "2024-01-20T10:20:00Z"
+}
+
+```
+
+### **GET /chat-rooms/{room_id}**
+
+チャットルーム詳細取得
+
+**レスポンス (200)**
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440022",
+  "team_id": "550e8400-e29b-41d4-a716-446655440010",
+  "name": "開発チームのメインルーム",
+  "description": "開発チームのメインチャットルーム",
+  "is_active": true,
+  "created_at": "2024-01-20T10:20:00Z"
+}
+
+```
+
+### **PUT /chat-rooms/{room_id}**
+
+チャットルーム情報更新 (owner/admin)
+
+**リクエスト**
+
+```json
+{
+  "name": "開発チームのメインルーム（更新）",
+  "description": "更新されたチャットルーム説明"
+}
+
+```
+
+### **DELETE /chat-rooms/{room_id}**
+
+チャットルーム削除 (owner/admin)
+
+### **GET /chat-rooms/{room_id}/messages**
+
+チャットメッセージ一覧取得
+
+**クエリパラメータ**
+
+- `limit` (int): 取得件数 (default: 20)
+- `offset` (int): オフセット
+- `before_id` (UUID): 取得範囲の開始ID
+- `after_id` (UUID): 取得範囲の終了ID
+
+**レスポンス (200)**
+
+```json
+{
+  "messages": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440030",
+      "room_id": "550e8400-e29b-41d4-a716-446655440022",
+      "sender_id": "550e8400-e29b-41d4-a716-446655440000",
+      "text": "こんにちは！",
+      "type": "text",
+      "created_at": "2024-01-20T10:25:00Z"
+    }
+  ],
+  "total": 100,
+  "has_more": true}
+
+```
+
+### **POST /chat-rooms/{room_id}/messages**
+
+チャットメッセージ送信
+
+**リクエスト**
+
+```json
+{
+  "text": "こんにちは！"
+}
+
+```
+
+**レスポンス (201)**
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440030",
+  "room_id": "550e8400-e29b-41d4-a716-446655440022",
+  "sender_id": "550e8400-e29b-41d4-a716-446655440000",
+  "text": "こんにちは！",
+  "type": "text",
+  "created_at": "2024-01-20T10:25:00Z"
+}
+
+```
+
+### **GET /chat-rooms/{room_id}/messages/{message_id}**
+
+チャットメッセージ詳細取得
+
+**レスポンス (200)**
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440030",
+  "room_id": "550e8400-e29b-41d4-a716-446655440022",
+  "sender_id": "550e8400-e29b-41d4-a716-446655440000",
+  "text": "こんにちは！",
+  "type": "text",
+  "created_at": "2024-01-20T10:25:00Z"
+}
+
+```
+
+### **PUT /chat-rooms/{room_id}/messages/{message_id}**
+
+チャットメッセージ更新 (sender/owner/admin)
+
+**リクエスト**
+
+```json
+{
+  "text": "こんにちは！"
+}
+
+```
+
+### **DELETE /chat-rooms/{room_id}/messages/{message_id}**
+
+チャットメッセージ削除 (sender/owner/admin)
+
+### **POST /chat-rooms/{room_id}/messages/{message_id}/react**
+
+チャットメッセージに絵文字リアクションを追加 (sender/owner/admin)
+
+**リクエスト**
+
+```json
+{
+  "emoji": "👍"
+}
+
+```
+
+### **DELETE /chat-rooms/{room_id}/messages/{message_id}/react**
+
+チャットメッセージから絵文字リアクションを削除 (sender/owner/admin)
+
+---
+
+### **6. 文字起こし (`/api/v1/transcriptions/`)**
 
 ### **GET /transcriptions**
 
@@ -769,7 +950,7 @@ Copy{
 
 ---
 
-### **6. AI分析 (`/api/v1/analytics/`)**
+### **7. AI分析 (`/api/v1/analytics/`)**
 
 ### **GET /analytics/sessions/{session_id}**
 
@@ -1023,7 +1204,7 @@ Copy{
 
 ---
 
-### **7. 決済管理 (`/api/v1/billing/`)**
+### **8. 決済管理 (`/api/v1/billing/`)**
 
 ### **GET /billing/teams/{team_id}**
 
@@ -1140,7 +1321,7 @@ Copy{
 
 ---
 
-### **8. サブスクリプション (`/api/v1/subscriptions/`)**
+### **9. サブスクリプション (`/api/v1/subscriptions/`)**
 
 ### **GET /subscriptions/plans**
 
@@ -1278,7 +1459,7 @@ Copy{
 
 ---
 
-### **9. 招待管理 (`/api/v1/invitations/`)**
+### **10. 招待管理 (`/api/v1/invitations/`)**
 
 ### **GET /invitations**
 
@@ -1409,7 +1590,7 @@ Copy{
 
 ---
 
-### **10. Webhook (`/api/v1/webhooks/`)**
+### **11. Webhook (`/api/v1/webhooks/`)**
 
 ### **POST /webhooks/stripe**
 
@@ -1442,6 +1623,242 @@ Copy{
 ### **POST /webhooks/firebase**
 
 Firebase Webhook処理
+
+---
+
+### **12. 音声品質向上 (`/api/v1/audio-enhancement/`)**
+
+### **POST /audio-enhancement/voice-sessions/{session_id}/process**
+
+音声データの品質向上処理をリクエストします。
+
+**リクエスト**
+
+```json
+{
+  "session_id": "550e8400-e29b-41d4-a716-446655440020",
+  "audio_data": "base64_encoded_audio_data"
+}
+
+```
+
+**レスポンス (202)**
+
+```json
+{
+  "session_id": "550e8400-e29b-41d4-a716-446655440020",
+  "status": "processing",
+  "message": "音声データの品質向上処理を開始しました。"
+}
+
+```
+
+### **GET /audio-enhancement/voice-sessions/{session_id}/status**
+
+音声データの品質向上処理のステータスを取得します。
+
+**レスポンス (200)**
+
+```json
+{
+  "session_id": "550e8400-e29b-41d4-a716-446655440020",
+  "status": "completed",
+  "enhanced_audio_url": "https://storage.bridge-line.com/enhanced/session_20240119_140000.mp3",
+  "processing_time_ms": 1500
+}
+
+```
+
+### **POST /audio-enhancement/voice-sessions/{session_id}/cancel**
+
+音声データの品質向上処理をキャンセルします。
+
+**レスポンス (200)**
+
+```json
+{
+  "session_id": "550e8400-e29b-41d4-a716-446655440020",
+  "status": "cancelled",
+  "message": "音声データの品質向上処理がキャンセルされました。"
+}
+
+```
+
+---
+
+### **13. 管理者機能 (`/api/v1/admin-role/`)**
+
+### **POST /admin-role/teams/{team_id}/add-admin**
+
+チーム管理者を追加します。
+
+**リクエスト**
+
+```json
+{
+  "team_id": "550e8400-e29b-41d4-a716-446655440010",
+  "user_id": "550e8400-e29b-41d4-a716-446655440001"
+}
+
+```
+
+**レスポンス (201)**
+
+```json
+{
+  "team_id": "550e8400-e29b-41d4-a716-446655440010",
+  "user_id": "550e8400-e29b-41d4-a716-446655440001",
+  "role": "admin",
+  "status": "active",
+  "created_at": "2024-01-20T10:00:00Z"
+}
+
+```
+
+### **POST /admin-role/teams/{team_id}/remove-admin**
+
+チーム管理者を削除します。
+
+**リクエスト**
+
+```json
+{
+  "team_id": "550e8400-e29b-41d4-a716-446655440010",
+  "user_id": "550e8400-e29b-41d4-a716-446655440001"
+}
+
+```
+
+**レスポンス (200)**
+
+```json
+{
+  "team_id": "550e8400-e29b-41d4-a716-446655440010",
+  "user_id": "550e8400-e29b-41d4-a716-446655440001",
+  "role": "member",
+  "status": "inactive",
+  "updated_at": "2024-01-20T10:00:00Z"
+}
+
+```
+
+### **GET /admin-role/teams/{team_id}/admins**
+
+チームの管理者一覧を取得します。
+
+**レスポンス (200)**
+
+```json
+{
+  "team_id": "550e8400-e29b-41d4-a716-446655440010",
+  "admins": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "display_name": "田中太郎",
+      "avatar_url": "https://example.com/avatar.jpg",
+      "role": "owner",
+      "status": "active",
+      "joined_at": "2024-01-01T00:00:00Z"
+    },
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440001",
+      "display_name": "佐藤花子",
+      "avatar_url": "https://example.com/avatar2.jpg",
+      "role": "admin",
+      "status": "active",
+      "joined_at": "2024-01-20T10:00:00Z"
+    }
+  ]
+}
+
+```
+
+---
+
+### **14. 参加者管理 (`/api/v1/participant-management/`)**
+
+### **POST /participant-management/voice-sessions/{session_id}/add-participant**
+
+セッションに参加者を追加します。
+
+**リクエスト**
+
+```json
+{
+  "session_id": "550e8400-e29b-41d4-a716-446655440020",
+  "user_id": "550e8400-e29b-41d4-a716-446655440002"
+}
+
+```
+
+**レスポンス (201)**
+
+```json
+{
+  "session_id": "550e8400-e29b-41d4-a716-446655440020",
+  "user_id": "550e8400-e29b-41d4-a716-446655440002",
+  "status": "active",
+  "joined_at": "2024-01-20T10:00:00Z"
+}
+
+```
+
+### **POST /participant-management/voice-sessions/{session_id}/remove-participant**
+
+セッションから参加者を削除します。
+
+**リクエスト**
+
+```json
+{
+  "session_id": "550e8400-e29b-41d4-a716-446655440020",
+  "user_id": "550e8400-e29b-41d4-a716-446655440002"
+}
+
+```
+
+**レスポンス (200)**
+
+```json
+{
+  "session_id": "550e8400-e29b-41d4-a716-446655440020",
+  "user_id": "550e8400-e29b-41d4-a716-446655440002",
+  "status": "inactive",
+  "left_at": "2024-01-20T10:00:00Z"
+}
+
+```
+
+### **GET /participant-management/voice-sessions/{session_id}/participants**
+
+セッションの参加者一覧を取得します。
+
+**レスポンス (200)**
+
+```json
+{
+  "session_id": "550e8400-e29b-41d4-a716-446655440020",
+  "participants": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "display_name": "田中太郎",
+      "avatar_url": "https://example.com/avatar.jpg",
+      "role": "owner",
+      "status": "active",
+      "joined_at": "2024-01-19T14:00:00Z"
+    },
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440001",
+      "display_name": "佐藤花子",
+      "avatar_url": "https://example.com/avatar2.jpg",
+      "role": "member",
+      "status": "active",
+      "joined_at": "2024-01-20T10:00:00Z"
+    }
+  ]
+}
+
+```
 
 ---
 

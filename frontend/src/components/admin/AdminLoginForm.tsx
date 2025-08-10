@@ -1,69 +1,122 @@
-// 管理者ログインフォーム
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/components/auth/AuthProvider"
+import { auth } from "@/lib/firebase"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Label } from "@/components/ui/Label"
-import { Mail, Lock, Shield } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { LogIn } from "lucide-react"
 
 export function AdminLoginForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const { login } = useAuth()
 
-  const handleAdminLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
 
-    // 管理者ログイン処理のシミュレーション
-    setTimeout(() => {
-      setIsLoading(false)
+    try {
+      console.log("1. ログイン試行中:", email)
+      await login(email, password)
+      console.log("2. Firebase ログイン成功")
+      
+      const currentUser = auth.currentUser
+      console.log("3. Current User:", currentUser)
+      
+      if (!currentUser) {
+        alert("ログインに失敗しました")
+        return
+      }
+
+      // バックエンドにユーザー登録してから管理者権限をチェック
+      try {
+        console.log("4. IDトークン取得中...")
+        const idToken = await currentUser?.getIdToken()
+
+        // デバッグログ（トラブルシューティング時に有効化）
+        // console.log("IDトークン取得成功:", idToken?.substring(0, 50) + "...")
+        
+        // バックエンドにユーザー登録（必要に応じて有効化）
+        // try {
+        //   const loginResponse = await fetch('http://localhost:8000/api/v1/auth/login', {
+        //     method: 'POST',
+        //     headers: {
+        //       'Content-Type': 'application/json',
+        //       'Authorization': `Bearer ${idToken}`
+        //     },
+        //     body: JSON.stringify({
+        //       id_token: idToken,
+        //       display_name: currentUser.displayName || currentUser.email || "管理者"
+        //     })
+        //   })
+        // } catch (regError: any) {
+        //   console.warn("ユーザー登録失敗、管理者チェックを続行:", regError)
+        // }
+        
+        const response = await fetch('http://localhost:8000/api/v1/admin-role/check-admin', {
+          headers: {
+            'Authorization': `Bearer ${idToken}`,
+            'Content-Type': 'application/json'
+          }
+        })
+        
+        console.log("9. 管理者チェックレスポンス:", response.status, response.statusText)
+        
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error("管理者権限エラー:", errorText)
+          alert(`管理者権限がありません: ${response.status}`)
+          return
+        }
+        
+        console.log("10. 管理者権限確認成功!")
+      } catch (error) {
+        console.error("管理者権限チェック失敗:", error)
+        alert("管理者権限の確認に失敗しました")
+        return
+      }
+
       router.push("/admin/dashboard")
-    }, 1000)
+    } catch (error) {
+      console.error("管理者ログイン失敗:", error)
+      alert("ログインに失敗しました")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
-    <form onSubmit={handleAdminLogin} className="space-y-4">
+    <form onSubmit={handleLogin} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="admin-email">管理者メールアドレス</Label>
-        <div className="relative">
-          <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-          <Input
-            id="admin-email"
-            type="email"
-            placeholder="admin@company.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="pl-10"
-            required
-          />
-        </div>
+        <Label htmlFor="email">管理者メール</Label>
+        <Input
+          id="email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="admin-password">管理者パスワード</Label>
-        <div className="relative">
-          <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-          <Input
-            id="admin-password"
-            type="password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="pl-10"
-            required
-          />
-        </div>
+        <Label htmlFor="password">パスワード</Label>
+        <Input
+          id="password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
       </div>
 
-      <Button type="submit" className="w-full bg-slate-900 hover:bg-slate-800" disabled={isLoading}>
-        <Shield className="mr-2 h-4 w-4" />
-        {isLoading ? "ログイン中..." : "管理者ログイン"}
+      <Button type="submit" disabled={isLoading}>
+        <LogIn className="mr-2 h-4 w-4" />
+        {isLoading ? "ログイン中..." : "ログイン"}
       </Button>
     </form>
   )
