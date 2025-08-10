@@ -385,13 +385,13 @@ class WebSocketMessageHandler:
         """セッション参加処理"""
         try:
             from app.services.participant_management_service import (
-                participant_manager,
+                participant_management_service,
                 ParticipantRole,
             )
 
             # 参加者を管理システムに追加
-            participant = await participant_manager.add_participant(
-                session_id, user, ParticipantRole.PARTICIPANT
+            participant = await participant_management_service.join_session(
+                session_id, user, ParticipantRole.PARTICIPANT, connection_id
             )
 
             # 参加通知をブロードキャスト
@@ -412,7 +412,7 @@ class WebSocketMessageHandler:
             )
 
             # 参加者リストを送信
-            participants = await participant_manager.get_session_participants(
+            participants = await participant_management_service.get_session_participants(
                 session_id
             )
             participant_list = [
@@ -446,10 +446,10 @@ class WebSocketMessageHandler:
     async def handle_leave_session(session_id: str, connection_id: str, user: User):
         """セッション退出処理"""
         try:
-            from app.services.participant_management_service import participant_manager
+            from app.services.participant_management_service import participant_management_service
 
             # 参加者を管理システムから削除
-            await participant_manager.remove_participant(session_id, user.id, "left")
+            await participant_management_service.leave_session(session_id, user.id)
 
             # 退出通知をブロードキャスト
             await manager.broadcast_to_session(
@@ -494,6 +494,12 @@ class WebSocketMessageHandler:
 
             # 音声レベルを計算
             audio_level = audio_processor._calculate_audio_level(chunk)
+
+            # 参加者管理サービスに音声レベルを更新
+            from app.services.participant_management_service import participant_management_service
+            await participant_management_service.update_audio_level(
+                session_id, user.id, audio_level.level
+            )
 
             # 音声品質メトリクスを取得
             quality_metrics = await audio_processor.get_audio_quality_metrics(session_id)
@@ -1622,49 +1628,59 @@ class WebSocketMessageHandler:
     ):
         """参加者状態更新処理"""
         try:
-            from app.services.session_state_service import session_state_manager, ParticipantState
+            from app.services.participant_management_service import (
+                participant_management_service, 
+                ParticipantStatus
+            )
 
-            state = message.get("state")
-            additional_data = message.get("data", {})
+            action = message.get("action")
+            action_data = message.get("data", {})
             
-            if state and hasattr(ParticipantState, state.upper()):
-                participant_state = getattr(ParticipantState, state.upper())
-                
-                # 参加者状態を更新
-                success = await session_state_manager.update_participant_state(
-                    session_id, user.id, participant_state, **additional_data
+            if action == "mute":
+                # ミュート制御
+                muted = action_data.get("muted", True)
+                participant = await participant_management_service.mute_participant(
+                    session_id, user.id, muted, user.id
                 )
                 
-                if success:
-                    # 他の参加者に通知
-                    await manager.broadcast_to_session(
-                        {
-                            "type": "participant_state_updated",
-                            "session_id": session_id,
-                            "user_id": user.id,
-                            "state": state,
-                            "data": additional_data,
-                            "timestamp": datetime.now().isoformat(),
-                        },
-                        session_id,
-                        exclude_connection=connection_id,
-                    )
-                else:
-                    await manager.send_personal_message(
-                        {
-                            "type": "error",
-                            "message": "Failed to update participant state",
-                        },
-                        connection_id,
-                    )
+            elif action == "change_role":
+                # 役割変更
+                from app.services.participant_management_service import ParticipantRole
+                new_role = ParticipantRole(action_data.get("new_role", "participant"))
+                participant = await participant_management_service.change_participant_role(
+                    session_id, user.id, new_role, user.id
+                )
+                
+            elif action == "update_status":
+                # ステータス更新
+                new_status = ParticipantStatus(action_data.get("status", "connected"))
+                participant = await participant_management_service.update_participant_status(
+                    session_id, user.id, new_status, user.id
+                )
+                
             else:
                 await manager.send_personal_message(
                     {
                         "type": "error",
-                        "message": "Invalid participant state",
+                        "message": f"Invalid action: {action}",
                     },
                     connection_id,
                 )
+                return
+
+            # 成功通知
+            await manager.broadcast_to_session(
+                {
+                    "type": "participant_state_updated",
+                    "session_id": session_id,
+                    "user_id": user.id,
+                    "action": action,
+                    "data": action_data,
+                    "timestamp": datetime.now().isoformat(),
+                },
+                session_id,
+                exclude_connection=connection_id,
+            )
 
         except Exception as e:
             logger.error(f"Failed to handle participant state update: {e}")

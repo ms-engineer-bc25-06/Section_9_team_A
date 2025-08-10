@@ -1,438 +1,531 @@
-from typing import Dict, List, Optional, Set
+import asyncio
+from typing import Dict, List, Optional, Set, Tuple
 from datetime import datetime, timedelta
-from enum import Enum
 import structlog
-from dataclasses import dataclass
+from enum import Enum
 
 from app.models.user import User
+from app.models.voice_session import VoiceSession
 from app.core.websocket import manager
+from app.core.exceptions import (
+    BridgeLineException,
+    ValidationException,
+    NotFoundException,
+    PermissionException,
+)
 
 logger = structlog.get_logger()
 
 
 class ParticipantRole(str, Enum):
-    """参加者ロール"""
-
-    HOST = "host"  # ホスト（完全権限）
-    PARTICIPANT = "participant"  # 参加者（通常権限）
-    GUEST = "guest"  # ゲスト（制限権限）
-    OBSERVER = "observer"  # オブザーバー（閲覧のみ）
+    """参加者の役割"""
+    HOST = "host"           # ホスト（セッション作成者）
+    MODERATOR = "moderator"  # モデレーター
+    PARTICIPANT = "participant"  # 一般参加者
+    OBSERVER = "observer"    # オブザーバー（音声なし）
 
 
 class ParticipantStatus(str, Enum):
-    """参加者状態"""
-
-    CONNECTED = "connected"  # 接続中
+    """参加者のステータス"""
+    CONNECTED = "connected"      # 接続中
     DISCONNECTED = "disconnected"  # 切断中
-    MUTED = "muted"  # ミュート中
-    SPEAKING = "speaking"  # 話者中
-    INACTIVE = "inactive"  # 非アクティブ
+    MUTED = "muted"             # ミュート中
+    SPEAKING = "speaking"        # 発言中
+    AWAY = "away"               # 離席中
 
 
-@dataclass
 class ParticipantInfo:
     """参加者情報"""
-
-    user_id: int
-    user: User
-    session_id: str
-    role: ParticipantRole
-    status: ParticipantStatus
-    joined_at: datetime
-    last_activity: datetime
-    is_muted: bool = False
-    is_speaking: bool = False
-    audio_level: float = 0.0
-    connection_quality: float = 1.0
-    permissions: Set[str] = None
-
-    def __post_init__(self):
-        if self.permissions is None:
-            self.permissions = self._get_default_permissions()
-
-    def _get_default_permissions(self) -> Set[str]:
-        """デフォルト権限を取得"""
-        if self.role == ParticipantRole.HOST:
-            return {
-                "manage_session",
-                "manage_participants",
-                "record_audio",
-                "mute_others",
-                "remove_participants",
-                "change_settings",
+    def __init__(
+        self,
+        user_id: int,
+        user: User,
+        role: ParticipantRole = ParticipantRole.PARTICIPANT,
+        status: ParticipantStatus = ParticipantStatus.CONNECTED,
+        joined_at: Optional[datetime] = None,
+        connection_id: Optional[str] = None
+    ):
+        self.user_id = user_id
+        self.user = user
+        self.role = role
+        self.status = status
+        self.joined_at = joined_at or datetime.now()
+        self.connection_id = connection_id
+        self.last_activity = datetime.now()
+        self.audio_level = 0.0
+        self.is_speaking = False
+        self.speak_time_total = 0.0
+        self.speak_time_session = 0.0
+        self.messages_sent = 0
+        self.quality_metrics = {}
+        # 追加属性
+        self.is_muted = False
+        self.connection_quality = "good"
+        self.permissions = set()
+        self.avatar_url = getattr(user, 'avatar_url', None)
+        self.display_name = getattr(user, 'full_name', user.username)
+        
+        # 権限を設定
+        self._set_permissions()
+    
+    def _set_permissions(self):
+        """役割に基づいて権限を設定"""
+        role_permissions = {
+            ParticipantRole.HOST: {
+                "manage_participants", "mute_participants", "change_roles",
+                "control_recording", "end_session", "view_analytics"
+            },
+            ParticipantRole.MODERATOR: {
+                "manage_participants", "mute_participants", "control_recording",
+                "view_analytics"
+            },
+            ParticipantRole.PARTICIPANT: {
+                "send_messages", "speak", "view_participants"
+            },
+            ParticipantRole.OBSERVER: {
+                "view_participants", "send_messages"
             }
-        elif self.role == ParticipantRole.PARTICIPANT:
-            return {"send_audio", "send_messages", "view_participants"}
-        elif self.role == ParticipantRole.GUEST:
-            return {"send_audio", "view_participants"}
-        else:  # OBSERVER
-            return {"view_participants"}
+        }
+        self.permissions = role_permissions.get(self.role, set())
 
 
 class ParticipantManagementService:
     """参加者管理サービス"""
-
+    
     def __init__(self):
-        # セッション別参加者管理
-        self.session_participants: Dict[str, Dict[int, ParticipantInfo]] = {}
-        # 参加者の活動履歴
-        self.participant_activity: Dict[str, List[Dict]] = {}
-        # 参加者の統計情報
-        self.participant_stats: Dict[str, Dict[int, Dict]] = {}
-
-    async def add_participant(
+        self.active_sessions: Dict[str, Dict[int, ParticipantInfo]] = {}
+        self.session_metadata: Dict[str, Dict] = {}
+        self.role_permissions = self._initialize_role_permissions()
+        
+        logger.info("参加者管理サービスを初期化しました")
+    
+    def _initialize_role_permissions(self) -> Dict[ParticipantRole, Set[str]]:
+        """役割別権限を初期化"""
+        return {
+            ParticipantRole.HOST: {
+                "manage_participants", "mute_participants", "change_roles",
+                "control_recording", "end_session", "view_analytics"
+            },
+            ParticipantRole.MODERATOR: {
+                "manage_participants", "mute_participants", "control_recording",
+                "view_analytics"
+            },
+            ParticipantRole.PARTICIPANT: {
+                "send_messages", "speak", "view_participants"
+            },
+            ParticipantRole.OBSERVER: {
+                "view_participants", "send_messages"
+            }
+        }
+    
+    async def join_session(
         self,
         session_id: str,
         user: User,
         role: ParticipantRole = ParticipantRole.PARTICIPANT,
+        connection_id: Optional[str] = None
     ) -> ParticipantInfo:
-        """参加者を追加"""
+        """セッションに参加"""
         try:
-            if session_id not in self.session_participants:
-                self.session_participants[session_id] = {}
-                self.participant_activity[session_id] = []
-                self.participant_stats[session_id] = {}
-
-            # 参加者情報を作成
+            # セッションが存在しない場合は作成
+            if session_id not in self.active_sessions:
+                self.active_sessions[session_id] = {}
+                self.session_metadata[session_id] = {
+                    "created_at": datetime.now(),
+                    "max_participants": 50,
+                    "recording_enabled": False,
+                    "session_type": "voice_chat"
+                }
+            
+            # 既存の参加者かチェック
+            if user.id in self.active_sessions[session_id]:
+                participant = self.active_sessions[session_id][user.id]
+                participant.connection_id = connection_id
+                participant.status = ParticipantStatus.CONNECTED
+                participant.last_activity = datetime.now()
+                
+                logger.info(
+                    "参加者が再接続",
+                    session_id=session_id,
+                    user_id=user.id,
+                    role=participant.role.value
+                )
+                return participant
+            
+            # 新しい参加者として追加
             participant = ParticipantInfo(
                 user_id=user.id,
                 user=user,
-                session_id=session_id,
                 role=role,
                 status=ParticipantStatus.CONNECTED,
                 joined_at=datetime.now(),
-                last_activity=datetime.now(),
+                connection_id=connection_id
             )
-
-            # 参加者を登録
-            self.session_participants[session_id][user.id] = participant
-
-            # 統計情報を初期化
-            self.participant_stats[session_id][user.id] = {
-                "total_speaking_time": 0,
-                "message_count": 0,
-                "audio_chunks_sent": 0,
-                "connection_drops": 0,
-            }
-
-            # 活動履歴を記録
-            self._log_activity(
-                session_id,
-                user.id,
-                "joined",
-                {"role": role.value, "timestamp": datetime.now().isoformat()},
-            )
-
+            
+            self.active_sessions[session_id][user.id] = participant
+            
+            # 参加者数制限チェック
+            if len(self.active_sessions[session_id]) > self.session_metadata[session_id]["max_participants"]:
+                raise ValidationException("セッションの参加者数上限に達しています")
+            
+            # 参加通知を全参加者に送信
+            await self._broadcast_participant_update(session_id, "participant_joined", participant)
+            
             logger.info(
-                f"Participant added: {user.display_name} to session {session_id}",
-                user_id=user.id,
+                "新しい参加者がセッションに参加",
                 session_id=session_id,
+                user_id=user.id,
                 role=role.value,
+                total_participants=len(self.active_sessions[session_id])
             )
-
+            
             return participant
-
+            
         except Exception as e:
-            logger.error(f"Failed to add participant: {e}")
+            logger.error(f"セッション参加に失敗: {e}", session_id=session_id, user_id=user.id)
             raise
-
-    async def remove_participant(
-        self, session_id: str, user_id: int, reason: str = "left"
-    ):
-        """参加者を削除"""
+    
+    async def leave_session(self, session_id: str, user_id: int) -> bool:
+        """セッションから退出"""
         try:
-            if (
-                session_id in self.session_participants
-                and user_id in self.session_participants[session_id]
-            ):
-                participant = self.session_participants[session_id][user_id]
-
-                # 活動履歴を記録
-                self._log_activity(
-                    session_id,
-                    user_id,
-                    "left",
-                    {
-                        "reason": reason,
-                        "duration": (
-                            datetime.now() - participant.joined_at
-                        ).total_seconds(),
-                        "timestamp": datetime.now().isoformat(),
-                    },
-                )
-
-                # 参加者を削除
-                del self.session_participants[session_id][user_id]
-
-                # セッションが空になった場合の処理
-                if not self.session_participants[session_id]:
-                    await self._cleanup_session(session_id)
-
-                logger.info(
-                    f"Participant removed: {participant.user.display_name} from session {session_id}",
-                    user_id=user_id,
-                    session_id=session_id,
-                    reason=reason,
-                )
-
+            if session_id not in self.active_sessions:
+                return False
+            
+            if user_id not in self.active_sessions[session_id]:
+                return False
+            
+            participant = self.active_sessions[session_id][user_id]
+            participant.status = ParticipantStatus.DISCONNECTED
+            participant.last_activity = datetime.now()
+            
+            # 退出通知を全参加者に送信
+            await self._broadcast_participant_update(session_id, "participant_left", participant)
+            
+            # 参加者リストから削除
+            del self.active_sessions[session_id][user_id]
+            
+            # セッションが空になった場合の処理
+            if not self.active_sessions[session_id]:
+                await self._cleanup_empty_session(session_id)
+            
+            logger.info(
+                "参加者がセッションから退出",
+                session_id=session_id,
+                user_id=user_id,
+                remaining_participants=len(self.active_sessions.get(session_id, {}))
+            )
+            
+            return True
+            
         except Exception as e:
-            logger.error(f"Failed to remove participant: {e}")
-            raise
-
+            logger.error(f"セッション退出に失敗: {e}", session_id=session_id, user_id=user_id)
+            return False
+    
     async def update_participant_status(
-        self, session_id: str, user_id: int, status: ParticipantStatus, **kwargs
-    ):
-        """参加者状態を更新"""
+        self,
+        session_id: str,
+        user_id: int,
+        status: ParticipantStatus,
+        updated_by: int
+    ) -> ParticipantInfo:
+        """参加者のステータスを更新"""
         try:
-            if (
-                session_id in self.session_participants
-                and user_id in self.session_participants[session_id]
-            ):
-                participant = self.session_participants[session_id][user_id]
-                old_status = participant.status
-
-                # 状態を更新
-                participant.status = status
-                participant.last_activity = datetime.now()
-
-                # 追加情報を更新
-                for key, value in kwargs.items():
-                    if hasattr(participant, key):
-                        setattr(participant, key, value)
-
-                # 活動履歴を記録
-                self._log_activity(
-                    session_id,
-                    user_id,
-                    "status_changed",
-                    {
-                        "old_status": old_status.value,
-                        "new_status": status.value,
-                        "timestamp": datetime.now().isoformat(),
-                    },
-                )
-
-                logger.debug(
-                    f"Participant status updated: {user_id} in session {session_id}",
-                    old_status=old_status.value,
-                    new_status=status.value,
-                )
-
+            if not await self._check_permission(session_id, updated_by, "manage_participants"):
+                raise PermissionException("参加者管理の権限がありません")
+            
+            if session_id not in self.active_sessions or user_id not in self.active_sessions[session_id]:
+                raise NotFoundException("参加者が見つかりません")
+            
+            participant = self.active_sessions[session_id][user_id]
+            old_status = participant.status
+            participant.status = status
+            participant.last_activity = datetime.now()
+            
+            # ステータス変更通知を全参加者に送信
+            await self._broadcast_participant_update(
+                session_id, "participant_status_changed", participant, {"old_status": old_status.value}
+            )
+            
+            logger.info(
+                "参加者ステータスを更新",
+                session_id=session_id,
+                user_id=user_id,
+                old_status=old_status.value,
+                new_status=status.value,
+                updated_by=updated_by
+            )
+            
+            return participant
+            
         except Exception as e:
-            logger.error(f"Failed to update participant status: {e}")
+            logger.error(f"参加者ステータス更新に失敗: {e}", session_id=session_id, user_id=user_id)
             raise
-
+    
     async def change_participant_role(
-        self, session_id: str, user_id: int, new_role: ParticipantRole, changed_by: int
-    ):
-        """参加者ロールを変更"""
+        self,
+        session_id: str,
+        user_id: int,
+        new_role: ParticipantRole,
+        changed_by: int
+    ) -> ParticipantInfo:
+        """参加者の役割を変更"""
         try:
-            if (
-                session_id in self.session_participants
-                and user_id in self.session_participants[session_id]
-            ):
-                participant = self.session_participants[session_id][user_id]
-                old_role = participant.role
-
-                # 権限チェック
-                if not await self._can_change_role(session_id, changed_by, user_id):
-                    raise PermissionError("Insufficient permissions to change role")
-
-                # ロールを変更
-                participant.role = new_role
-                participant.permissions = participant._get_default_permissions()
-
-                # 活動履歴を記録
-                self._log_activity(
-                    session_id,
-                    user_id,
-                    "role_changed",
-                    {
-                        "old_role": old_role.value,
-                        "new_role": new_role.value,
-                        "changed_by": changed_by,
-                        "timestamp": datetime.now().isoformat(),
-                    },
-                )
-
-                logger.info(
-                    f"Participant role changed: {user_id} in session {session_id}",
-                    old_role=old_role.value,
-                    new_role=new_role.value,
-                    changed_by=changed_by,
-                )
-
+            if not await self._check_permission(session_id, changed_by, "change_roles"):
+                raise PermissionException("役割変更の権限がありません")
+            
+            if session_id not in self.active_sessions or user_id not in self.active_sessions[session_id]:
+                raise NotFoundException("参加者が見つかりません")
+            
+            participant = self.active_sessions[session_id][user_id]
+            old_role = participant.role
+            participant.role = new_role
+            participant.last_activity = datetime.now()
+            
+            # 役割変更通知を全参加者に送信
+            await self._broadcast_participant_update(
+                session_id, "participant_role_changed", participant, {"old_role": old_role.value}
+            )
+            
+            logger.info(
+                "参加者役割を変更",
+                session_id=session_id,
+                user_id=user_id,
+                old_role=old_role.value,
+                new_role=new_role.value,
+                changed_by=changed_by
+            )
+            
+            return participant
+            
         except Exception as e:
-            logger.error(f"Failed to change participant role: {e}")
+            logger.error(f"参加者役割変更に失敗: {e}", session_id=session_id, user_id=user_id)
             raise
-
+    
     async def mute_participant(
-        self, session_id: str, user_id: int, muted_by: int, mute: bool = True
-    ):
-        """参加者をミュート/アンミュート"""
+        self,
+        session_id: str,
+        user_id: int,
+        muted: bool,
+        muted_by: int
+    ) -> ParticipantInfo:
+        """参加者をミュート/ミュート解除"""
         try:
-            if (
-                session_id in self.session_participants
-                and user_id in self.session_participants[session_id]
-            ):
-                participant = self.session_participants[session_id][user_id]
-
-                # 権限チェック
-                if not await self._can_mute_participant(session_id, muted_by, user_id):
-                    raise PermissionError(
-                        "Insufficient permissions to mute participant"
-                    )
-
-                # ミュート状態を変更
-                participant.is_muted = mute
-                participant.status = (
-                    ParticipantStatus.MUTED if mute else ParticipantStatus.CONNECTED
-                )
-
-                # 活動履歴を記録
-                self._log_activity(
-                    session_id,
-                    user_id,
-                    "mute_changed",
-                    {
-                        "muted": mute,
-                        "muted_by": muted_by,
-                        "timestamp": datetime.now().isoformat(),
-                    },
-                )
-
-                logger.info(
-                    f"Participant mute changed: {user_id} in session {session_id}",
-                    muted=mute,
-                    muted_by=muted_by,
-                )
-
+            if not await self._check_permission(session_id, muted_by, "mute_participants"):
+                raise PermissionException("ミュート制御の権限がありません")
+            
+            if session_id not in self.active_sessions or user_id not in self.active_sessions[session_id]:
+                raise NotFoundException("参加者が見つかりません")
+            
+            participant = self.active_sessions[session_id][user_id]
+            participant.status = ParticipantStatus.MUTED if muted else ParticipantStatus.CONNECTED
+            participant.is_muted = muted  # is_muted属性も更新
+            participant.last_activity = datetime.now()
+            
+            # ミュート状態変更通知を全参加者に送信
+            await self._broadcast_participant_update(
+                session_id, "participant_muted", participant, {"muted": muted}
+            )
+            
+            logger.info(
+                "参加者ミュート状態を変更",
+                session_id=session_id,
+                user_id=user_id,
+                muted=muted,
+                muted_by=muted_by
+            )
+            
+            return participant
+            
         except Exception as e:
-            logger.error(f"Failed to mute participant: {e}")
+            logger.error(f"参加者ミュート制御に失敗: {e}", session_id=session_id, user_id=user_id)
             raise
-
-    async def get_session_participants(self, session_id: str) -> List[ParticipantInfo]:
+    
+    async def get_session_participants(
+        self,
+        session_id: str,
+        include_disconnected: bool = False
+    ) -> List[ParticipantInfo]:
         """セッションの参加者一覧を取得"""
-        if session_id in self.session_participants:
-            return list(self.session_participants[session_id].values())
-        return []
-
-    async def get_participant(
-        self, session_id: str, user_id: int
+        try:
+            if session_id not in self.active_sessions:
+                return []
+            
+            participants = list(self.active_sessions[session_id].values())
+            
+            if not include_disconnected:
+                participants = [p for p in participants if p.status != ParticipantStatus.DISCONNECTED]
+            
+            # 参加時刻順にソート
+            participants.sort(key=lambda x: x.joined_at)
+            
+            return participants
+            
+        except Exception as e:
+            logger.error(f"参加者一覧取得に失敗: {e}", session_id=session_id)
+            return []
+    
+    async def get_participant_info(
+        self,
+        session_id: str,
+        user_id: int
     ) -> Optional[ParticipantInfo]:
         """特定の参加者情報を取得"""
-        if (
-            session_id in self.session_participants
-            and user_id in self.session_participants[session_id]
-        ):
-            return self.session_participants[session_id][user_id]
-        return None
-
-    async def get_participant_stats(self, session_id: str, user_id: int) -> Dict:
-        """参加者の統計情報を取得"""
-        if (
-            session_id in self.participant_stats
-            and user_id in self.participant_stats[session_id]
-        ):
-            return self.participant_stats[session_id][user_id]
-        return {}
-
-    async def get_participant_activity(
-        self, session_id: str, user_id: int, limit: int = 50
-    ) -> List[Dict]:
-        """参加者の活動履歴を取得"""
-        if session_id in self.participant_activity:
-            user_activities = [
-                activity
-                for activity in self.participant_activity[session_id]
-                if activity.get("user_id") == user_id
-            ]
-            return user_activities[-limit:]
-        return []
-
-    async def check_permission(
-        self, session_id: str, user_id: int, permission: str
+        try:
+            if session_id not in self.active_sessions:
+                return None
+            
+            return self.active_sessions[session_id].get(user_id)
+            
+        except Exception as e:
+            logger.error(f"参加者情報取得に失敗: {e}", session_id=session_id, user_id=user_id)
+            return None
+    
+    async def update_audio_level(
+        self,
+        session_id: str,
+        user_id: int,
+        audio_level: float
+    ) -> None:
+        """参加者の音声レベルを更新"""
+        try:
+            if session_id not in self.active_sessions or user_id not in self.active_sessions[session_id]:
+                return
+            
+            participant = self.active_sessions[session_id][user_id]
+            participant.audio_level = audio_level
+            
+            # 発言状態の判定
+            is_speaking = audio_level > 0.1  # 閾値
+            if is_speaking != participant.is_speaking:
+                participant.is_speaking = is_speaking
+                if is_speaking:
+                    participant.status = ParticipantStatus.SPEAKING
+                    participant.speak_time_session += 0.1  # 100ms単位で累積
+                else:
+                    participant.status = ParticipantStatus.CONNECTED
+            
+            # 音声レベル更新通知（頻度制限あり）
+            if audio_level > 0.05:  # 一定レベル以上の場合のみ通知
+                await self._broadcast_audio_level_update(session_id, user_id, audio_level)
+                
+        except Exception as e:
+            logger.error(f"音声レベル更新に失敗: {e}", session_id=session_id, user_id=user_id)
+    
+    async def _check_permission(
+        self,
+        session_id: str,
+        user_id: int,
+        permission: str
     ) -> bool:
         """権限チェック"""
-        participant = await self.get_participant(session_id, user_id)
-        if participant:
-            return permission in participant.permissions
-        return False
-
-    async def _can_change_role(
-        self, session_id: str, changed_by: int, target_user_id: int
-    ) -> bool:
-        """ロール変更権限チェック"""
-        # 自分自身のロール変更は可能
-        if changed_by == target_user_id:
-            return True
-
-        # ホストのみが他の参加者のロールを変更可能
-        changer = await self.get_participant(session_id, changed_by)
-        return changer and changer.role == ParticipantRole.HOST
-
-    async def _can_mute_participant(
-        self, session_id: str, muted_by: int, target_user_id: int
-    ) -> bool:
-        """ミュート権限チェック"""
-        # 自分自身のミュートは可能
-        if muted_by == target_user_id:
-            return True
-
-        # ホストと参加者は他の参加者をミュート可能
-        muter = await self.get_participant(session_id, muted_by)
-        target = await self.get_participant(session_id, target_user_id)
-
-        if not muter or not target:
-            return False
-
-        # ホストは誰でもミュート可能
-        if muter.role == ParticipantRole.HOST:
-            return True
-
-        # 参加者はゲストとオブザーバーをミュート可能
-        if muter.role == ParticipantRole.PARTICIPANT:
-            return target.role in [ParticipantRole.GUEST, ParticipantRole.OBSERVER]
-
-        return False
-
-    def _log_activity(
-        self, session_id: str, user_id: int, activity_type: str, details: Dict
-    ):
-        """活動履歴を記録"""
-        if session_id not in self.participant_activity:
-            self.participant_activity[session_id] = []
-
-        activity = {
-            "user_id": user_id,
-            "activity_type": activity_type,
-            "timestamp": datetime.now().isoformat(),
-            **details,
-        }
-
-        self.participant_activity[session_id].append(activity)
-
-        # 履歴サイズ制限（最新1000件まで保持）
-        if len(self.participant_activity[session_id]) > 1000:
-            self.participant_activity[session_id] = self.participant_activity[
-                session_id
-            ][-1000:]
-
-    async def _cleanup_session(self, session_id: str):
-        """セッションのクリーンアップ"""
         try:
-            if session_id in self.session_participants:
-                del self.session_participants[session_id]
-            if session_id in self.participant_activity:
-                del self.participant_activity[session_id]
-            if session_id in self.participant_stats:
-                del self.participant_stats[session_id]
-
-            logger.info(f"Session cleaned up: {session_id}")
-
+            if session_id not in self.active_sessions or user_id not in self.active_sessions[session_id]:
+                return False
+            
+            participant = self.active_sessions[session_id][user_id]
+            return permission in self.role_permissions.get(participant.role, set())
+            
+        except Exception:
+            return False
+    
+    async def _broadcast_participant_update(
+        self,
+        session_id: str,
+        event_type: str,
+        participant: ParticipantInfo,
+        additional_data: Optional[Dict] = None
+    ) -> None:
+        """参加者更新通知を全参加者にブロードキャスト"""
+        try:
+            message = {
+                "type": event_type,
+                "session_id": session_id,
+                "participant": {
+                    "user_id": participant.user_id,
+                    "display_name": participant.user.display_name,
+                    "role": participant.role.value,
+                    "status": participant.status.value,
+                    "joined_at": participant.joined_at.isoformat(),
+                    "last_activity": participant.last_activity.isoformat()
+                }
+            }
+            
+            if additional_data:
+                message.update(additional_data)
+            
+            # 全参加者に通知
+            for p in self.active_sessions[session_id].values():
+                if p.connection_id and p.connection_id in manager.connection_info:
+                    await manager.send_personal_message(message, p.connection_id)
+                    
         except Exception as e:
-            logger.error(f"Failed to cleanup session: {e}")
+            logger.error(f"参加者更新通知の送信に失敗: {e}", session_id=session_id)
+    
+    async def _broadcast_audio_level_update(
+        self,
+        session_id: str,
+        user_id: int,
+        audio_level: float
+    ) -> None:
+        """音声レベル更新通知をブロードキャスト"""
+        try:
+            message = {
+                "type": "audio_level_update",
+                "session_id": session_id,
+                "user_id": user_id,
+                "audio_level": audio_level,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            # 全参加者に通知
+            for p in self.active_sessions[session_id].values():
+                if p.connection_id and p.connection_id in manager.connection_info:
+                    await manager.send_personal_message(message, p.connection_id)
+                    
+        except Exception as e:
+            logger.error(f"音声レベル更新通知の送信に失敗: {e}", session_id=session_id)
+    
+    async def _cleanup_empty_session(self, session_id: str) -> None:
+        """空のセッションをクリーンアップ"""
+        try:
+            if session_id in self.active_sessions:
+                del self.active_sessions[session_id]
+            
+            if session_id in self.session_metadata:
+                del self.session_metadata[session_id]
+            
+            logger.info(f"空のセッションをクリーンアップ: {session_id}")
+            
+        except Exception as e:
+            logger.error(f"セッションクリーンアップに失敗: {e}", session_id=session_id)
+    
+    async def get_session_stats(self, session_id: str) -> Dict:
+        """セッション統計情報を取得"""
+        try:
+            if session_id not in self.active_sessions:
+                return {}
+            
+            participants = self.active_sessions[session_id]
+            connected_count = len([p for p in participants.values() if p.status != ParticipantStatus.DISCONNECTED])
+            speaking_count = len([p for p in participants.values() if p.status == ParticipantStatus.SPEAKING])
+            muted_count = len([p for p in participants.values() if p.status == ParticipantStatus.MUTED])
+            
+            total_speak_time = sum(p.speak_time_session for p in participants.values())
+            
+            return {
+                "total_participants": len(participants),
+                "connected_participants": connected_count,
+                "active_participants": connected_count,  # active_participantsを追加
+                "speaking_participants": speaking_count,
+                "muted_participants": muted_count,
+                "total_speak_time": total_speak_time,
+                "session_duration": (datetime.now() - self.session_metadata[session_id]["created_at"]).total_seconds()
+            }
+            
+        except Exception as e:
+            logger.error(f"セッション統計取得に失敗: {e}", session_id=session_id)
+            return {}
 
 
-# グローバル参加者管理サービスインスタンス
-participant_manager = ParticipantManagementService()
+# グローバルインスタンス
+participant_management_service = ParticipantManagementService()
