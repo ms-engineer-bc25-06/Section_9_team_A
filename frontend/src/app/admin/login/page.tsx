@@ -12,30 +12,25 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
-  const { login } = useAuth()
+  const { login, backendToken } = useAuth()
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
 
     try {
-      await login(email, password)
-      const user = auth.currentUser
-      const userEmail = user?.email
-
+      const token = await login(email, password)
+      
       // 管理者権限をチェック
       try {
-        const idToken = await user?.getIdToken()
-        
-        // デバッグログ（必要に応じてコメントアウト）
-        // console.log("=== 管理者チェック開始 ===")
-        // console.log("Firebase UID:", user?.uid)
-        // console.log("Email:", user?.email)
-        // console.log("🔑 ID Token (最初の50文字):", idToken?.substring(0, 50))
+        if (!token) {
+          alert("バックエンド認証が完了していません。しばらく待ってから再試行してください。")
+          return
+        }
         
         const response = await fetch('http://localhost:8000/api/v1/admin-role/check-admin', {
           headers: {
-            'Authorization': `Bearer ${idToken}`,
+            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         })
