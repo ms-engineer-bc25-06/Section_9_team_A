@@ -57,7 +57,8 @@ class FirebaseClient:
                 if not self.initialize():
                     return None
             
-            decoded_token = self._auth.verify_id_token(id_token)
+            # 時刻の許容範囲を設定（60秒）
+            decoded_token = self._auth.verify_id_token(id_token, check_revoked=True, clock_skew_seconds=60)
             return decoded_token
             
         except Exception as e:

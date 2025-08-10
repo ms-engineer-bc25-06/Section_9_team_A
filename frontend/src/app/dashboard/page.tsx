@@ -8,7 +8,7 @@ import { useAuth } from "@/components/auth/AuthProvider"
 import { DashboardCards } from "@/components/dashboard/DashboardCards"
 
 const DashboardPage: React.FC = () => {
-  const { user, isLoading } = useAuth()
+  const { user, backendToken, isLoading } = useAuth()
   const [backendAuthChecked, setBackendAuthChecked] = useState(false)
   const router = useRouter()
 
@@ -19,13 +19,12 @@ const DashboardPage: React.FC = () => {
     }
 
     // バックエンド認証確認（1回のみ実行）
-    if (user && !backendAuthChecked) {
+    if (user && backendToken && !backendAuthChecked) {
       const checkBackendAuth = async () => {
         try {
-          const idToken = await user.getIdToken()
           const response = await fetch('http://localhost:8000/api/v1/users/me', {
             headers: {
-              'Authorization': `Bearer ${idToken}`,
+              'Authorization': `Bearer ${backendToken}`,
               'Content-Type': 'application/json'
             }
           })
@@ -46,8 +45,11 @@ const DashboardPage: React.FC = () => {
       }
       
       checkBackendAuth()
+    } else if (user && !backendToken && !backendAuthChecked) {
+      // バックエンドトークンがない場合は、Firebase認証のみでダッシュボードを表示
+      setBackendAuthChecked(true)
     }
-  }, [user, isLoading, backendAuthChecked, router])
+  }, [user, backendToken, isLoading, backendAuthChecked, router])
 
   if (isLoading || !user || !backendAuthChecked) {
     return (
