@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/Badge"
 import { Mic, MicOff, Volume2, VolumeX, Phone, Users } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useVoiceChat } from "@/hooks/useVoiceChat"
+import { AudioCapture } from "./AudioCapture"
 
 interface Props {
   roomId: string
@@ -20,6 +21,19 @@ export function ActiveVoiceChat({ roomId }: Props) {
   const router = useRouter()
   const sessionId = useMemo(() => roomId, [roomId])
   const { isConnected, participants, join, leave } = useVoiceChat(sessionId)
+
+  // 音声データの処理
+  const handleAudioData = (audioBlob: Blob) => {
+    console.log('音声データ受信:', audioBlob);
+    // TODO: WebSocket経由で音声データを送信
+    // TODO: 音声品質の確認
+  };
+
+  // 録音状態の変更
+  const handleRecordingStateChange = (isRecording: boolean) => {
+    console.log('録音状態変更:', isRecording);
+    // TODO: 参加者に録音状態を通知
+  };
 
   useEffect(() => {
     if (isConnected) {
@@ -101,6 +115,19 @@ export function ActiveVoiceChat({ roomId }: Props) {
               <div className="text-sm text-gray-300">参加者情報を待機中...</div>
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* 音声キャプチャ機能 */}
+      <Card className="bg-gray-800 border-gray-700 mb-8">
+        <CardHeader>
+          <CardTitle className="text-white">音声キャプチャ</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AudioCapture
+            onAudioData={handleAudioData}
+            onRecordingStateChange={handleRecordingStateChange}
+          />
         </CardContent>
       </Card>
 
