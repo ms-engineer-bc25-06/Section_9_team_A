@@ -8,7 +8,7 @@ from httpx import ASGITransport
 from starlette.testclient import TestClient
 
 from app.main import app
-from app.core.database import Base, engine
+from app.models.base import Base
 
 import pytest
 import asyncio
@@ -20,7 +20,7 @@ import sys
 # プロジェクトルートをPythonパスに追加
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from app.core.database import Base
+
 from app.config import settings
 
 # テスト用データベースURL

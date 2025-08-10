@@ -4,11 +4,23 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useWebSocket } from './useWebSocket'
 
-// テスト用の簡易型定義
+// 参加者情報の型定義
 interface Participant {
-  id: number
-  name: string
-  email: string
+  id: string
+  display_name?: string
+  username: string
+  email?: string
+  role?: string
+  status?: string
+  is_active?: boolean
+  is_muted?: boolean
+  audioLevel?: number
+  joinedAt?: string
+  lastActivity?: string
+  speakTimeTotal?: number
+  speakTimeSession?: number
+  messagesSent?: number
+  permissions?: string[]
 }
 
 export const useVoiceChat = (sessionId: string) => {
@@ -25,6 +37,28 @@ export const useVoiceChat = (sessionId: string) => {
     if (message.type === 'session_participants') {
       const participantList = message.participants ?? []
       setParticipants(participantList)
+    }
+    
+    // 参加者状態更新の処理
+    if (message.type === 'participant_state_update') {
+      const { participant_id, state, data } = message
+      setParticipants(prev => prev.map(p => 
+        p.id === participant_id 
+          ? { ...p, ...data }
+          : p
+      ))
+    }
+    
+    // 参加者追加の処理
+    if (message.type === 'participant_joined') {
+      const newParticipant = message.participant
+      setParticipants(prev => [...prev, newParticipant])
+    }
+    
+    // 参加者退出の処理
+    if (message.type === 'participant_left') {
+      const { participant_id } = message
+      setParticipants(prev => prev.filter(p => p.id !== participant_id))
     }
   }, [])
 
@@ -69,6 +103,39 @@ export const useVoiceChat = (sessionId: string) => {
     }
   }, [isConnected, sendJson, sessionId])
 
+  // 参加者管理の関数
+  const muteParticipant = useCallback((participantId: string, muted: boolean) => {
+    if (isConnected) {
+      sendJson({
+        type: 'mute_participant',
+        participant_id: participantId,
+        muted: muted,
+        timestamp: new Date().toISOString()
+      })
+    }
+  }, [isConnected, sendJson])
+
+  const changeParticipantRole = useCallback((participantId: string, newRole: string) => {
+    if (isConnected) {
+      sendJson({
+        type: 'change_participant_role',
+        participant_id: participantId,
+        new_role: newRole,
+        timestamp: new Date().toISOString()
+      })
+    }
+  }, [isConnected, sendJson])
+
+  const removeParticipant = useCallback((participantId: string) => {
+    if (isConnected) {
+      sendJson({
+        type: 'remove_participant',
+        participant_id: participantId,
+        timestamp: new Date().toISOString()
+      })
+    }
+  }, [isConnected, sendJson])
+
   // 接続時に自動参加
   useEffect(() => {
     if (isConnected) {
@@ -81,6 +148,9 @@ export const useVoiceChat = (sessionId: string) => {
     participants,
     join,
     leave,
-    sendJson
+    sendJson,
+    muteParticipant,
+    changeParticipantRole,
+    removeParticipant
   }
 }

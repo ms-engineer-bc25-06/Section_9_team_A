@@ -21,12 +21,13 @@ from app.models.user import User
 @pytest.fixture
 def sample_user():
     """サンプルユーザー"""
-    return User(
-        id=1,
-        email="test@example.com",
-        display_name="テストユーザー",
-        is_active=True,
-    )
+            return User(
+            id=1,
+            email="test@example.com",
+            username="testuser",
+            full_name="テストユーザー",
+            is_active=True,
+        )
 
 
 @pytest.fixture

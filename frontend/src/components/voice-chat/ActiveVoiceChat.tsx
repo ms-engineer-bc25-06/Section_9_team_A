@@ -9,6 +9,7 @@ import { Mic, MicOff, Volume2, VolumeX, Phone, Users, MessageCircle } from "luci
 import { useRouter } from "next/navigation"
 import { useVoiceChat } from "@/hooks/useVoiceChat"
 import { AudioCapture } from "./AudioCapture"
+import { ParticipantsList } from "./ParticipantsList"
 
 interface Props {
   roomId: string
@@ -58,40 +59,6 @@ const TALK_TOPICS = [
   }
 ]
 
-// モック参加者データ（実際の実装ではAPIから取得）
-const MOCK_PARTICIPANTS = [
-  {
-    id: "1",
-    display_name: "田中太郎",
-    username: "tanaka_taro",
-    avatar_url: "/api/avatars/1",
-    is_active: true,
-    is_muted: false,
-    role: "ホスト",
-    status: "online"
-  },
-  {
-    id: "2", 
-    display_name: "佐藤花子",
-    username: "sato_hanako",
-    avatar_url: "/api/avatars/2",
-    is_active: false,
-    is_muted: true,
-    role: "参加者",
-    status: "online"
-  },
-  {
-    id: "3",
-    display_name: "鈴木一郎",
-    username: "suzuki_ichiro", 
-    avatar_url: "/api/avatars/3",
-    is_active: false,
-    is_muted: false,
-    role: "参加者",
-    status: "away"
-  }
-]
-
 export function ActiveVoiceChat({ roomId }: Props) {
   const [isMuted, setIsMuted] = useState(false)
   const [isSpeakerOn, setIsSpeakerOn] = useState(true)
@@ -100,7 +67,38 @@ export function ActiveVoiceChat({ roomId }: Props) {
   const [currentTopic, setCurrentTopic] = useState<{ text: string; category: string; description: string }>({ text: '', category: '', description: '' })
   const router = useRouter()
   const sessionId = useMemo(() => roomId, [roomId])
-  const { isConnected, participants, join, leave } = useVoiceChat(sessionId)
+  const { isConnected, participants, join, leave, muteParticipant, changeParticipantRole, removeParticipant } = useVoiceChat(sessionId)
+
+  // 現在のユーザー情報（実際の実装では認証から取得）
+  const currentUser = {
+    id: 1,
+    name: "田中太郎",
+    email: "tanaka@example.com",
+    role: "HOST" as const
+  }
+
+  // 参加者データを新しい形式に変換
+  const formattedParticipants = useMemo(() => {
+    return participants.map(p => ({
+      id: parseInt(p.id),
+      name: p.display_name || p.username || "Unknown",
+      email: p.email || `${p.username}@example.com`,
+      role: (p.role === 'ホスト' ? 'HOST' : 
+             p.role === 'モデレーター' ? 'MODERATOR' : 
+             p.role === 'オブザーバー' ? 'OBSERVER' : 'PARTICIPANT') as 'HOST' | 'MODERATOR' | 'PARTICIPANT' | 'OBSERVER',
+      status: (p.status === 'online' ? 'CONNECTED' : 'DISCONNECTED') as 'CONNECTED' | 'DISCONNECTED' | 'MUTED' | 'BANNED',
+      isActive: p.is_active || false,
+      isMuted: p.is_muted || false,
+      isSpeaking: p.is_active || false,
+      audioLevel: p.audioLevel || 0.0,
+      joinedAt: p.joinedAt || new Date().toISOString(),
+      lastActivity: p.lastActivity || new Date().toISOString(),
+      speakTimeTotal: p.speakTimeTotal || 0,
+      speakTimeSession: p.speakTimeSession || 0,
+      messagesSent: p.messagesSent || 0,
+      permissions: p.permissions || []
+    }))
+  }, [participants])
 
   // 音声データの処理
   const handleAudioData = (audioBlob: Blob) => {
@@ -113,6 +111,37 @@ export function ActiveVoiceChat({ roomId }: Props) {
   const handleRecordingStateChange = (isRecording: boolean) => {
     console.log('録音状態変更:', isRecording);
     // TODO: 参加者に録音状態を通知
+  };
+
+  // 参加者管理のハンドラー
+  const handleMuteParticipant = async (participantId: number, muted: boolean) => {
+    try {
+      // WebSocketを通じて参加者をミュート/ミュート解除
+      muteParticipant(participantId.toString(), muted);
+      console.log(`参加者 ${participantId} を${muted ? 'ミュート' : 'ミュート解除'}`);
+    } catch (error) {
+      console.error('参加者のミュート状態変更に失敗:', error);
+    }
+  };
+
+  const handleChangeRole = async (participantId: number, newRole: string) => {
+    try {
+      // WebSocketを通じて参加者の役割を変更
+      changeParticipantRole(participantId.toString(), newRole);
+      console.log(`参加者 ${participantId} の役割を ${newRole} に変更`);
+    } catch (error) {
+      console.error('参加者の役割変更に失敗:', error);
+    }
+  };
+
+  const handleRemoveParticipant = async (participantId: number) => {
+    try {
+      // WebSocketを通じて参加者を削除
+      removeParticipant(participantId.toString());
+      console.log(`参加者 ${participantId} を削除`);
+    } catch (error) {
+      console.error('参加者の削除に失敗:', error);
+    }
   };
 
   // 接続状態の管理
@@ -206,7 +235,7 @@ export function ActiveVoiceChat({ roomId }: Props) {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-6xl mx-auto">
       {renderConnectionStatus()}
 
       {/* トークテーマ表示 */}
@@ -259,48 +288,14 @@ export function ActiveVoiceChat({ roomId }: Props) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6" data-testid="participants-list">
-            {MOCK_PARTICIPANTS.map((p) => (
-              <div key={p.id} className="text-center">
-                <div className="relative mb-3">
-                  <Avatar className="h-20 w-20 mx-auto">
-                    <AvatarImage src={p.avatar_url} />
-                    <AvatarFallback className="text-xl bg-gray-600">
-                      {(p.display_name || p.username || "U").slice(0, 2)}
-                    </AvatarFallback>
-                  </Avatar>
-                  {/* オンライン/オフライン状態 */}
-                  <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-2 border-gray-800 flex items-center justify-center ${
-                    p.status === 'online' ? 'bg-green-500' : 'bg-gray-400'
-                  }`}>
-                    <div className={`w-2 h-2 rounded-full ${
-                      p.status === 'online' ? 'bg-white animate-pulse' : 'bg-gray-200'
-                    }`} />
-                  </div>
-                  {/* ミュート状態 */}
-                  {p.is_muted && (
-                    <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full border-2 border-gray-800 flex items-center justify-center">
-                      <MicOff className="h-3 w-3 text-white" />
-                    </div>
-                  )}
-                </div>
-                <p className="text-white font-medium">{p.display_name}</p>
-                <div className="flex items-center justify-center gap-2 mt-1">
-                  <Badge variant={p.is_active ? "default" : "secondary"} className="text-xs">
-                    {p.is_active ? "発話中" : "待機中"}
-                  </Badge>
-                  <Badge variant="outline" className="text-xs border-blue-500 text-blue-300">
-                    {p.role}
-                  </Badge>
-                </div>
-                <div className="mt-1">
-                  <Badge variant="secondary" className="text-xs">
-                    {p.status === 'online' ? 'オンライン' : '離席中'}
-                  </Badge>
-                </div>
-              </div>
-            ))}
-          </div>
+          <ParticipantsList
+            participants={formattedParticipants}
+            currentUserId={currentUser.id}
+            currentUserRole={currentUser.role}
+            onMuteParticipant={handleMuteParticipant}
+            onChangeRole={handleChangeRole}
+            onRemoveParticipant={handleRemoveParticipant}
+          />
         </CardContent>
       </Card>
 

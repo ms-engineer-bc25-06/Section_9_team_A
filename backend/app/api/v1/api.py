@@ -14,6 +14,7 @@ from app.api.v1 import (
     chat_rooms,
     admin_role,
     audio_enhancement,
+    participant_management,
 )
 
 api_router = APIRouter()
@@ -66,3 +67,8 @@ api_router.include_router(
 
 # 管理者のルートを登録
 api_router.include_router(admin_role.router, prefix="/admin-role", tags=["管理者"])
+
+# 参加者管理
+api_router.include_router(
+    participant_management.router, prefix="/participant-management", tags=["参加者管理"]
+)
