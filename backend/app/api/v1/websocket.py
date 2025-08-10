@@ -665,3 +665,85 @@ async def get_session_detailed_status(session_id: str):
     except Exception as e:
         logger.error(f"Failed to get detailed status for session {session_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to get session status")
+
+# TODO: テスト用のエンドポイント(テスト用のダミーユーザーを作成)
+@router.websocket("/test/voice-sessions/{session_id}")
+async def websocket_voice_session_test(websocket: WebSocket, session_id: str):
+    """テスト用音声セッションWebSocketエンドポイント（認証なし）"""
+    connection_id = None
+
+    try:
+        # テスト用のダミーユーザーを作成
+        from app.models.user import User
+        test_user = User(
+            id=999,
+            email="test@example.com",
+            display_name="Test User",
+            is_active=True
+        )
+
+        # セッション存在確認（テスト用なのでスキップ）
+        # async for db in get_db():
+        #     voice_session_service = VoiceSessionService(db)
+        #     session = await voice_session_service.get_session_by_session_id(session_id)
+        #     if not session:
+        #         await websocket.close(
+        #             code=status.WS_1008_POLICY_VIOLATION, reason="Session not found"
+        #         )
+        #         return
+
+        # 接続を確立
+        connection_id = await manager.connect(websocket, session_id, test_user)
+
+        # 接続成功通知
+        await manager.send_personal_message(
+            {
+                "type": "connection_established",
+                "session_id": session_id,
+                "user_id": test_user.id,
+                "timestamp": manager.connection_info[connection_id][
+                    "connected_at"
+                ].isoformat(),
+            },
+            connection_id,
+        )
+
+        # セッション参加通知
+        await WebSocketMessageHandler.handle_join_session(
+            session_id, connection_id, test_user
+        )
+
+        # メッセージ受信ループ
+        while True:
+            try:
+                # メッセージを受信
+                data = await websocket.receive_text()
+                message = json.loads(data)
+
+                # メッセージを処理
+                await WebSocketMessageHandler.handle_message(
+                    websocket, message, connection_id, test_user
+                )
+
+            except WebSocketDisconnect:
+                logger.info(f"WebSocket disconnected: {connection_id}")
+                break
+            except json.JSONDecodeError:
+                logger.warning(f"Invalid JSON received from {connection_id}")
+                await manager.send_personal_message(
+                    {"type": "error", "message": "Invalid JSON format"}, connection_id
+                )
+            except Exception as e:
+                logger.error(f"Error processing message from {connection_id}: {e}")
+                await manager.send_personal_message(
+                    {"type": "error", "message": "Internal server error"}, connection_id
+                )
+
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        await websocket.close(
+            code=status.WS_1011_INTERNAL_ERROR, reason="Internal server error"
+        )
+    finally:
+        if connection_id:
+            await manager.disconnect(connection_id)

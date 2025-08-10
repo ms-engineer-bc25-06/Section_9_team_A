@@ -54,7 +54,7 @@ export const AudioCapture: React.FC<AudioCaptureProps> = ({
   );
 
   return (
-    <Card className="p-6">
+    <Card className="p-6" data-testid="audio-capture">
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold">音声キャプチャ</h3>
@@ -63,7 +63,7 @@ export const AudioCapture: React.FC<AudioCaptureProps> = ({
 
         {/* 録音時間表示 */}
         {isRecording && (
-          <div className="text-center">
+          <div className="text-center" data-testid="recording-duration">
             <div className="text-3xl font-mono font-bold text-blue-600">
               {formatDuration(duration)}
             </div>
@@ -87,6 +87,7 @@ export const AudioCapture: React.FC<AudioCaptureProps> = ({
               onClick={startRecording}
               className="bg-red-500 hover:bg-red-600"
               disabled={!!error}
+              data-testid="start-recording-btn"
             >
               録音開始
             </Button>
@@ -97,6 +98,7 @@ export const AudioCapture: React.FC<AudioCaptureProps> = ({
                   onClick={pauseRecording}
                   variant="outline"
                   className="border-yellow-500 text-yellow-600 hover:bg-yellow-50"
+                  data-testid="pause-recording-btn"
                 >
                   一時停止
                 </Button>
@@ -105,6 +107,7 @@ export const AudioCapture: React.FC<AudioCaptureProps> = ({
                   onClick={resumeRecording}
                   variant="outline"
                   className="border-green-500 text-green-600 hover:bg-green-50"
+                  data-testid="resume-recording-btn"
                 >
                   再開
                 </Button>
@@ -112,6 +115,7 @@ export const AudioCapture: React.FC<AudioCaptureProps> = ({
               <Button
                 onClick={stopRecording}
                 className="bg-gray-500 hover:bg-gray-600"
+                data-testid="stop-recording-btn"
               >
                 録音停止
               </Button>
@@ -121,7 +125,7 @@ export const AudioCapture: React.FC<AudioCaptureProps> = ({
 
         {/* 録音完了後の情報 */}
         {audioBlob && !isRecording && (
-          <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-md">
+          <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-md" data-testid="recording-complete">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-green-700">
@@ -131,7 +135,7 @@ export const AudioCapture: React.FC<AudioCaptureProps> = ({
                   ファイルサイズ: {(audioBlob.size / 1024).toFixed(1)} KB
                 </p>
               </div>
-              <Badge variant="success">完了</Badge>
+              <Badge variant="default" className="bg-green-500 text-white">完了</Badge>
             </div>
           </div>
         )}

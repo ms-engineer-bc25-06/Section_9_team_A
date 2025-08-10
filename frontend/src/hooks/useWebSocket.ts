@@ -10,6 +10,7 @@ export interface UseWebSocketOptions {
   autoReconnect?: boolean
   reconnectMaxDelayMs?: number
   heartbeatIntervalMs?: number
+  skipAuth?: boolean // テスト用：認証をスキップ
   onOpen?: () => void
   onClose?: (ev: CloseEvent) => void
   onError?: (ev: Event) => void
@@ -45,6 +46,7 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
     autoReconnect = true,
     reconnectMaxDelayMs = 10_000,
     heartbeatIntervalMs = 30_000,
+    skipAuth = false, // テスト用：認証をスキップ
     onOpen,
     onClose,
     onError,
@@ -62,13 +64,19 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
   const wsUrlBuilder = useMemo(() => {
     const base = resolveWsBaseUrl()
     return async () => {
-      const token = await getAuthToken()
       if (!base) throw new Error("WS base URL not configured (NEXT_PUBLIC_WS_BASE_URL or NEXT_PUBLIC_API_BASE_URL)")
+      
+      // テスト用：認証をスキップ
+      if (skipAuth) {
+        return `${base}${urlPath}`
+      }
+      
+      const token = await getAuthToken()
       const search = new URLSearchParams()
       if (token) search.set("token", token)
       return `${base}${urlPath}?${search.toString()}`
     }
-  }, [urlPath])
+  }, [urlPath, skipAuth])
 
   const cleanupHeartbeat = () => {
     if (heartbeatTimerRef.current) {

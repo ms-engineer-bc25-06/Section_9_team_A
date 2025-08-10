@@ -18,7 +18,7 @@ interface ParticipantsListProps {
 
 export function ParticipantsList({ participants }: ParticipantsListProps) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6" data-testid="participants-list">
       {participants.map((participant) => (
         <div key={participant.id} className="text-center">
           <div className="relative mb-3">

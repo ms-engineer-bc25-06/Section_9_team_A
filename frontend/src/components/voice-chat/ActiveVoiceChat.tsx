@@ -77,7 +77,7 @@ export function ActiveVoiceChat({ roomId }: Props) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6" data-testid="participants-list">
             {participants.map((p: any) => (
               <div key={p.user_id ?? p.id} className="text-center">
                 <div className="relative mb-3">

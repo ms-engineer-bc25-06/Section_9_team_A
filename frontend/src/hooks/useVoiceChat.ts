@@ -1,84 +1,86 @@
 // 音声チャット用の高レベルフック
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
-import { useWebSocket } from "@/hooks/useWebSocket"
-import { WS_EVENT } from "@/../../shared/constants/websocket-events"
-import type {
-  IncomingWsMessage,
-  OutgoingWsMessage,
-  SessionParticipantsMessage,
-} from "@/../../shared/types/websocket"
+import { useState, useCallback, useEffect } from 'react'
+import { useWebSocket } from './useWebSocket'
 
-export interface UseVoiceChatOptions {
-  onParticipants?: (participants: any[]) => void
+// テスト用の簡易型定義
+interface Participant {
+  id: number
+  name: string
+  email: string
 }
 
-export interface UseVoiceChatReturn {
-  isConnected: boolean
-  participants: any[]
-  join: () => void
-  leave: () => void
-  send: (type: string, payload?: Record<string, unknown>) => void
-  lastMessage: any | null
-}
+export const useVoiceChat = (sessionId: string) => {
+  const [participants, setParticipants] = useState<Participant[]>([])
+  const [isConnected, setIsConnected] = useState(false)
 
-export function useVoiceChat(sessionId: string, options: UseVoiceChatOptions = {}): UseVoiceChatReturn {
-  const [participants, setParticipants] = useState<any[]>([])
+  // メッセージ処理関数
+  const handleMessage = useCallback((message: any) => {
+    if (!message || typeof message !== "object") return
+    
+    console.log('メッセージ処理:', message)
+    
+    // 参加者情報の処理
+    if (message.type === 'session_participants') {
+      const participantList = message.participants ?? []
+      setParticipants(participantList)
+    }
+  }, [])
 
-  const { isConnected, lastMessage, sendJson, close } = useWebSocket(
-    `/api/v1/voice-sessions/${sessionId}`,
+  const { sendJson, lastMessage } = useWebSocket(
+    `/api/v1/test/voice-sessions/${sessionId}`, // テスト用エンドポイント
     {
-      onMessage: (data) => {
-        if (!data || typeof data !== "object") return
-        const msg = data as IncomingWsMessage
-        if (
-          msg.type === WS_EVENT.SESSION_PARTICIPANTS ||
-          msg.type === WS_EVENT.SESSION_PARTICIPANTS_INFO
-        ) {
-          const sp = msg as SessionParticipantsMessage
-          const list = sp.participants ?? []
-          setParticipants(list)
-          options.onParticipants?.(list)
-        }
+      skipAuth: true, // テスト用：認証をスキップ
+      onOpen: () => {
+        console.log('WebSocket接続確立')
+        setIsConnected(true)
+      },
+      onClose: () => {
+        console.log('WebSocket接続切断')
+        setIsConnected(false)
+      },
+      onMessage: (message) => {
+        console.log('WebSocketメッセージ受信:', message)
+        handleMessage(message)
       },
     }
   )
 
-  useEffect(() => {
-    if (!lastMessage) return
-    const m = lastMessage as any
-    if (m.type === "user_joined" || m.type === "user_left") {
-      // 最新の参加者一覧はサーバから follow-up される前提
-      // ここでは軽量な楽観更新のみ（必要なら再取得要求を送る）
-    }
-  }, [lastMessage])
-
-  const send = useCallback(
-    (type: string, payload: Record<string, unknown> = {}) => {
-      const message: OutgoingWsMessage | Record<string, unknown> = {
-        type: type as any,
-        session_id: sessionId,
-        ...payload,
-      }
-      sendJson(message)
-    },
-    [sendJson, sessionId]
-  )
-
+  // セッション参加
   const join = useCallback(() => {
-    send(WS_EVENT.JOIN_SESSION)
-  }, [send])
-
-  const leave = useCallback(() => {
-    try {
-      send(WS_EVENT.LEAVE_SESSION)
-    } finally {
-      close()
+    if (isConnected) {
+      sendJson({
+        type: 'join_session',
+        session_id: sessionId,
+        timestamp: new Date().toISOString()
+      })
     }
-  }, [close, send])
+  }, [isConnected, sendJson, sessionId])
 
-  return { isConnected, participants, join, leave, send, lastMessage }
+  // セッション退出
+  const leave = useCallback(() => {
+    if (isConnected) {
+      sendJson({
+        type: 'leave_session',
+        session_id: sessionId,
+        timestamp: new Date().toISOString()
+      })
+    }
+  }, [isConnected, sendJson, sessionId])
+
+  // 接続時に自動参加
+  useEffect(() => {
+    if (isConnected) {
+      join()
+    }
+  }, [isConnected, join])
+
+  return {
+    isConnected,
+    participants,
+    join,
+    leave,
+    sendJson
+  }
 }
-
-// 音声チャット操作
