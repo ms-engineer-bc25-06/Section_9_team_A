@@ -1,36 +1,49 @@
-# Bridge Line 開発用 Makefile
-# Windows/Mac/Linux 共通で使用可能
+# Bridge Line Development Makefile
+# Compatible with Windows, Mac OS, and Linux
+
+# OS detection
+ifeq ($(OS),Windows_NT)
+    # Windows
+    WAIT_CMD = timeout /t $(1) /nobreak > nul 2>&1 || ping -n $(1) 127.0.0.1 > nul 2>&1
+    RM_CMD = del /q
+    MKDIR_CMD = mkdir
+else
+    # Unix-like systems (Linux, Mac OS)
+    WAIT_CMD = sleep $(1)
+    RM_CMD = rm -rf
+    MKDIR_CMD = mkdir -p
+endif
 
 .PHONY: help setup start stop restart logs clean build test migrate frontend backend
 
-# デフォルトターゲット
+# Default target
 help:
-	@echo "Bridge Line 開発用コマンド"
+	@echo "Bridge Line Development Commands"
 	@echo ""
-	@echo "環境構築:"
-	@echo "  make setup     - 開発環境の初期セットアップ"
-	@echo "  make start     - Docker環境の起動"
-	@echo "  make stop      - Docker環境の停止"
-	@echo "  make restart   - Docker環境の再起動"
+	@echo "Environment Setup:"
+	@echo "  make setup     - Initial development environment setup"
+	@echo "  make start     - Start Docker environment"
+	@echo "  make stop      - Stop Docker environment"
+	@echo "  make restart   - Restart Docker environment"
 	@echo ""
-	@echo "開発用:"
-	@echo "  make logs      - ログの表示"
-	@echo "  make build     - コンテナの再ビルド"
-	@echo "  make test      - テストの実行"
-	@echo "  make migrate   - データベースマイグレーション"
+	@echo "Development:"
+	@echo "  make logs      - Show logs"
+	@echo "  make build     - Rebuild containers"
+	@echo "  make test      - Run tests"
+	@echo "  make migrate   - Run database migrations"
 	@echo ""
-	@echo "フロントエンド:"
-	@echo "  make frontend  - フロントエンド開発サーバー起動"
+	@echo "Frontend:"
+	@echo "  make frontend  - Start frontend development server"
 	@echo ""
-	@echo "バックエンド:"
-	@echo "  make backend   - バックエンドのログ表示"
+	@echo "Backend:"
+	@echo "  make backend   - Show backend logs"
 	@echo ""
-	@echo "クリーンアップ:"
-	@echo "  make clean     - コンテナとボリュームの削除"
+	@echo "Cleanup:"
+	@echo "  make clean     - Remove containers and volumes"
 
-# 開発環境の初期セットアップ
+# Initial development environment setup
 setup:
-	@echo "🚀 Bridge Line 開発環境セットアップを開始します..."
+	@echo "Starting Bridge Line development environment setup..."
 	@if [ -f "scripts/dev-setup-mac.sh" ]; then \
 		chmod +x scripts/dev-setup-mac.sh && ./scripts/dev-setup-mac.sh; \
 	elif [ -f "scripts/dev-setup.sh" ]; then \
@@ -38,157 +51,176 @@ setup:
 	elif [ -f "scripts/dev-setup.ps1" ]; then \
 		powershell -ExecutionPolicy Bypass -File scripts/dev-setup.ps1; \
 	else \
-		echo "セットアップスクリプトが見つかりません。"; \
-		echo "手動で以下のコマンドを実行してください:"; \
+		echo "Setup script not found."; \
+		echo "Please run the following commands manually:"; \
 		echo "  docker-compose up --build -d"; \
 		echo "  docker exec bridge_line_backend alembic upgrade head"; \
 	fi
 
-# Docker環境の起動
+# Start Docker environment
 start:
-	@echo "🐳 Docker環境を起動中..."
+	@echo "Starting Docker environment..."
 	docker-compose up -d
-	@echo "✅ 環境が起動しました。"
-	@echo "アクセスURL:"
-	@echo "  📊 バックエンドAPI: http://localhost:8000"
-	@echo "  📚 APIドキュメント: http://localhost:8000/docs"
-	@echo "  🎨 フロントエンド: http://localhost:3000"
+	@echo "Environment started successfully."
+	@echo "Access URLs:"
+	@echo "  Backend API: http://localhost:8000"
+	@echo "  API Docs: http://localhost:8000/docs"
 
-# Docker環境の停止
+# Stop Docker environment
 stop:
-	@echo "🛑 Docker環境を停止中..."
+	@echo "Stopping Docker environment..."
 	docker-compose down
-	@echo "✅ 環境が停止しました。"
+	@echo "Environment stopped successfully."
 
-# Docker環境の再起動
+# Restart Docker environment
 restart:
-	@echo "🔄 Docker環境を再起動中..."
+	@echo "Restarting Docker environment..."
 	docker-compose restart
-	@echo "✅ 環境が再起動しました。"
+	@echo "Environment restarted successfully."
 
-# ログの表示
+# Show logs
 logs:
-	@echo "📝 ログを表示中..."
+	@echo "Showing logs..."
 	docker-compose logs -f
 
-# バックエンドのログ表示
+# Show backend logs
 backend:
-	@echo "📝 バックエンドのログを表示中..."
+	@echo "Showing backend logs..."
 	docker-compose logs -f backend
 
-# コンテナの再ビルド
+# Rebuild containers
 build:
-	@echo "🔨 コンテナを再ビルド中..."
+	@echo "Rebuilding containers..."
 	docker-compose build
-	@echo "✅ ビルドが完了しました。"
+	@echo "Build completed successfully."
 
-# テストの実行
+# Run tests
 test:
-	@echo "🧪 テストを実行中..."
+	@echo "Running tests..."
 	docker exec bridge_line_backend pytest
-	@echo "✅ テストが完了しました。"
+	@echo "Tests completed successfully."
 
-# データベースマイグレーション
+# Run database migrations
 migrate:
-	@echo "🗄️ データベースマイグレーションを実行中..."
+	@echo "Running database migrations..."
 	docker exec bridge_line_backend alembic upgrade head
-	@echo "✅ マイグレーションが完了しました。"
+	@echo "Migrations completed successfully."
 
-# 新しいマイグレーション作成
+# Create new migration
 migrate-create:
-	@echo "📝 新しいマイグレーションを作成中..."
-	@read -p "マイグレーション名を入力してください: " name; \
+	@echo "Creating new migration..."
+	@read -p "Enter migration name: " name; \
 	docker exec bridge_line_backend alembic revision --autogenerate -m "$$name"
+	@echo "Migration created successfully."
 
-# フロントエンド開発サーバー起動
+# Start frontend development server
 frontend:
-	@echo "🎨 フロントエンド開発サーバーを起動中..."
-	@if [ -d "frontend" ]; then \
-		cd frontend && npm run dev; \
-	else \
-		echo "❌ frontend ディレクトリが見つかりません。"; \
-	fi
+	@echo "Starting frontend development server..."
+	cd frontend && npm run dev
 
-# フロントエンドの依存関係インストール
-frontend-install:
-	@echo "📦 フロントエンドの依存関係をインストール中..."
-	@if [ -d "frontend" ]; then \
-		cd frontend && npm install; \
-	else \
-		echo "❌ frontend ディレクトリが見つかりません。"; \
-	fi
-
-# データベースの状態確認
-db-status:
-	@echo "🗄️ データベースの状態を確認中..."
-	docker-compose ps postgres
-	docker-compose logs --tail=10 postgres
-
-# バックエンドの状態確認
-backend-status:
-	@echo "🔧 バックエンドの状態を確認中..."
-	docker-compose ps backend
-	docker-compose logs --tail=10 backend
-
-# ヘルスチェック
-health:
-	@echo "🏥 ヘルスチェックを実行中..."
-	@if command -v curl >/dev/null 2>&1; then \
-		if curl -f http://localhost:8000/health >/dev/null 2>&1; then \
-			echo "✅ バックエンドAPI が正常に動作しています。"; \
-		else \
-			echo "❌ バックエンドAPI にアクセスできません。"; \
-		fi; \
-	else \
-		echo "⚠️  curl がインストールされていません。"; \
-	fi
-
-# クリーンアップ（コンテナとボリュームの削除）
+# Cleanup
 clean:
-	@echo "🧹 クリーンアップを実行中..."
+	@echo "Running cleanup..."
 	docker-compose down -v
 	docker system prune -f
-	@echo "✅ クリーンアップが完了しました。"
+	@echo "Cleanup completed successfully."
 
-# 開発環境の完全リセット
+# Complete environment reset
 reset: clean setup
 
-# データベースのリセット
+# Database reset
 db-reset:
-	@echo "🗄️ データベースをリセット中..."
+	@echo "Resetting database..."
 	docker-compose down -v
 	docker-compose up -d postgres
-	@echo "データベースが再起動しました。"
-	@echo "マイグレーションを実行してください: make migrate"
+	@echo "Database restarted."
+	@echo "Please run migrations: make migrate"
 
-# バックエンドのシェルアクセス
+# Backend shell access
 backend-shell:
-	@echo "🐚 バックエンドコンテナにシェルアクセス中..."
+	@echo "Accessing backend container shell..."
 	docker exec -it bridge_line_backend /bin/bash
 
-# データベースのシェルアクセス
+# Database shell access
 db-shell:
-	@echo "🐚 データベースコンテナにシェルアクセス中..."
+	@echo "Accessing database container shell..."
 	docker exec -it bridge_line_postgres psql -U bridge_user -d bridge_line_db
 
-# 環境変数の確認
+# Check environment variables
 env-check:
-	@echo "🔍 環境変数を確認中..."
+	@echo "Checking environment variables..."
 	@if [ -f "backend/.env" ]; then \
-		echo "✅ backend/.env が存在します。"; \
+		echo "backend/.env exists."; \
 	else \
-		echo "❌ backend/.env が見つかりません。"; \
+		echo "backend/.env not found."; \
 		if [ -f "backend/.env.example" ]; then \
-			echo "📝 backend/.env.example から .env を作成してください。"; \
+			echo "Please create .env from backend/.env.example"; \
 		fi; \
 	fi
 
-# 依存関係の確認
+# Check dependencies
 deps-check:
-	@echo "🔍 依存関係を確認中..."
-	@echo "Docker: $$(docker --version 2>/dev/null || echo '未インストール')"
-	@echo "Docker Compose: $$(docker-compose --version 2>/dev/null || echo '未インストール')"
+	@echo "Checking dependencies..."
+	@echo "Docker: $$(docker --version 2>/dev/null || echo 'Not installed')"
+	@echo "Docker Compose: $$(docker-compose --version 2>/dev/null || echo 'Not installed')"
 	@if [ -d "frontend" ]; then \
-		echo "Node.js: $$(node --version 2>/dev/null || echo '未インストール')"; \
-		echo "npm: $$(npm --version 2>/dev/null || echo '未インストール')"; \
+		echo "Node.js: $$(node --version 2>/dev/null || echo 'Not installed')"; \
+		echo "npm: $$(npm --version 2>/dev/null || echo 'Not installed')"; \
 	fi 
+
+# Database related commands
+db-test-connection:
+	docker-compose run --rm backend python scripts/test_db_connection.py
+
+db-test-connection-local:
+	cd backend && python scripts/test_db_connection.py
+
+db-check-migrations:
+	docker-compose run --rm backend python scripts/check_migrations.py
+
+db-check-migrations-local:
+	cd backend && python scripts/check_migrations.py
+
+db-init:
+	docker-compose exec postgres psql -U bridge_user -d bridge_line_db -f /docker-entrypoint-initdb.d/init_db.sql
+
+db-init-test:
+	docker-compose exec postgres psql -U bridge_user -d postgres -f /docker-entrypoint-initdb.d/init_test_db.sql
+
+db-migrate:
+	docker-compose exec backend alembic upgrade head
+
+db-migrate-create:
+	docker-compose exec backend alembic revision --autogenerate -m "$(message)"
+
+db-status:
+	docker-compose exec backend alembic current
+
+db-history:
+	docker-compose exec backend alembic history
+
+# Test related commands
+test-db:
+	cd backend && python -m pytest tests/ -v --tb=short
+
+test-db-unit:
+	cd backend && python -m pytest tests/ -v --tb=short -k "not integration"
+
+# Development environment
+dev-setup:
+	docker-compose up -d postgres redis
+	@echo "Waiting for database to start..."
+	@$(call wait,10)
+	$(MAKE) db-init
+	@echo "Running migrations with temporary backend container..."
+	docker-compose run --rm backend alembic upgrade head
+	@echo "Starting development server..."
+	docker-compose run --rm -p 8000:8000 backend uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+dev-stop:
+	docker-compose down
+
+# Cross-platform wait function
+define wait
+	@$(WAIT_CMD)
+endef 

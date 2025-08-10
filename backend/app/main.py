@@ -6,8 +6,8 @@ import structlog
 
 from app.config import settings
 from app.api.v1.api import api_router
-from app.core.database import engine
-from app.models.base import Base
+from app.api.v1 import websocket as websocket_v1
+from app.core.message_handlers import initialize_message_handlers
 from app.core.exceptions import BridgeLineException
 from app.api.deps import handle_bridge_line_exceptions
 
@@ -39,13 +39,15 @@ async def lifespan(app: FastAPI):
     # 起動時
     logger.info("Starting Bridge Line API server")
 
-    # データベーステーブル作成
+    # データベースマイグレーションは Alembic を使用（自動作成は行わない）
+    logger.info("Skipping automatic table creation. Use Alembic migrations instead.")
+
+    # WebSocket メッセージハンドラー初期化
     try:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-        logger.info("Database tables created successfully")
+        await initialize_message_handlers()
+        logger.info("WebSocket message handlers initialized")
     except Exception as e:
-        logger.error(f"Failed to create database tables: {e}")
+        logger.error(f"Failed to initialize WebSocket message handlers: {e}")
 
     # 初期管理者の自動設定
     try:
@@ -93,6 +95,8 @@ async def bridge_line_exception_handler(request, exc: BridgeLineException):
 
 # APIルーターの追加
 app.include_router(api_router, prefix="/api/v1")
+# WebSocket ルーターの追加
+app.include_router(websocket_v1.router, prefix="/api/v1")
 
 
 @app.get("/")
