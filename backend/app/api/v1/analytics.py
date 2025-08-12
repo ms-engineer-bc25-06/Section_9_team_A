@@ -11,15 +11,11 @@ from app.schemas.analysis import (
     AnalysisRequest, AnalysisType
 )
 from app.services.ai_analysis_service import AIAnalysisService
-from app.integrations.openai_client import OpenAIClient
+from app.dependencies import get_openai_client
 from app.core.exceptions import AnalysisError
 
 router = APIRouter()
 logger = structlog.get_logger()
-
-# OpenAIクライアントの初期化
-openai_client = OpenAIClient()
-ai_analysis_service = AIAnalysisService(openai_client)
 
 @router.get("/", response_model=AnalysisListResponse)
 async def get_analytics(
@@ -32,6 +28,9 @@ async def get_analytics(
 ):
     """ユーザーのAI分析一覧を取得"""
     try:
+        openai_client = get_openai_client()
+        ai_analysis_service = AIAnalysisService(openai_client)
+        
         result = await ai_analysis_service.get_user_analyses(
             db=db,
             user=current_user,
@@ -68,6 +67,9 @@ async def create_analysis(
 ):
     """新しいAI分析を作成"""
     try:
+        openai_client = get_openai_client()
+        ai_analysis_service = AIAnalysisService(openai_client)
+        
         analyses = await ai_analysis_service.analyze_text(
             db=db,
             user=current_user,
@@ -106,6 +108,9 @@ async def get_analysis(
 ):
     """指定されたAI分析の詳細を取得"""
     try:
+        openai_client = get_openai_client()
+        ai_analysis_service = AIAnalysisService(openai_client)
+        
         analysis = await ai_analysis_service.get_analysis_by_id(
             db=db,
             analysis_id=analysis_id,
@@ -145,6 +150,9 @@ async def update_analysis(
     """AI分析情報を更新"""
     try:
         # 現在の分析データを取得
+        openai_client = get_openai_client()
+        ai_analysis_service = AIAnalysisService(openai_client)
+        
         current_analysis = await ai_analysis_service.get_analysis_by_id(
             db=db,
             analysis_id=analysis_id,
@@ -213,6 +221,9 @@ async def delete_analysis(
     """AI分析を削除"""
     try:
         # 現在の分析データを取得
+        openai_client = get_openai_client()
+        ai_analysis_service = AIAnalysisService(openai_client)
+        
         current_analysis = await ai_analysis_service.get_analysis_by_id(
             db=db,
             analysis_id=analysis_id,
@@ -272,6 +283,9 @@ async def create_batch_analysis(
         all_analyses = []
         
         for request in analysis_requests:
+            openai_client = get_openai_client()
+            ai_analysis_service = AIAnalysisService(openai_client)
+            
             analyses = await ai_analysis_service.analyze_text(
                 db=db,
                 user=current_user,
@@ -312,6 +326,9 @@ async def get_analyses_by_type(
 ):
     """特定の分析タイプの分析結果を取得"""
     try:
+        openai_client = get_openai_client()
+        ai_analysis_service = AIAnalysisService(openai_client)
+        
         result = await ai_analysis_service.get_user_analyses(
             db=db,
             user=current_user,
@@ -344,6 +361,9 @@ async def get_analysis_statistics(
     """ユーザーの分析統計を取得"""
     try:
         # 簡易的な統計情報を返す
+        openai_client = get_openai_client()
+        ai_analysis_service = AIAnalysisService(openai_client)
+        
         result = await ai_analysis_service.get_user_analyses(
             db=db,
             user=current_user,

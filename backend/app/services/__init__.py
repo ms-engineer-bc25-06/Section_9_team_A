@@ -7,30 +7,52 @@ from .voice_session_service import VoiceSessionService
 # チャットルームサービス
 from .chat_room_service import ChatRoomService
 
-# その他のサービス（今後実装予定）
-# from .user_service import UserService
-# from .team_service import TeamService
-# from .transcription_service import TranscriptionService
-# from .analysis_service import AnalysisService
-# from .subscription_service import SubscriptionService
-# from .billing_service import BillingService
-# from .invitation_service import InvitationService
-# from .notification_service import NotificationService
-# from .email_service import EmailService
-# from .ai_analysis_service import AIAnalysisService
+# 転写サービス
+from .transcription_service import TranscriptionService
+
+# 分析サービス
+from .ai_analysis_service import AIAnalysisService
+
+# トピック生成サービス
+from .topic_generation_service import TopicGenerationService
+
+# チームダイナミクスサービス
+from .team_dynamics_service import TeamDynamicsService
+
+# 音声処理サービス
+from .audio_processing_service import AudioProcessingService
+
+# 音声強化サービス
+from .audio_enhancement_service import AudioEnhancementService
+
+# 通知サービス
+from .notification_service import NotificationService
+
+# アナウンスメントサービス
+from .announcement_service import AnnouncementService
+
+# メッセージングサービス
+from .messaging_service import MessagingService
+
+# 参加者管理サービス
+from .participant_management_service import ParticipantManagementService
+
+# ロールサービス
+from .role_service import RoleService
 
 __all__ = [
     "AuthService",
     "VoiceSessionService",
     "ChatRoomService",
-    # "UserService",
-    # "TeamService",
-    # "TranscriptionService",
-    # "AnalysisService",
-    # "SubscriptionService",
-    # "BillingService",
-    # "InvitationService",
-    # "NotificationService",
-    # "EmailService",
-    # "AIAnalysisService",
+    "TranscriptionService",
+    "AIAnalysisService",
+    "TopicGenerationService",
+    "TeamDynamicsService",
+    "AudioProcessingService",
+    "AudioEnhancementService",
+    "NotificationService",
+    "AnnouncementService",
+    "MessagingService",
+    "ParticipantManagementService",
+    "RoleService",
 ]

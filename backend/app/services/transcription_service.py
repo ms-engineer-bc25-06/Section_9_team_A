@@ -7,7 +7,7 @@ from enum import Enum
 import numpy as np
 from app.integrations.openai_client import openai_client
 from app.models.transcription import Transcription
-from app.repositories.transcription_repository import TranscriptionRepository
+from app.repositories.transcription_repository import transcription_repository
 from app.schemas.transcription import TranscriptionCreate, TranscriptionResponse
 
 logger = structlog.get_logger()
@@ -408,7 +408,7 @@ class RealtimeTranscriptionManager:
             )
 
             async for db in get_db():
-                await self.transcription_repository.create(db, transcription_data)
+                await transcription_repository.create(db, transcription_data)
 
         except Exception as e:
             logger.error(f"Failed to save transcription: {e}")
@@ -424,7 +424,7 @@ class RealtimeTranscriptionManager:
             voice_session_id = 1  # TODO: 実際のセッションIDを取得
 
             async for db in get_db():
-                transcriptions = await self.transcription_repository.get_by_session(
+                transcriptions = await transcription_repository.get_by_session(
                     db, voice_session_id, limit, offset
                 )
 
@@ -480,7 +480,7 @@ class RealtimeTranscriptionManager:
             voice_session_id = 1  # TODO: 実際のセッションIDを取得
 
             async for db in get_db():
-                stats = await self.transcription_repository.get_session_stats(
+                stats = await transcription_repository.get_session_stats(
                     db, voice_session_id
                 )
 
@@ -520,7 +520,7 @@ class TranscriptionService:
     """転写サービス（後方互換性のため残す）"""
 
     def __init__(self):
-        self.transcription_repository = TranscriptionRepository()
+        self.transcription_repository = transcription_repository
         self.active_sessions: Dict[str, Dict[str, Any]] = {}
         self.chunk_buffers: Dict[str, List[bytes]] = {}
         self.buffer_duration = 3.0  # 3秒のバッファ

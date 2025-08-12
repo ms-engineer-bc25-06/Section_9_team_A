@@ -14,8 +14,8 @@ from app.schemas.topic_generation import (
 from app.schemas.analysis import AnalysisResult
 from app.core.exceptions import AnalysisError
 from app.integrations.openai_client import OpenAIClient
-from app.repositories.analysis_repository import AnalysisRepository
-from app.repositories.user_repository import UserRepository
+from app.repositories.analysis_repository import analysis_repository
+from app.repositories.user_repository import user_repository
 
 
 class TopicGenerationService:
@@ -24,8 +24,8 @@ class TopicGenerationService:
     def __init__(
         self,
         openai_client: OpenAIClient,
-        analysis_repository: AnalysisRepository,
-        user_repository: UserRepository
+        analysis_repository=analysis_repository,
+        user_repository=user_repository
     ):
         self.openai_client = openai_client
         self.analysis_repository = analysis_repository

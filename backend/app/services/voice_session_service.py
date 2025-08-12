@@ -6,7 +6,7 @@ import uuid
 
 from app.models.voice_session import VoiceSession
 from app.models.user import User
-from app.repositories.voice_session_repository import VoiceSessionRepository
+from app.repositories.voice_session_repository import voice_session_repository
 from app.schemas.voice_session import (
     VoiceSessionCreate,
     VoiceSessionUpdate,
@@ -40,7 +40,7 @@ class VoiceSessionService:
 
     def __init__(self, db: AsyncSession):
         self.db = db
-        self.repository = VoiceSessionRepository()
+        self.repository = voice_session_repository
 
     async def create_session(
         self, user_id: int, session_data: VoiceSessionCreate
