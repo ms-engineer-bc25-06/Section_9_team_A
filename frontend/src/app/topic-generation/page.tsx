@@ -189,10 +189,10 @@ export default function TopicGenerationPage() {
                   <div key={index} className="p-3 border border-gray-200 rounded-lg">
                     <h5 className="font-medium text-sm mb-2">{topic.title}</h5>
                     <div className="flex flex-wrap gap-1 mb-2">
-                      <Badge className={getCategoryColor(topic.category)} size="sm">
+                      <Badge className={getCategoryColor(topic.category)}>
                         {getCategoryIcon(topic.category)}
                       </Badge>
-                      <Badge className={getDifficultyColor(topic.difficulty)} size="sm">
+                      <Badge className={getDifficultyColor(topic.difficulty)}>
                         {topic.difficulty}
                       </Badge>
                     </div>
