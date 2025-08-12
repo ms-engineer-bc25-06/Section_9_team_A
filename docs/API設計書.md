@@ -1081,7 +1081,7 @@ Copy{
 
 ### **GET /analytics/teams/{team_id}**
 
-チーム分析結果取得（上記チーム管理の `/teams/{team_id}/analytics` と同一）
+チーム分析結果取得（上記チーム管理の `/teams/{team_id}/analytics` と同一）
 
 ### **GET /analytics/users/{user_id}**
 
@@ -2090,3 +2090,587 @@ X-RateLimit-Retry-After: 60
 - 異常アクセスパターンの検出
 - 監査ログの保存
 - リアルタイム監視とアラート
+
+---
+
+## **AI分析機能 API**
+
+### **チームダイナミクス分析**
+
+#### **POST /api/v1/analytics/team-dynamics**
+
+チームの相互作用パターンと相性を分析
+
+**リクエスト**
+
+```json
+{
+  "team_id": "550e8400-e29b-41d4-a716-446655440000",
+  "session_id": "660e8400-e29b-41d4-a716-446655440000",
+  "analysis_types": ["interaction", "compatibility", "cohesion"],
+  "participant_ids": ["user1", "user2", "user3"],
+  "time_range": {
+    "start": "2024-01-01T00:00:00Z",
+    "end": "2024-01-01T23:59:59Z"
+  }
+}
+```
+
+**レスポンス (200)**
+
+```json
+{
+  "analysis_id": "770e8400-e29b-41d4-a716-446655440000",
+  "team_id": "550e8400-e29b-41d4-a716-446655440000",
+  "analysis_date": "2024-01-01T12:00:00Z",
+  "interaction_matrix": {
+    "user1": {
+      "user2": 0.8,
+      "user3": 0.6
+    },
+    "user2": {
+      "user1": 0.8,
+      "user3": 0.7
+    },
+    "user3": {
+      "user1": 0.6,
+      "user2": 0.7
+    }
+  },
+  "dominant_speakers": [
+    {
+      "user_id": "user1",
+      "speaking_time": 1200,
+      "contribution_score": 0.85
+    }
+  ],
+  "silent_members": [
+    {
+      "user_id": "user3",
+      "speaking_time": 300,
+      "suggestion": "積極的な発言を促す"
+    }
+  ],
+  "compatibility_scores": {
+    "user1-user2": 0.9,
+    "user1-user3": 0.7,
+    "user2-user3": 0.8
+  },
+  "team_balance_score": 0.75,
+  "cohesion_score": 0.82,
+  "common_topics": ["プロジェクト管理", "技術トレンド"],
+  "opinion_alignment": 0.78,
+  "confidence_score": 0.88,
+  "processing_time_ms": 2500
+}
+```
+
+#### **GET /api/v1/analytics/team-dynamics/{team_id}**
+
+チームのダイナミクス分析履歴を取得
+
+**クエリパラメータ**
+
+- `page`: ページ番号 (デフォルト: 1)
+- `page_size`: ページサイズ (デフォルト: 20)
+- `start_date`: 開始日
+- `end_date`: 終了日
+- `analysis_type`: 分析タイプ
+
+**レスポンス (200)**
+
+```json
+{
+  "analyses": [
+    {
+      "id": "770e8400-e29b-41d4-a716-446655440000",
+      "analysis_date": "2024-01-01T12:00:00Z",
+      "cohesion_score": 0.82,
+      "team_balance_score": 0.75,
+      "confidence_score": 0.88,
+      "participant_count": 3
+    }
+  ],
+  "total_count": 15,
+  "page": 1,
+  "page_size": 20
+}
+```
+
+#### **GET /api/v1/analytics/compatibility/{team_id}**
+
+チームメンバー間の相性分析結果を取得
+
+**レスポンス (200)**
+
+```json
+{
+  "team_id": "550e8400-e29b-41d4-a716-446655440000",
+  "compatibility_matrix": {
+    "user1": {
+      "user2": {
+        "overall_score": 0.9,
+        "communication": 0.85,
+        "personality": 0.92,
+        "work_style": 0.88
+      },
+      "user3": {
+        "overall_score": 0.7,
+        "communication": 0.75,
+        "personality": 0.68,
+        "work_style": 0.72
+      }
+    }
+  },
+  "team_balance": {
+    "diversity_score": 0.78,
+    "synergy_score": 0.85,
+    "recommendations": [
+      "user1とuser3のコミュニケーション頻度を増やす",
+      "チーム全体での意見交換の機会を設ける"
+    ]
+  }
+}
+```
+
+### **改善提案管理**
+
+#### **POST /api/v1/analytics/improvement-suggestions**
+
+個人向け改善提案を生成
+
+**リクエスト**
+
+```json
+{
+  "user_id": "550e8400-e29b-41d4-a716-446655440000",
+  "team_id": "660e8400-e29b-41d4-a716-446655440000",
+  "analysis_types": ["communication", "leadership", "collaboration"],
+  "priority_level": "medium",
+  "include_ai_generated": true
+}
+```
+
+**レスポンス (200)**
+
+```json
+{
+  "suggestions": [
+    {
+      "id": "880e8400-e29b-41d4-a716-446655440000",
+      "suggestion_type": "communication",
+      "title": "積極的な発言の促進",
+      "content": "チームミーティングでより積極的に発言することで、リーダーシップを発揮できます。",
+      "priority": "medium",
+      "visibility": "private",
+      "ai_generated": true,
+      "confidence_score": 0.85,
+      "implementation_steps": [
+        "毎回の会議で最低1つの質問をする",
+        "アイデアを共有する習慣をつける"
+      ],
+      "expected_outcome": "チーム内での存在感向上、リーダーシップスキルの発展"
+    }
+  ],
+  "total_generated": 3,
+  "next_review_date": "2024-01-08T12:00:00Z"
+}
+```
+
+#### **GET /api/v1/analytics/improvement-suggestions/{user_id}**
+
+ユーザーの改善提案一覧を取得
+
+**クエリパラメータ**
+
+- `status`: ステータスフィルタ
+- `suggestion_type`: 提案タイプフィルタ
+- `visibility`: 表示範囲フィルタ
+- `page`: ページ番号
+- `page_size`: ページサイズ
+
+**レスポンス (200)**
+
+```json
+{
+  "suggestions": [
+    {
+      "id": "880e8400-e29b-41d4-a716-446655440000",
+      "suggestion_type": "communication",
+      "title": "積極的な発言の促進",
+      "priority": "medium",
+      "status": "pending",
+      "visibility": "private",
+      "user_consent": false,
+      "created_at": "2024-01-01T12:00:00Z"
+    }
+  ],
+  "total_count": 5,
+  "page": 1,
+  "page_size": 20
+}
+```
+
+#### **PUT /api/v1/analytics/improvement-suggestions/{id}/consent**
+
+改善提案の公開同意を更新
+
+**リクエスト**
+
+```json
+{
+  "consent_given": true,
+  "visibility": "team_leader",
+  "consent_version": "v1.0"
+}
+```
+
+**レスポンス (200)**
+
+```json
+{
+  "id": "880e8400-e29b-41d4-a716-446655440000",
+  "user_consent": true,
+  "consent_given": true,
+  "consent_date": "2024-01-01T13:00:00Z",
+  "visibility": "team_leader",
+  "status": "reviewed"
+}
+```
+
+### **フィードバック公開制御**
+
+#### **POST /api/v1/analytics/feedback-publication**
+
+フィードバックの公開設定を作成
+
+**リクエスト**
+
+```json
+{
+  "feedback_id": "990e8400-e29b-41d4-a716-446655440000",
+  "feedback_type": "analysis",
+  "user_id": "550e8400-e29b-41d4-a716-446655440000",
+  "team_id": "660e8400-e29b-41d4-a716-446655440000",
+  "visibility_settings": {
+    "personal": true,
+    "team": false,
+    "company": false,
+    "anonymous": true
+  },
+  "review_deadline": "2024-01-08T12:00:00Z",
+  "auto_publish_after": "2024-01-15T12:00:00Z",
+  "approval_required": false
+}
+```
+
+**レスポンス (200)**
+
+```json
+{
+  "id": "aa0e8400-e29b-41d4-a716-446655440000",
+  "feedback_id": "990e8400-e29b-41d4-a716-446655440000",
+  "status": "pending",
+  "visibility_settings": {
+    "personal": true,
+    "team": false,
+    "company": false,
+    "anonymous": true
+  },
+  "review_deadline": "2024-01-08T12:00:00Z",
+  "auto_publish_after": "2024-01-15T12:00:00Z",
+  "created_at": "2024-01-01T12:00:00Z"
+}
+```
+
+#### **PUT /api/v1/analytics/feedback-publication/{id}/review**
+
+フィードバックの確認・承認
+
+**リクエスト**
+
+```json
+{
+  "action": "approve",
+  "reviewer_notes": "内容を確認しました。公開して問題ありません。",
+  "visibility_changes": {
+    "team": true
+  }
+}
+```
+
+**レスポンス (200)**
+
+```json
+{
+  "id": "aa0e8400-e29b-41d4-a716-446655440000",
+  "status": "approved",
+  "reviewed_by": "reviewer_user_id",
+  "reviewed_at": "2024-01-01T14:00:00Z",
+  "visibility_settings": {
+    "personal": true,
+    "team": true,
+    "company": false,
+    "anonymous": true
+  },
+  "next_step": "auto_publish"
+}
+```
+
+### **比較分析**
+
+#### **POST /api/v1/analytics/compare/users**
+
+ユーザー間の比較分析を実行
+
+**リクエスト**
+
+```json
+{
+  "user_ids": ["user1", "user2", "user3"],
+  "comparison_types": ["communication", "leadership", "collaboration"],
+  "time_range": {
+    "start": "2024-01-01T00:00:00Z",
+    "end": "2024-01-31T23:59:59Z"
+  },
+  "anonymize": true,
+  "include_team_context": true
+}
+```
+
+**レスポンス (200)**
+
+```json
+{
+  "comparison_id": "bb0e8400-e29b-41d4-a716-446655440000",
+  "comparison_date": "2024-01-01T15:00:00Z",
+  "participants": [
+    {
+      "user_id": "user1",
+      "display_name": "User A",
+      "anonymized": true
+    }
+  ],
+  "comparison_results": {
+    "communication": {
+      "user1": 0.85,
+      "user2": 0.78,
+      "user3": 0.92,
+      "average": 0.85,
+      "variance": 0.0049
+    },
+    "leadership": {
+      "user1": 0.72,
+      "user2": 0.88,
+      "user3": 0.65,
+      "average": 0.75,
+      "variance": 0.0121
+    }
+  },
+  "insights": [
+    "コミュニケーション能力は全員が高いレベル",
+    "リーダーシップスキルに個人差がある",
+    "チーム全体のバランスは良好"
+  ],
+  "recommendations": [
+    "リーダーシップスキルの向上トレーニングを実施",
+    "スキル共有セッションの定期開催"
+  ]
+}
+```
+
+#### **GET /api/v1/analytics/compare/teams**
+
+チーム間の比較分析結果を取得
+
+**クエリパラメータ**
+
+- `team_ids`: 比較対象チームID（カンマ区切り）
+- `comparison_metrics`: 比較指標
+- `time_period`: 比較期間
+
+**レスポンス (200)**
+
+```json
+{
+  "comparison_id": "cc0e8400-e29b-41d4-a716-446655440000",
+  "comparison_date": "2024-01-01T16:00:00Z",
+  "teams": [
+    {
+      "team_id": "team1",
+      "team_name": "開発チームA",
+      "member_count": 5,
+      "metrics": {
+        "cohesion_score": 0.82,
+        "communication_efficiency": 0.78,
+        "innovation_score": 0.85
+      }
+    }
+  ],
+  "benchmarks": {
+    "industry_average": {
+      "cohesion_score": 0.75,
+      "communication_efficiency": 0.72,
+      "innovation_score": 0.78
+    },
+    "company_average": {
+      "cohesion_score": 0.79,
+      "communication_efficiency": 0.76,
+      "innovation_score": 0.81
+    }
+  },
+  "rankings": {
+    "cohesion_score": ["team1", "team2", "team3"],
+    "communication_efficiency": ["team3", "team1", "team2"],
+    "innovation_score": ["team1", "team3", "team2"]
+  }
+}
+```
+
+#### **POST /api/v1/analytics/compare/generate-report**
+
+比較分析レポートを生成
+
+**リクエスト**
+
+```json
+{
+  "comparison_id": "cc0e8400-e29b-41d4-a716-446655440000",
+  "report_format": "pdf",
+  "include_charts": true,
+  "include_recommendations": true,
+  "delivery_method": "download"
+}
+```
+
+**レスポンス (200)**
+
+```json
+{
+  "report_id": "dd0e8400-e29b-41d4-a716-446655440000",
+  "status": "generating",
+  "estimated_completion": "2024-01-01T16:30:00Z",
+  "download_url": null,
+  "progress": 0
+}
+```
+
+### **リアルタイム分析（オプション機能）**
+
+#### **POST /api/v1/analytics/realtime/configure**
+
+リアルタイム分析の設定
+
+**リクエスト**
+
+```json
+{
+  "session_id": "ee0e8400-e29b-41d4-a716-446655440000",
+  "enabled": true,
+  "analysis_types": ["sentiment", "topic", "participation"],
+  "feedback_delay": 30,
+  "privacy_mode": "anonymous",
+  "user_consent": true
+}
+```
+
+**レスポンス (200)**
+
+```json
+{
+  "session_id": "ee0e8400-e29b-41d4-a716-446655440000",
+  "realtime_analysis": {
+    "enabled": true,
+    "analysis_types": ["sentiment", "topic", "participation"],
+    "feedback_delay": 30,
+    "privacy_mode": "anonymous",
+    "status": "active"
+  },
+  "websocket_endpoint": "wss://api.bridge-line.com/ws/realtime-analysis/ee0e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+#### **WebSocket /ws/realtime-analysis/{session_id}**
+
+リアルタイム分析結果の配信
+
+**接続時の認証**
+
+```json
+{
+  "type": "auth",
+  "token": "bearer_token_here"
+}
+```
+
+**分析結果の受信**
+
+```json
+{
+  "type": "analysis_result",
+  "timestamp": "2024-01-01T16:45:00Z",
+  "analysis_type": "sentiment",
+  "result": {
+    "overall_sentiment": "positive",
+    "sentiment_score": 0.75,
+    "key_phrases": ["良いアイデア", "素晴らしい提案"],
+    "participant_insights": [
+      {
+        "user_id": "user1",
+        "sentiment": "positive",
+        "contribution": "high"
+      }
+    ]
+  }
+}
+```
+
+---
+
+## **AI分析機能のエラーハンドリング**
+
+### **分析関連エラー**
+
+- `ANALYSIS_IN_PROGRESS`: 分析処理中
+- `ANALYSIS_FAILED`: 分析失敗
+- `INSUFFICIENT_DATA`: 分析に必要なデータ不足
+- `ANALYSIS_TIMEOUT`: 分析タイムアウト
+- `MODEL_UNAVAILABLE`: AIモデル利用不可
+
+### **プライバシー関連エラー**
+
+- `CONSENT_REQUIRED`: ユーザー同意が必要
+- `VISIBILITY_VIOLATION`: 表示範囲違反
+- `APPROVAL_PENDING`: 承認待ち
+- `PUBLICATION_DENIED`: 公開拒否
+
+### **比較分析関連エラー**
+
+- `COMPARISON_NOT_ALLOWED`: 比較分析不可
+- `INSUFFICIENT_PARTICIPANTS`: 比較対象不足
+- `ANONYMIZATION_FAILED`: 匿名化失敗
+- `REPORT_GENERATION_FAILED`: レポート生成失敗
+
+---
+
+## **AI分析機能のレート制限**
+
+| エンドポイントタイプ | 制限 | ウィンドウ | 備考 |
+| --- | --- | --- | --- |
+| チームダイナミクス分析 | 10 req/day | チーム単位 | 処理コスト制限 |
+| 改善提案生成 | 20 req/day | ユーザー単位 | AI処理制限 |
+| 比較分析 | 5 req/day | チーム単位 | データ集計制限 |
+| リアルタイム分析 | 100 req/hour | セッション単位 | ストリーミング制限 |
+| レポート生成 | 3 req/day | ユーザー単位 | ファイル生成制限 |
+
+---
+
+## **AI分析機能のパフォーマンス目標**
+
+| 機能 | 目標レスポンス時間 | 最大許容時間 | 備考 |
+| --- | --- | --- | --- |
+| チームダイナミクス分析 | < 30s | 60s | 複雑な相互作用分析 |
+| 改善提案生成 | < 15s | 30s | AI生成処理 |
+| 比較分析 | < 45s | 90s | 大量データ処理 |
+| リアルタイム分析 | < 5s | 10s | ストリーミング処理 |
+| レポート生成 | < 60s | 120s | ファイル生成処理 |

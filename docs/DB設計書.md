@@ -481,7 +481,245 @@ CREATE INDEX idx_ai_analyses_behavioral ON ai_analyses USING gin(behavioral_scor
 
 ---
 
-### **8. subscriptions (サブスクリプション情報)**
+### **8. team_dynamics (チームダイナミクス分析)**
+
+```sql
+CREATE TABLE team_dynamics (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    session_id UUID REFERENCES voice_sessions(id) ON DELETE SET NULL,
+    analysis_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    
+    -- 相互作用パターン
+    interaction_matrix JSONB NOT NULL DEFAULT '{}'::jsonb,
+    dominant_speakers JSONB DEFAULT '[]'::jsonb,
+    silent_members JSONB DEFAULT '[]'::jsonb,
+    communication_flow JSONB DEFAULT '{}'::jsonb,
+    
+    -- チーム相性分析
+    compatibility_scores JSONB DEFAULT '{}'::jsonb,
+    team_balance_score DECIMAL(3,2) CHECK (team_balance_score >= 0 AND team_balance_score <= 1),
+    
+    -- チーム結束力
+    cohesion_score DECIMAL(3,2) CHECK (cohesion_score >= 0 AND cohesion_score <= 1),
+    common_topics JSONB DEFAULT '[]'::jsonb,
+    opinion_alignment DECIMAL(3,2) CHECK (opinion_alignment >= 0 AND opinion_alignment <= 1),
+    
+    -- 分析メタデータ
+    analysis_type VARCHAR(50) DEFAULT 'comprehensive',
+    confidence_score DECIMAL(4,3) CHECK (confidence_score >= 0 AND confidence_score <= 1),
+    model_version VARCHAR(50),
+    processing_time_ms INTEGER CHECK (processing_time_ms >= 0),
+    
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- インデックス
+CREATE INDEX idx_team_dynamics_team_id ON team_dynamics(team_id);
+CREATE INDEX idx_team_dynamics_session_id ON team_dynamics(session_id);
+CREATE INDEX idx_team_dynamics_analysis_date ON team_dynamics(analysis_date);
+CREATE INDEX idx_team_dynamics_cohesion_score ON team_dynamics(cohesion_score);
+CREATE INDEX idx_team_dynamics_interaction_matrix ON team_dynamics USING gin(interaction_matrix);
+CREATE INDEX idx_team_dynamics_compatibility_scores ON team_dynamics USING gin(compatibility_scores);
+
+-- 更新時刻自動更新トリガー
+CREATE TRIGGER update_team_dynamics_updated_at
+    BEFORE UPDATE ON team_dynamics
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+```
+
+**フィールド説明**
+
+| フィールド名 | 型 | 説明 | 制約 |
+| --- | --- | --- | --- |
+| `id` | UUID | プライマリキー | NOT NULL, PK |
+| `team_id` | UUID | チームID | NOT NULL, FK |
+| `session_id` | UUID | 音声セッションID | FK (NULL可) |
+| `analysis_date` | TIMESTAMP | 分析実行日時 | 自動設定 |
+| `interaction_matrix` | JSONB | メンバー間相互作用マトリックス | NOT NULL |
+| `dominant_speakers` | JSONB | 発言が多いメンバー情報 | - |
+| `silent_members` | JSONB | 発言が少ないメンバー情報 | - |
+| `communication_flow` | JSONB | コミュニケーション流れ図 | - |
+| `compatibility_scores` | JSONB | メンバー間相性スコア | - |
+| `team_balance_score` | DECIMAL(3,2) | チームバランススコア | 0-1の範囲 |
+| `cohesion_score` | DECIMAL(3,2) | チーム結束力スコア | 0-1の範囲 |
+| `common_topics` | JSONB | 共通トピックリスト | - |
+| `opinion_alignment` | DECIMAL(3,2) | 意見の一致度 | 0-1の範囲 |
+| `analysis_type` | VARCHAR(50) | 分析タイプ | DEFAULT 'comprehensive' |
+| `confidence_score` | DECIMAL(4,3) | 信頼度スコア | 0-1の範囲 |
+| `model_version` | VARCHAR(50) | 使用モデルバージョン | - |
+| `processing_time_ms` | INTEGER | 処理時間（ミリ秒） | >= 0 |
+| `created_at` | TIMESTAMP | 作成日時 | 自動設定 |
+| `updated_at` | TIMESTAMP | 更新日時 | 自動更新 |
+
+---
+
+### **9. improvement_suggestions (改善提案)**
+
+```sql
+CREATE TABLE improvement_suggestions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    team_id UUID REFERENCES teams(id) ON DELETE SET NULL,
+    session_id UUID REFERENCES voice_sessions(id) ON DELETE SET NULL,
+    
+    -- 提案内容
+    suggestion_type VARCHAR(50) NOT NULL CHECK (suggestion_type IN 
+        ('communication', 'leadership', 'collaboration', 'creativity', 'analytical', 'empathy')),
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    priority VARCHAR(20) DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
+    
+    -- プライバシー設定
+    visibility VARCHAR(20) DEFAULT 'private' CHECK (visibility IN 
+        ('private', 'team_leader', 'hr', 'admin', 'public')),
+    user_consent BOOLEAN DEFAULT FALSE,
+    consent_date TIMESTAMP WITH TIME ZONE,
+    
+    -- 実装状況
+    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN 
+        ('pending', 'in_progress', 'completed', 'deferred')),
+    implementation_notes TEXT,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    
+    -- メタデータ
+    ai_generated BOOLEAN DEFAULT TRUE,
+    confidence_score DECIMAL(4,3) CHECK (confidence_score >= 0 AND confidence_score <= 1),
+    expires_at TIMESTAMP WITH TIME ZONE,
+    
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- インデックス
+CREATE INDEX idx_improvement_suggestions_user_id ON improvement_suggestions(user_id);
+CREATE INDEX idx_improvement_suggestions_team_id ON improvement_suggestions(team_id);
+CREATE INDEX idx_improvement_suggestions_suggestion_type ON improvement_suggestions(suggestion_type);
+CREATE INDEX idx_improvement_suggestions_visibility ON improvement_suggestions(visibility);
+CREATE INDEX idx_improvement_suggestions_status ON improvement_suggestions(status);
+CREATE INDEX idx_improvement_suggestions_user_consent ON improvement_suggestions(user_consent);
+CREATE INDEX idx_improvement_suggestions_expires_at ON improvement_suggestions(expires_at);
+
+-- 更新時刻自動更新トリガー
+CREATE TRIGGER update_improvement_suggestions_updated_at
+    BEFORE UPDATE ON improvement_suggestions
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+```
+
+**フィールド説明**
+
+| フィールド名 | 型 | 説明 | 制約 |
+| --- | --- | --- | --- |
+| `id` | UUID | プライマリキー | NOT NULL, PK |
+| `user_id` | UUID | ユーザーID | NOT NULL, FK |
+| `team_id` | UUID | チームID | FK (NULL可) |
+| `session_id` | UUID | 音声セッションID | FK (NULL可) |
+| `suggestion_type` | VARCHAR(50) | 提案タイプ | 定義値のみ |
+| `title` | VARCHAR(255) | 提案タイトル | NOT NULL |
+| `content` | TEXT | 提案内容 | NOT NULL |
+| `priority` | VARCHAR(20) | 優先度 | low, medium, high, urgent |
+| `visibility` | VARCHAR(20) | 表示範囲 | private, team_leader, hr, admin, public |
+| `user_consent` | BOOLEAN | ユーザー同意 | DEFAULT FALSE |
+| `consent_date` | TIMESTAMP | 同意日時 | - |
+| `status` | VARCHAR(20) | 実装状況 | pending, in_progress, completed, deferred |
+| `implementation_notes` | TEXT | 実装メモ | - |
+| `completed_at` | TIMESTAMP | 完了日時 | - |
+| `ai_generated` | BOOLEAN | AI生成フラグ | DEFAULT TRUE |
+| `confidence_score` | DECIMAL(4,3) | 信頼度スコア | 0-1の範囲 |
+| `expires_at` | TIMESTAMP | 有効期限 | - |
+| `created_at` | TIMESTAMP | 作成日時 | 自動設定 |
+| `updated_at` | TIMESTAMP | 更新日時 | 自動更新 |
+
+---
+
+### **10. feedback_publication_control (フィードバック公開制御)**
+
+```sql
+CREATE TABLE feedback_publication_control (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    feedback_id UUID NOT NULL,
+    feedback_type VARCHAR(50) NOT NULL CHECK (feedback_type IN 
+        ('analysis', 'suggestion', 'comparison', 'report')),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    team_id UUID REFERENCES teams(id) ON DELETE SET NULL,
+    
+    -- 公開制御
+    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN 
+        ('pending', 'reviewed', 'approved', 'published', 'rejected')),
+    visibility_settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+    
+    -- 確認・承認フロー
+    review_deadline TIMESTAMP WITH TIME ZONE,
+    auto_publish_after TIMESTAMP WITH TIME ZONE,
+    reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    reviewed_at TIMESTAMP WITH TIME ZONE,
+    approval_required BOOLEAN DEFAULT FALSE,
+    approved_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    approved_at TIMESTAMP WITH TIME ZONE,
+    
+    -- ユーザー同意
+    user_consent BOOLEAN DEFAULT FALSE,
+    consent_given BOOLEAN DEFAULT FALSE,
+    consent_date TIMESTAMP WITH TIME ZONE,
+    consent_version VARCHAR(20),
+    
+    -- 公開履歴
+    publication_history JSONB DEFAULT '[]'::jsonb,
+    last_published_at TIMESTAMP WITH TIME ZONE,
+    
+    -- メタデータ
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- インデックス
+CREATE INDEX idx_feedback_publication_control_user_id ON feedback_publication_control(user_id);
+CREATE INDEX idx_feedback_publication_control_team_id ON feedback_publication_control(team_id);
+CREATE INDEX idx_feedback_publication_control_status ON feedback_publication_control(status);
+CREATE INDEX idx_feedback_publication_control_user_consent ON feedback_publication_control(user_consent);
+CREATE INDEX idx_feedback_publication_control_review_deadline ON feedback_publication_control(review_deadline);
+CREATE INDEX idx_feedback_publication_control_auto_publish_after ON feedback_publication_control(auto_publish_after);
+
+-- 更新時刻自動更新トリガー
+CREATE TRIGGER update_feedback_publication_control_updated_at
+    BEFORE UPDATE ON feedback_publication_control
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+```
+
+**フィールド説明**
+
+| フィールド名 | 型 | 説明 | 制約 |
+| --- | --- | --- | --- |
+| `id` | UUID | プライマリキー | NOT NULL, PK |
+| `feedback_id` | UUID | フィードバックID | NOT NULL |
+| `feedback_type` | VARCHAR(50) | フィードバックタイプ | 定義値のみ |
+| `user_id` | UUID | ユーザーID | NOT NULL, FK |
+| `team_id` | UUID | チームID | FK (NULL可) |
+| `status` | VARCHAR(20) | 公開状態 | pending, reviewed, approved, published, rejected |
+| `visibility_settings` | JSONB | 表示範囲設定 | NOT NULL |
+| `review_deadline` | TIMESTAMP | 確認期限 | - |
+| `auto_publish_after` | TIMESTAMP | 自動公開日時 | - |
+| `reviewed_by` | UUID | 確認者ID | FK (NULL可) |
+| `reviewed_at` | TIMESTAMP | 確認日時 | - |
+| `approval_required` | BOOLEAN | 承認必要フラグ | DEFAULT FALSE |
+| `approved_by` | UUID | 承認者ID | FK (NULL可) |
+| `approved_at` | TIMESTAMP | 承認日時 | - |
+| `user_consent` | BOOLEAN | ユーザー確認済み | DEFAULT FALSE |
+| `consent_given` | BOOLEAN | 公開同意 | DEFAULT FALSE |
+| `consent_date` | TIMESTAMP | 同意日時 | - |
+| `consent_version` | VARCHAR(20) | 同意バージョン | - |
+| `publication_history` | JSONB | 公開履歴 | - |
+| `last_published_at` | TIMESTAMP | 最終公開日時 | - |
+| `created_at` | TIMESTAMP | 作成日時 | 自動設定 |
+| `updated_at` | TIMESTAMP | 更新日時 | 自動更新 |
+
+---
+
+### **11. subscriptions (サブスクリプション情報)**
 
 ```sql
 CREATE TABLE subscriptions (
