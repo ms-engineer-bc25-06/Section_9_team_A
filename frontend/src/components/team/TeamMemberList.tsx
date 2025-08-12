@@ -13,29 +13,29 @@ const mockMembers = [
     id: 1,
     name: "田中太郎",
     department: "開発部",
-    joinDate: "2023-04-01",
-    status: "online",
+    // joinDate: "2023-04-01",
+    // status: "online",
   },
   {
     id: 2,
     name: "佐藤花子",
     department: "デザイン部",
-    joinDate: "2023-03-15",
-    status: "offline",
+    // joinDate: "2023-03-15",
+    // status: "offline",
   },
   {
     id: 3,
     name: "鈴木一郎",
     department: "営業部",
-    joinDate: "2023-02-01",
-    status: "online",
+    // joinDate: "2023-02-01",
+    // status: "online",
   },
   {
     id: 4,
     name: "高橋美咲",
     department: "マーケティング部",
-    joinDate: "2023-01-10",
-    status: "away",
+    // joinDate: "2023-01-10",
+    // status: "away",
   },
 ]
 
@@ -89,18 +89,18 @@ export function TeamMemberList() {
               </div>
             </div>
 
-            <div className="space-y-2 mb-4">
-              <div className="flex justify-between text-sm">
+            {/* <div className="space-y-2 mb-4"> */}
+              {/* <div className="flex justify-between text-sm">
                 <span className="text-gray-500">入社日:</span>
                 <span>{member.joinDate}</span>
-              </div>
-              <div className="flex justify-between items-center">
+              </div> */}
+              {/* <div className="flex justify-between items-center">
                 <span className="text-gray-500 text-sm">ステータス:</span>
                 <Badge variant="secondary" className="text-xs">
                   {getStatusText(member.status)}
                 </Badge>
-              </div>
-            </div>
+              </div> */}
+            {/* </div> */}
 
             <Button onClick={() => router.push(`/team/${member.id}`)} className="w-full" variant="outline">
               <Eye className="h-4 w-4 mr-2" />
