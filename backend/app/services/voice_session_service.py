@@ -6,7 +6,7 @@ import uuid
 
 from app.models.voice_session import VoiceSession
 from app.models.user import User
-from app.repositories.voice_session_repository import voice_session_repository
+from app.repositories import voice_session_repository
 from app.schemas.voice_session import (
     VoiceSessionCreate,
     VoiceSessionUpdate,

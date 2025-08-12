@@ -291,3 +291,7 @@ class AnalysisRepository(BaseRepository[Analysis, AnalysisCreate, AnalysisUpdate
             
         except Exception as e:
             raise ValidationException(f"キーワード検索に失敗しました: {str(e)}")
+
+
+# グローバルインスタンス
+analysis_repository = AnalysisRepository()

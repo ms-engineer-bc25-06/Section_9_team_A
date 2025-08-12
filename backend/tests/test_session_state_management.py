@@ -21,7 +21,7 @@ from app.models.user import User
 @pytest.fixture
 def sample_user():
     """サンプルユーザー"""
-            return User(
+    user = User(
             id=1,
             email="test@example.com",
             username="testuser",

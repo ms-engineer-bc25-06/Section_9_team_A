@@ -3,7 +3,7 @@ Firebase Custom Claims設定スクリプト
 admin@example.com のFirebase UIDを使用して管理者権限を設定
 """
 
-from app.core.firebase_client import set_admin_claim, get_user_claims
+from app.integrations.firebase_client import set_admin_claim, get_user_claims
 
 
 def set_firebase_admin():

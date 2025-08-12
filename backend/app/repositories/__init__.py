@@ -10,6 +10,8 @@ from .chat_room_repository import (
     ChatMessageRepository,
     ChatRoomParticipantRepository,
     chat_room_repository,
+    chat_message_repository,
+    chat_participant_repository,
 )
 
 # 転写関連
@@ -38,6 +40,8 @@ __all__ = [
     "ChatMessageRepository",
     "ChatRoomParticipantRepository",
     "chat_room_repository",
+    "chat_message_repository",
+    "chat_participant_repository",
     "TranscriptionRepository",
     "transcription_repository",
     "AnalysisRepository",

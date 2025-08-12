@@ -1,12 +1,14 @@
 from app.services.topic_generation_service import TopicGenerationService
-from app.repositories.analysis_repository import analysis_repository
-from app.repositories.user_repository import user_repository
-from app.repositories.transcription_repository import transcription_repository
-from app.repositories.voice_session_repository import voice_session_repository
-from app.repositories.chat_room_repository import chat_room_repository
-from app.repositories.subscription_repository import subscription_repository
-from app.repositories.team_repository import team_repository
-from app.repositories.billing_repository import billing_repository
+from app.repositories import (
+    analysis_repository,
+    user_repository,
+    transcription_repository,
+    voice_session_repository,
+    chat_room_repository,
+    subscription_repository,
+    team_repository,
+    billing_repository
+)
 from app.integrations.openai_client import openai_client
 
 def get_topic_generation_service() -> TopicGenerationService:

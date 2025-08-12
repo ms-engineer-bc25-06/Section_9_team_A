@@ -7,7 +7,7 @@ from enum import Enum
 import numpy as np
 from app.integrations.openai_client import openai_client
 from app.models.transcription import Transcription
-from app.repositories.transcription_repository import transcription_repository
+from app.repositories import transcription_repository
 from app.schemas.transcription import TranscriptionCreate, TranscriptionResponse
 
 logger = structlog.get_logger()

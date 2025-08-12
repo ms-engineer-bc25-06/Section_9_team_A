@@ -6,7 +6,7 @@ import uuid
 
 from app.models.chat_room import ChatRoom, ChatMessage, ChatRoomParticipant
 from app.models.user import User
-from app.repositories.chat_room_repository import (
+from app.repositories import (
     chat_room_repository,
     chat_message_repository,
     chat_participant_repository,

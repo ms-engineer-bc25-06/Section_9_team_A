@@ -6,7 +6,7 @@ import asyncio
 from datetime import datetime
 from app.core.database import async_session
 from sqlalchemy import text
-from app.core.firebase_client import set_admin_claim
+from app.integrations.firebase_client import set_admin_claim
 
 
 async def create_admin_user():
@@ -111,7 +111,7 @@ async def create_admin_user():
    - パスワード: 任意（6文字以上）
 
 2. Firebase UID を確認して、以下のコマンドで Firebase Custom Claims を設定:
-   python -c "from app.core.firebase_client import set_admin_claim; set_admin_claim('実際のFirebaseUID', True)"
+   python -c "from app.integrations.firebase_client import set_admin_claim; set_admin_claim('実際のFirebaseUID', True)"
 
 3. フロントエンドで admin@example.com でログインテスト
     """)

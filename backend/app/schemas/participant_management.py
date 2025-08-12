@@ -23,6 +23,15 @@ class ParticipantUpdate(BaseModel):
     is_muted: Optional[bool] = Field(None, description="ミュート状態")
 
 
+class ParticipantUpdateRequest(BaseModel):
+    """参加者更新リクエスト"""
+    role: Optional[str] = Field(None, description="新しい役割")
+    status: Optional[str] = Field(None, description="新しいステータス")
+    is_muted: Optional[bool] = Field(None, description="ミュート状態")
+    is_online: Optional[bool] = Field(None, description="オンライン状態")
+    last_activity: Optional[datetime] = Field(None, description="最終活動時刻")
+
+
 class ParticipantResponse(ParticipantBase):
     """参加者レスポンススキーマ"""
     id: int = Field(..., description="参加者ID")

@@ -192,3 +192,38 @@ def get_admin_user(uid: str) -> Optional[Dict[str, Any]]:
     """管理者ユーザー情報を取得"""
     client = get_firebase_client()
     return client.get_user_by_uid(uid)
+
+
+def set_admin_claim(uid: str, is_admin: bool = True) -> bool:
+    """ユーザーに管理者権限を設定"""
+    try:
+        if not firebase_client._initialized:
+            if not firebase_client.initialize():
+                return False
+        
+        # カスタムクレームを設定
+        claims = {"admin": is_admin}
+        firebase_client._auth.set_custom_user_claims(uid, claims)
+        
+        logger.info(f"Admin claim set for user {uid}: {is_admin}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Failed to set admin claim for user {uid}: {e}")
+        return False
+
+
+def get_user_claims(uid: str) -> Optional[Dict[str, Any]]:
+    """ユーザーのカスタムクレームを取得"""
+    try:
+        if not firebase_client._initialized:
+            if not firebase_client.initialize():
+                return None
+        
+        # ユーザー情報を取得（カスタムクレームを含む）
+        user_record = firebase_client._auth.get_user(uid)
+        return user_record.custom_claims or {}
+        
+    except Exception as e:
+        logger.error(f"Failed to get user claims for user {uid}: {e}")
+        return None
