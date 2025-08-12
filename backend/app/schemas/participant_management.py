@@ -3,6 +3,39 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 
 
+class ParticipantBase(BaseModel):
+    """参加者の基本スキーマ"""
+    user_id: int = Field(..., description="ユーザーID")
+    role: str = Field(default="participant", description="役割")
+    status: str = Field(default="active", description="ステータス")
+
+
+class ParticipantCreate(ParticipantBase):
+    """参加者作成スキーマ"""
+    session_id: str = Field(..., description="セッションID")
+    joined_at: datetime = Field(default_factory=datetime.utcnow, description="参加時刻")
+
+
+class ParticipantUpdate(BaseModel):
+    """参加者更新スキーマ"""
+    role: Optional[str] = Field(None, description="新しい役割")
+    status: Optional[str] = Field(None, description="新しいステータス")
+    is_muted: Optional[bool] = Field(None, description="ミュート状態")
+
+
+class ParticipantResponse(ParticipantBase):
+    """参加者レスポンススキーマ"""
+    id: int = Field(..., description="参加者ID")
+    session_id: str = Field(..., description="セッションID")
+    joined_at: datetime = Field(..., description="参加時刻")
+    last_activity: Optional[datetime] = Field(None, description="最終活動時刻")
+    is_muted: bool = Field(default=False, description="ミュート状態")
+    is_online: bool = Field(default=True, description="オンライン状態")
+
+    class Config:
+        from_attributes = True
+
+
 class ParticipantInfoResponse(BaseModel):
     """参加者情報レスポンス"""
     user_id: int = Field(..., description="ユーザーID")
@@ -26,11 +59,6 @@ class ParticipantListResponse(BaseModel):
     connected_count: int = Field(..., description="接続中参加者数")
     speaking_count: int = Field(..., description="発言中参加者数")
     muted_count: int = Field(..., description="ミュート中参加者数")
-
-
-class ParticipantUpdateRequest(BaseModel):
-    """参加者更新リクエスト"""
-    status: str = Field(..., description="新しいステータス")
 
 
 class ParticipantRoleUpdateRequest(BaseModel):

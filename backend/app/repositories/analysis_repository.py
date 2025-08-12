@@ -7,7 +7,7 @@ from app.models.analysis import Analysis
 from app.models.user import User
 from app.schemas.analysis import AnalysisType, AnalysisCreate, AnalysisUpdate
 from app.repositories.base import BaseRepository
-from app.core.exceptions import NotFoundException, DatabaseException
+from app.core.exceptions import NotFoundException, ValidationException
 
 class AnalysisRepository(BaseRepository[Analysis, AnalysisCreate, AnalysisUpdate]):
     """分析リポジトリ"""
@@ -29,7 +29,7 @@ class AnalysisRepository(BaseRepository[Analysis, AnalysisCreate, AnalysisUpdate
             return analysis
         except Exception as e:
             await db.rollback()
-            raise DatabaseException(f"分析データの作成に失敗しました: {str(e)}")
+            raise ValidationException(f"分析データの作成に失敗しました: {str(e)}")
     
     async def get_analysis_by_id(
         self,
@@ -48,7 +48,7 @@ class AnalysisRepository(BaseRepository[Analysis, AnalysisCreate, AnalysisUpdate
             result = await db.execute(query)
             return result.scalar_one_or_none()
         except Exception as e:
-            raise DatabaseException(f"分析データの取得に失敗しました: {str(e)}")
+            raise ValidationException(f"分析データの取得に失敗しました: {str(e)}")
     
     async def get_user_analyses(
         self,
@@ -94,7 +94,7 @@ class AnalysisRepository(BaseRepository[Analysis, AnalysisCreate, AnalysisUpdate
             }
             
         except Exception as e:
-            raise DatabaseException(f"分析データ一覧の取得に失敗しました: {str(e)}")
+            raise ValidationException(f"分析データ一覧の取得に失敗しました: {str(e)}")
     
     async def get_analyses_by_voice_session(
         self,
@@ -114,7 +114,7 @@ class AnalysisRepository(BaseRepository[Analysis, AnalysisCreate, AnalysisUpdate
             result = await db.execute(query)
             return result.scalars().all()
         except Exception as e:
-            raise DatabaseException(f"音声セッション関連の分析データ取得に失敗しました: {str(e)}")
+            raise ValidationException(f"音声セッション関連の分析データ取得に失敗しました: {str(e)}")
     
     async def get_analyses_by_transcription(
         self,
@@ -134,7 +134,7 @@ class AnalysisRepository(BaseRepository[Analysis, AnalysisCreate, AnalysisUpdate
             result = await db.execute(query)
             return result.scalars().all()
         except Exception as e:
-            raise DatabaseException(f"文字起こし関連の分析データ取得に失敗しました: {str(e)}")
+            raise ValidationException(f"文字起こし関連の分析データ取得に失敗しました: {str(e)}")
     
     async def update_analysis(
         self,
@@ -159,7 +159,7 @@ class AnalysisRepository(BaseRepository[Analysis, AnalysisCreate, AnalysisUpdate
             
         except Exception as e:
             await db.rollback()
-            raise DatabaseException(f"分析データの更新に失敗しました: {str(e)}")
+            raise ValidationException(f"分析データの更新に失敗しました: {str(e)}")
     
     async def delete_analysis(
         self,
@@ -179,7 +179,7 @@ class AnalysisRepository(BaseRepository[Analysis, AnalysisCreate, AnalysisUpdate
             
         except Exception as e:
             await db.rollback()
-            raise DatabaseException(f"分析データの削除に失敗しました: {str(e)}")
+            raise ValidationException(f"分析データの削除に失敗しました: {str(e)}")
     
     async def get_analysis_statistics(
         self,
@@ -238,7 +238,7 @@ class AnalysisRepository(BaseRepository[Analysis, AnalysisCreate, AnalysisUpdate
             }
             
         except Exception as e:
-            raise DatabaseException(f"分析統計の取得に失敗しました: {str(e)}")
+            raise ValidationException(f"分析統計の取得に失敗しました: {str(e)}")
     
     async def get_recent_analyses(
         self,
@@ -256,7 +256,7 @@ class AnalysisRepository(BaseRepository[Analysis, AnalysisCreate, AnalysisUpdate
             return result.scalars().all()
             
         except Exception as e:
-            raise DatabaseException(f"最近の分析データ取得に失敗しました: {str(e)}")
+            raise ValidationException(f"最近の分析データ取得に失敗しました: {str(e)}")
     
     async def get_analyses_by_keywords(
         self,
@@ -290,4 +290,4 @@ class AnalysisRepository(BaseRepository[Analysis, AnalysisCreate, AnalysisUpdate
             return result.scalars().all()
             
         except Exception as e:
-            raise DatabaseException(f"キーワード検索に失敗しました: {str(e)}")
+            raise ValidationException(f"キーワード検索に失敗しました: {str(e)}")

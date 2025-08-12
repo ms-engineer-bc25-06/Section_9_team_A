@@ -3,6 +3,41 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 
 
+class TeamDynamicsBase(BaseModel):
+    """チームダイナミクスの基本スキーマ"""
+    team_id: int = Field(..., description="チームID")
+    analysis_date: datetime = Field(..., description="分析日時")
+    analysis_type: str = Field(..., description="分析タイプ")
+
+
+class TeamDynamicsCreate(TeamDynamicsBase):
+    """チームダイナミクス作成スキーマ"""
+    interaction_data: Optional[Dict[str, Any]] = Field(None, description="相互作用データ")
+    compatibility_data: Optional[Dict[str, Any]] = Field(None, description="相性データ")
+    cohesion_data: Optional[Dict[str, Any]] = Field(None, description="結束力データ")
+
+
+class TeamDynamicsUpdate(BaseModel):
+    """チームダイナミクス更新スキーマ"""
+    analysis_type: Optional[str] = Field(None, description="分析タイプ")
+    interaction_data: Optional[Dict[str, Any]] = Field(None, description="相互作用データ")
+    compatibility_data: Optional[Dict[str, Any]] = Field(None, description="相性データ")
+    cohesion_data: Optional[Dict[str, Any]] = Field(None, description="結束力データ")
+
+
+class TeamDynamicsResponse(TeamDynamicsBase):
+    """チームダイナミクスレスポンススキーマ"""
+    id: int = Field(..., description="ダイナミクスID")
+    created_at: datetime = Field(..., description="作成日時")
+    updated_at: Optional[datetime] = Field(None, description="更新日時")
+    interaction_data: Optional[Dict[str, Any]] = Field(None, description="相互作用データ")
+    compatibility_data: Optional[Dict[str, Any]] = Field(None, description="相性データ")
+    cohesion_data: Optional[Dict[str, Any]] = Field(None, description="結束力データ")
+
+    class Config:
+        from_attributes = True
+
+
 class TeamInteractionAnalysis(BaseModel):
     """チーム相互作用分析結果スキーマ"""
     interaction_matrix: Dict[str, Dict[str, Any]] = Field(..., description="相互作用マトリックス")

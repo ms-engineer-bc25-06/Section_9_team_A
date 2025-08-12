@@ -12,6 +12,68 @@ class AnalysisType(str, Enum):
     TOPIC = "topic"  # トピック分析
     SUMMARY = "summary"  # 要約分析
 
+class AnalysisBase(BaseModel):
+    """分析の基本スキーマ"""
+    analysis_type: AnalysisType
+    content: str = Field(..., description="分析対象のテキスト内容")
+    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict, description="追加メタデータ")
+
+class AnalysisCreate(AnalysisBase):
+    """分析作成リクエスト"""
+    voice_session_id: Optional[int] = None
+    transcription_id: Optional[int] = None
+
+class AnalysisUpdate(BaseModel):
+    """分析更新リクエスト"""
+    title: Optional[str] = None
+    summary: Optional[str] = None
+    keywords: Optional[List[str]] = None
+    topics: Optional[List[str]] = None
+    status: Optional[str] = None
+
+class AnalysisRequest(BaseModel):
+    """分析リクエスト"""
+    text_content: str = Field(..., description="分析対象のテキスト内容")
+    analysis_types: List[AnalysisType] = Field(..., description="実行する分析タイプのリスト")
+    user_context: Optional[Dict[str, Any]] = Field(default_factory=dict, description="ユーザーコンテキスト")
+
+class AnalysisResponse(AnalysisBase):
+    """分析レスポンス"""
+    id: int
+    analysis_id: str
+    title: Optional[str] = None
+    summary: Optional[str] = None
+    keywords: Optional[List[str]] = None
+    topics: Optional[List[str]] = None
+    
+    # 分析結果
+    result: Optional["AnalysisResult"] = None
+    
+    # 感情分析
+    sentiment_score: Optional[float] = None
+    sentiment_label: Optional[str] = None
+    
+    # 統計情報
+    word_count: Optional[int] = None
+    sentence_count: Optional[int] = None
+    speaking_time: Optional[float] = None
+    
+    # メタデータ
+    confidence_score: Optional[float] = None
+    processing_time: Optional[float] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class AnalysisListResponse(BaseModel):
+    """分析一覧レスポンス"""
+    analyses: List[AnalysisResponse]
+    total_count: int
+    page: int
+    page_size: int
+
 class PersonalityTrait(BaseModel):
     """個性特性"""
     trait_name: str = Field(..., description="特性名")
@@ -62,69 +124,3 @@ class AnalysisResult(BaseModel):
     # メタデータ
     confidence_score: Optional[float] = Field(None, ge=0.0, le=1.0)
     processing_time: Optional[float] = None
-
-class AnalysisCreate(BaseModel):
-    """分析作成リクエスト"""
-    analysis_type: AnalysisType
-    voice_session_id: Optional[int] = None
-    transcription_id: Optional[int] = None
-    content: str = Field(..., description="分析対象のテキスト内容")
-    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict, description="追加メタデータ")
-
-class AnalysisUpdate(BaseModel):
-    """分析更新リクエスト"""
-    title: Optional[str] = None
-    summary: Optional[str] = None
-    keywords: Optional[List[str]] = None
-    topics: Optional[List[str]] = None
-    status: Optional[str] = None
-
-class AnalysisResponse(BaseModel):
-    """分析レスポンス"""
-    id: int
-    analysis_id: str
-    analysis_type: AnalysisType
-    title: Optional[str] = None
-    content: str
-    summary: Optional[str] = None
-    keywords: Optional[List[str]] = None
-    topics: Optional[List[str]] = None
-    
-    # 分析結果
-    result: Optional[AnalysisResult] = None
-    
-    # 感情分析
-    sentiment_score: Optional[float] = None
-    sentiment_label: Optional[str] = None
-    
-    # 統計情報
-    word_count: Optional[int] = None
-    sentence_count: Optional[int] = None
-    speaking_time: Optional[float] = None
-    
-    # 処理状態
-    status: str
-    confidence_score: Optional[float] = None
-    
-    # 外部キー
-    voice_session_id: Optional[int] = None
-    transcription_id: Optional[int] = None
-    user_id: int
-    
-    # タイムスタンプ
-    created_at: datetime
-    updated_at: datetime
-    processed_at: Optional[datetime] = None
-
-class AnalysisListResponse(BaseModel):
-    """分析一覧レスポンス"""
-    analyses: List[AnalysisResponse]
-    total_count: int
-    page: int
-    page_size: int
-
-class AnalysisRequest(BaseModel):
-    """分析リクエスト"""
-    text_content: str = Field(..., description="分析対象のテキスト")
-    analysis_types: List[AnalysisType] = Field(..., description="実行する分析タイプ")
-    user_context: Optional[Dict[str, Any]] = Field(default_factory=dict, description="ユーザーコンテキスト情報")
