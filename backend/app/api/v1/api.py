@@ -15,6 +15,7 @@ from app.api.v1 import (
     admin_role,
     audio_enhancement,
     participant_management,
+    topic_generation,
 )
 
 api_router = APIRouter()
@@ -71,4 +72,9 @@ api_router.include_router(admin_role.router, prefix="/admin-role", tags=["管理
 # 参加者管理
 api_router.include_router(
     participant_management.router, prefix="/participant-management", tags=["参加者管理"]
+)
+
+# トークテーマ生成
+api_router.include_router(
+    topic_generation.router, prefix="/topic-generation", tags=["トークテーマ生成"]
 )
