@@ -70,6 +70,9 @@ class User(Base):
     created_chat_rooms = relationship("ChatRoom", back_populates="creator")
     chat_messages = relationship("ChatMessage", back_populates="sender")
     chat_room_participations = relationship("ChatRoomParticipant", back_populates="user")
+    
+    # チームダイナミクス分析関連
+    team_profiles = relationship("TeamMemberProfile", back_populates="user")
 
 
     def __repr__(self):

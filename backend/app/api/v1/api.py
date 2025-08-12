@@ -16,6 +16,7 @@ from app.api.v1 import (
     audio_enhancement,
     participant_management,
     topic_generation,
+    team_dynamics,
 )
 
 api_router = APIRouter()
@@ -77,4 +78,9 @@ api_router.include_router(
 # トークテーマ生成
 api_router.include_router(
     topic_generation.router, prefix="/topic-generation", tags=["トークテーマ生成"]
+)
+
+# チームダイナミクス分析
+api_router.include_router(
+    team_dynamics.router, prefix="/team-dynamics", tags=["チームダイナミクス分析"]
 )

@@ -35,6 +35,9 @@ from .invitation import Invitation
 # 監査ログ関連
 from .audit_log import AuditLog
 
+# チームダイナミクス分析関連
+from .team_dynamics import TeamInteraction, TeamCompatibility, TeamCohesion, TeamMemberProfile
+
 __all__ = [
     "Base",
     "User",
@@ -52,4 +55,8 @@ __all__ = [
     "Billing",
     "Invitation",
     "AuditLog",
+    "TeamInteraction",
+    "TeamCompatibility",
+    "TeamCohesion",
+    "TeamMemberProfile",
 ]

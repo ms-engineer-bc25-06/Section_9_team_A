@@ -62,6 +62,10 @@ class VoiceSession(Base):
     team = relationship("Team", back_populates="voice_sessions")
     transcriptions = relationship("Transcription", back_populates="voice_session")
     analyses = relationship("Analysis", back_populates="voice_session")
+    
+    # チームダイナミクス分析関連
+    interactions = relationship("TeamInteraction", back_populates="session")
+    cohesions = relationship("TeamCohesion", back_populates="session")
 
     def __repr__(self) -> str:
         return f"<VoiceSession(id={self.id}, session_id='{self.session_id}', title='{self.title}')>"

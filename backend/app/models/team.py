@@ -32,6 +32,12 @@ class Team(Base):
     members = relationship("TeamMember", back_populates="team")
     voice_sessions = relationship("VoiceSession", back_populates="team")
     chat_rooms = relationship("ChatRoom", back_populates="team")
+    
+    # チームダイナミクス分析関連
+    interactions = relationship("TeamInteraction", back_populates="team")
+    compatibilities = relationship("TeamCompatibility", back_populates="team")
+    cohesions = relationship("TeamCohesion", back_populates="team")
+    member_profiles = relationship("TeamMemberProfile", back_populates="team")
 
     def __repr__(self):
         return f"<Team(id={self.id}, name='{self.name}', owner_id={self.owner_id})>"
