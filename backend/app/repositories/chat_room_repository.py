@@ -445,3 +445,9 @@ class ChatRoomParticipantRepository(
             logger.error(f"Failed to remove user from room: {e}")
             await db.rollback()
             return False
+
+
+# グローバルインスタンス
+chat_room_repository = ChatRoomRepository()
+chat_message_repository = ChatMessageRepository()
+chat_participant_repository = ChatRoomParticipantRepository()

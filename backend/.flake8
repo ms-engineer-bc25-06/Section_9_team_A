@@ -1,0 +1,107 @@
+[flake8]
+# 最大行長
+max-line-length = 88
+
+# 除外するディレクトリ
+exclude = 
+    .git,
+    __pycache__,
+    .venv,
+    venv,
+    env,
+    .env,
+    .pytest_cache,
+    .coverage,
+    htmlcov,
+    dist,
+    build,
+    *.egg-info,
+    migrations,
+    alembic/versions
+
+# 無視するエラー
+ignore = 
+    # E203: whitespace before ':'
+    E203,
+    # W503: line break before binary operator
+    W503,
+    # E501: line too long (handled by black)
+    E501,
+    # F401: imported but unused (handled by isort)
+    F401,
+    # F403: wildcard import
+    F403,
+    # F405: name may be undefined, or defined from star imports
+    F405,
+    # E722: do not use bare except
+    E722,
+    # W291: trailing whitespace
+    W291,
+    # W292: no newline at end of file
+    W292,
+    # W293: blank line contains whitespace
+    W293,
+    # W391: blank line at end of file
+    W391,
+    # E741: ambiguous variable name
+    E741,
+    # E742: ambiguous class definition
+    E742,
+    # E743: ambiguous function definition
+    E743,
+    # E901: SyntaxError or IndentationError
+    E901,
+    # E902: IOError (OSError)
+    E902,
+    # F821: undefined name
+    F821,
+    # F822: undefined name in __all__
+    F822,
+    # F823: local variable referenced before assignment
+    F823,
+    # F831: duplicate argument name in function definition
+    F831,
+    # F841: local variable is assigned to but never used
+    F841,
+    # F901: raise NotImplemented
+    F901,
+    # W191: indentation contains tabs
+    W191,
+    # W291: trailing whitespace
+    W291,
+    # W292: no newline at end of file
+    W292,
+    # W293: blank line contains whitespace
+    W293,
+    # W391: blank line at end of file
+    W391,
+    # W601: .has_key() is deprecated, use 'in'
+    W601,
+    # W602: deprecated form of raising exception
+    W602,
+    # W603: '<>' is deprecated, use '!='
+    W603,
+    # W604: backticks are deprecated, use 'repr()'
+    W604,
+    # W605: invalid escape sequence
+    W605,
+    # W606: 'async' and 'await' are reserved keywords
+    W606
+
+# 統計情報の表示
+statistics = True
+
+# カウント
+count = True
+
+# 詳細な出力
+verbose = True
+
+# 出力形式
+format = %(path)s:%(row)d:%(col)d: %(code)s %(text)s
+
+# 複数行の文字列リテラルを許可
+extend-ignore = E722
+
+# 設定ファイルの場所
+config_file = .flake8

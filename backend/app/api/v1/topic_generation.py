@@ -13,6 +13,7 @@ from app.schemas.topic_generation import (
 from app.services.topic_generation_service import TopicGenerationService
 from app.core.exceptions import AnalysisError
 from app.api.deps import get_current_user
+from app.dependencies import get_topic_generation_service
 from app.models.user import User
 
 router = APIRouter()
@@ -21,7 +22,7 @@ router = APIRouter()
 async def generate_topics(
     request: TopicGenerationRequest,
     current_user: User = Depends(get_current_user),
-    topic_service: TopicGenerationService = Depends()
+    topic_service: TopicGenerationService = Depends(get_topic_generation_service)
 ):
     """会話内容に基づいてトークテーマを生成"""
     try:
@@ -47,7 +48,7 @@ async def generate_topics(
 async def generate_personalized_topics(
     request: PersonalizedTopicRequest,
     current_user: User = Depends(get_current_user),
-    topic_service: TopicGenerationService = Depends()
+    topic_service: TopicGenerationService = Depends(get_topic_generation_service)
 ):
     """参加者の興味・関心に基づいて個別化されたトークテーマを生成"""
     try:
@@ -85,7 +86,7 @@ async def get_topic_suggestions(
     difficulty: Optional[TopicDifficulty] = Query(None, description="難易度でフィルタリング"),
     max_duration: Optional[int] = Query(None, description="最大所要時間（分）"),
     current_user: User = Depends(get_current_user),
-    topic_service: TopicGenerationService = Depends()
+    topic_service: TopicGenerationService = Depends(get_topic_generation_service)
 ):
     """条件に基づいてトークテーマの提案を取得"""
     try:

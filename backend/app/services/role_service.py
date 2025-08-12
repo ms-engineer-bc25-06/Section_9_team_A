@@ -7,7 +7,7 @@ from datetime import datetime
 
 from app.models.role import Role, UserRole
 from app.models.user import User
-from app.core.firebase_client import set_admin_claim, get_user_claims
+from app.integrations.firebase_client import set_admin_claim, get_user_claims
 
 logger = structlog.get_logger()
 

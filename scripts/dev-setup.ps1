@@ -1,219 +1,66 @@
-# Bridge Line 開発環境セットアップスクリプト (PowerShell版)
-# Windows 用
+# Bridge Line Development Setup Script for Windows
+# PowerShell script for setting up the development environment
 
-param(
-    [switch]$SkipFrontend
-)
+Write-Host "🚀 Bridge Line Development Environment Setup for Windows" -ForegroundColor Green
+Write-Host ""
 
-# エラー時に停止
-$ErrorActionPreference = "Stop"
-
-# 色付きのログ関数
-function Write-InfoLog {
-    param([string]$Message)
-    Write-Host "[INFO] $Message" -ForegroundColor Green
+# Check if Docker is running
+Write-Host "Checking Docker status..." -ForegroundColor Yellow
+try {
+    docker version | Out-Null
+    Write-Host "✅ Docker is running" -ForegroundColor Green
+}
+catch {
+    Write-Host "❌ Docker is not running. Please start Docker Desktop first." -ForegroundColor Red
+    exit 1
 }
 
-function Write-WarnLog {
-    param([string]$Message)
-    Write-Host "[WARN] $Message" -ForegroundColor Yellow
+# Check if Docker Compose is available
+Write-Host "Checking Docker Compose..." -ForegroundColor Yellow
+try {
+    docker compose version | Out-Null
+    Write-Host "✅ Docker Compose is available" -ForegroundColor Green
+}
+catch {
+    Write-Host "❌ Docker Compose is not available. Please update Docker Desktop." -ForegroundColor Red
+    exit 1
 }
 
-function Write-ErrorLog {
-    param([string]$Message)
-    Write-Host "[ERROR] $Message" -ForegroundColor Red
-}
+# Start the environment
+Write-Host ""
+Write-Host "Starting Bridge Line environment..." -ForegroundColor Yellow
 
-# Docker の確認
-function Test-Docker {
-    Write-InfoLog "Docker の確認中..."
-    
-    try {
-        $dockerVersion = docker --version
-        Write-InfoLog "✅ Docker がインストールされています: $dockerVersion"
-    }
-    catch {
-        Write-ErrorLog "Docker がインストールされていません。"
-        Write-InfoLog "https://docs.docker.com/get-docker/ からインストールしてください。"
-        exit 1
-    }
-    
-    try {
-        docker info | Out-Null
-        Write-InfoLog "✅ Docker が正常に動作しています。"
-    }
-    catch {
-        Write-ErrorLog "Docker が起動していません。"
-        Write-InfoLog "Docker Desktop を起動してください。"
-        exit 1
-    }
-}
+# Step 1: Start database services
+Write-Host "Step 1: Starting database services..." -ForegroundColor Cyan
+docker compose up -d postgres redis
 
-# Docker Compose の確認
-function Test-DockerCompose {
-    Write-InfoLog "Docker Compose の確認中..."
-    
-    try {
-        $composeVersion = docker-compose --version
-        Write-InfoLog "✅ Docker Compose が利用可能です: $composeVersion"
-    }
-    catch {
-        Write-ErrorLog "Docker Compose がインストールされていません。"
-        exit 1
-    }
-}
+# Wait for database services to be ready
+Write-Host "Waiting for database services to be ready..." -ForegroundColor Yellow
+Start-Sleep -Seconds 20
 
-# 環境変数ファイルの確認
-function Test-EnvFiles {
-    Write-InfoLog "環境変数ファイルの確認中..."
-    
-    if (-not (Test-Path "backend\.env")) {
-        Write-WarnLog "backend\.env ファイルが見つかりません。"
-        if (Test-Path "backend\.env.example") {
-            Write-InfoLog "backend\.env.example から .env を作成します..."
-            Copy-Item "backend\.env.example" "backend\.env"
-            Write-InfoLog "✅ backend\.env を作成しました。"
-        }
-        else {
-            Write-WarnLog "backend\.env.example も見つかりません。"
-        }
-    }
-    else {
-        Write-InfoLog "✅ backend\.env が存在します。"
-    }
-}
+# Step 2: Start backend service
+Write-Host "Step 2: Starting backend service..." -ForegroundColor Cyan
+docker compose up -d backend
 
-# Docker 環境の起動
-function Start-DockerEnvironment {
-    Write-InfoLog "Docker 環境を起動中..."
-    
-    # 既存のコンテナを停止
-    Write-InfoLog "既存のコンテナを停止中..."
-    try {
-        docker-compose down | Out-Null
-    }
-    catch {
-        # エラーは無視（コンテナが存在しない場合）
-    }
-    
-    # 環境をビルドして起動
-    Write-InfoLog "コンテナをビルドして起動中..."
-    docker-compose up --build -d
-    
-    Write-InfoLog "✅ Docker 環境の起動が完了しました。"
-}
+# Wait for backend service to be ready
+Write-Host "Waiting for backend service to be ready..." -ForegroundColor Yellow
+Start-Sleep -Seconds 30
 
-# サービスの状態確認
-function Test-Services {
-    Write-InfoLog "サービスの状態を確認中..."
-    
-    # 少し待ってから状態確認
-    Start-Sleep -Seconds 10
-    
-    docker-compose ps
-    
-    Write-InfoLog "各サービスのログを確認中..."
-    Write-Host "=== Backend Logs ===" -ForegroundColor Cyan
-    docker-compose logs --tail=10 backend
-    Write-Host ""
-    Write-Host "=== PostgreSQL Logs ===" -ForegroundColor Cyan
-    docker-compose logs --tail=5 postgres
-    Write-Host ""
-    Write-Host "=== Redis Logs ===" -ForegroundColor Cyan
-    docker-compose logs --tail=5 redis
-}
+# Check service status
+Write-Host ""
+Write-Host "Checking service status..." -ForegroundColor Yellow
+docker compose ps
 
-# データベースマイグレーション
-function Invoke-Migrations {
-    Write-InfoLog "データベースマイグレーションを実行中..."
-    
-    # マイグレーションの実行
-    docker exec bridge_line_backend alembic upgrade head
-    
-    Write-InfoLog "✅ マイグレーションが完了しました。"
-}
-
-# フロントエンドのセットアップ
-function Setup-Frontend {
-    if ($SkipFrontend) {
-        Write-InfoLog "フロントエンドのセットアップをスキップします。"
-        return
-    }
-    
-    Write-InfoLog "フロントエンドのセットアップ中..."
-    
-    if (Test-Path "frontend") {
-        Push-Location "frontend"
-        
-        # node_modules の確認
-        if (-not (Test-Path "node_modules")) {
-            Write-InfoLog "npm install を実行中..."
-            npm install
-        }
-        else {
-            Write-InfoLog "✅ node_modules が存在します。"
-        }
-        
-        Pop-Location
-    }
-    else {
-        Write-WarnLog "frontend ディレクトリが見つかりません。"
-    }
-}
-
-# ヘルスチェック
-function Test-HealthCheck {
-    Write-InfoLog "アプリケーションのヘルスチェック中..."
-    
-    try {
-        $response = Invoke-WebRequest -Uri "http://localhost:8000/health" -Method GET -TimeoutSec 10
-        if ($response.StatusCode -eq 200) {
-            Write-InfoLog "✅ バックエンドAPI が正常に動作しています。"
-        }
-        else {
-            Write-WarnLog "⚠️  バックエンドAPI の応答が異常です。"
-        }
-    }
-    catch {
-        Write-WarnLog "⚠️  バックエンドAPI にアクセスできません。"
-    }
-}
-
-# メイン処理
-function Main {
-    Write-Host "==========================================" -ForegroundColor Magenta
-    Write-Host "Bridge Line 開発環境セットアップ" -ForegroundColor Magenta
-    Write-Host "==========================================" -ForegroundColor Magenta
-    Write-Host ""
-    
-    Test-Docker
-    Test-DockerCompose
-    Test-EnvFiles
-    Start-DockerEnvironment
-    Test-Services
-    Invoke-Migrations
-    Setup-Frontend
-    Test-HealthCheck
-    
-    Write-Host ""
-    Write-Host "==========================================" -ForegroundColor Magenta
-    Write-Host "🎉 セットアップが完了しました！" -ForegroundColor Magenta
-    Write-Host "==========================================" -ForegroundColor Magenta
-    Write-Host ""
-    Write-Host "アクセスURL:" -ForegroundColor White
-    Write-Host "  📊 バックエンドAPI: http://localhost:8000" -ForegroundColor Cyan
-    Write-Host "  📚 APIドキュメント: http://localhost:8000/docs" -ForegroundColor Cyan
-    Write-Host "  🎨 フロントエンド: http://localhost:3000" -ForegroundColor Cyan
-    Write-Host ""
-    Write-Host "開発用コマンド:" -ForegroundColor White
-    Write-Host "  🔄 環境の再起動: docker-compose restart" -ForegroundColor Yellow
-    Write-Host "  📝 ログの確認: docker-compose logs -f" -ForegroundColor Yellow
-    Write-Host "  🗄️  マイグレーション: docker exec bridge_line_backend alembic upgrade head" -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "フロントエンド開発:" -ForegroundColor White
-    Write-Host "  cd frontend && npm run dev" -ForegroundColor Yellow
-    Write-Host ""
-}
-
-# スクリプトの実行
-Main 
+Write-Host ""
+Write-Host "🎉 Environment started successfully!" -ForegroundColor Green
+Write-Host ""
+Write-Host "Access URLs:" -ForegroundColor Cyan
+Write-Host "  Backend API: http://localhost:8000" -ForegroundColor White
+Write-Host "  API Docs: http://localhost:8000/docs" -ForegroundColor White
+Write-Host "  Database: localhost:5432" -ForegroundColor White
+Write-Host "  Redis: localhost:6379" -ForegroundColor White
+Write-Host ""
+Write-Host "Next steps:" -ForegroundColor Cyan
+Write-Host "  1. Wait for all services to be healthy" -ForegroundColor White
+Write-Host "  2. Run database migrations: docker exec bridge_line_backend alembic upgrade head" -ForegroundColor White
+Write-Host "  3. Check logs: docker compose logs -f" -ForegroundColor White 

@@ -60,11 +60,23 @@ setup:
 # Start Docker environment
 start:
 	@echo "Starting Docker environment..."
-	docker compose up -d
+	@echo "Step 1: Starting database services..."
+	docker compose up -d postgres redis
+	@echo "Waiting for database services to be ready..."
+	@$(call wait,20)
+	@echo "Step 2: Starting backend service..."
+	docker compose up -d backend
+	@echo "Waiting for backend service to be ready..."
+	@$(call wait,30)
 	@echo "Environment started successfully."
 	@echo "Access URLs:"
 	@echo "  Backend API: http://localhost:8000"
 	@echo "  API Docs: http://localhost:8000/docs"
+	@echo "  Database: localhost:5432"
+	@echo "  Redis: localhost:6379"
+	@echo ""
+	@echo "Checking service status..."
+	@docker compose ps
 
 # Stop Docker environment
 stop:
@@ -88,17 +100,103 @@ backend:
 	@echo "Showing backend logs..."
 	docker compose logs -f backend
 
+# Check backend status
+backend-status:
+	@echo "Checking backend service status..."
+	@docker compose ps backend
+	@echo ""
+	@echo "Backend health check:"
+	@docker compose exec backend curl -f http://localhost:8000/health || echo "Backend is not responding"
+
+# Debug backend startup issues
+backend-debug:
+	@echo "Debugging backend startup issues..."
+	@echo "1. Checking if backend image exists:"
+	@docker images | findstr bridge-line-backend || echo "Backend image not found"
+	@echo ""
+	@echo "2. Checking backend container logs:"
+	@docker compose logs --tail=50 backend
+	@echo ""
+	@echo "3. Checking backend container status:"
+	@docker compose ps backend
+
 # Rebuild containers
 build:
 	@echo "Rebuilding containers..."
 	docker compose build
 	@echo "Build completed successfully."
 
-# Run tests
-test:
-	@echo "Running tests..."
-	docker exec bridge_line_backend pytest
-	@echo "Tests completed successfully."
+# Testing and Quality Assurance
+test: test-backend test-frontend
+	@echo "✅ All tests completed!"
+
+test-backend:
+	@echo "🧪 Running backend tests..."
+	@cd backend && python -m pytest tests/ -v --cov=app --cov-report=term-missing
+
+test-frontend:
+	@echo "🧪 Running frontend tests..."
+	@cd frontend && npm test -- --coverage --watchAll=false
+
+test-backend-unit:
+	@echo "🧪 Running backend unit tests..."
+	@cd backend && python -m pytest tests/ -m "unit" -v
+
+test-backend-integration:
+	@echo "🧪 Running backend integration tests..."
+	@cd backend && python -m pytest tests/ -m "integration" -v
+
+test-frontend-unit:
+	@echo "🧪 Running frontend unit tests..."
+	@cd frontend && npm test -- --coverage --watchAll=false --testPathPattern="__tests__"
+
+test-e2e:
+	@echo "🧪 Running E2E tests..."
+	@cd frontend && npm run cypress:run
+
+# Linting and Formatting
+lint: lint-backend lint-frontend
+	@echo "✅ All linting completed!"
+
+lint-backend:
+	@echo "🔍 Linting backend code..."
+	@cd backend && python -m flake8 app/ --max-line-length=88 --extend-ignore=E203,W503
+
+lint-frontend:
+	@echo "🔍 Linting frontend code..."
+	@cd frontend && npm run lint
+
+format: format-backend format-frontend
+	@echo "✨ All formatting completed!"
+
+format-backend:
+	@echo "✨ Formatting backend code..."
+	@cd backend && python -m black app/ --line-length=88
+	@cd backend && python -m isort app/ --profile=black
+
+format-frontend:
+	@echo "✨ Formatting frontend code..."
+	@cd frontend && npx prettier --write "src/**/*.{ts,tsx,js,jsx,json,css,md}"
+
+# Type checking
+type-check: type-check-backend type-check-frontend
+	@echo "✅ All type checking completed!"
+
+type-check-backend:
+	@echo "🔍 Type checking backend code..."
+	@cd backend && python -m mypy app/ --ignore-missing-imports
+
+type-check-frontend:
+	@echo "🔍 Type checking frontend code..."
+	@cd frontend && npm run type-check
+
+# Quality check (lint + format + test)
+quality: lint format test
+	@echo "🎉 Quality check completed!"
+
+# Quick quality check (lint + format only)
+quality-quick: lint format
+	@echo "🎉 Quick quality check completed!"
 
 # Run database migrations
 migrate:
@@ -140,6 +238,19 @@ db-reset:
 backend-shell:
 	@echo "Accessing backend container shell..."
 	docker exec -it bridge_line_backend /bin/bash
+
+# Start backend only
+backend-start:
+	@echo "Starting backend service only..."
+	docker compose up -d backend
+	@echo "Backend service started."
+	@echo "Access URL: http://localhost:8000"
+
+# Restart backend only
+backend-restart:
+	@echo "Restarting backend service only..."
+	docker compose restart backend
+	@echo "Backend service restarted."
 
 # Database shell access
 db-shell:
@@ -208,7 +319,7 @@ test-db-unit:
 
 # Development environment
 dev-setup:
-	docker compose up -d postgres redis
+	docker compose up -d postgres redis python
 	@echo "Waiting for database to start..."
 	@$(call wait,10)
 	$(MAKE) db-init
@@ -223,4 +334,17 @@ dev-stop:
 # Cross-platform wait function
 define wait
 	@$(WAIT_CMD)
-endef 
+endef
+
+# Windows環境でのwait関数の修正
+ifeq ($(OS),Windows_NT)
+    # Windows用のwait関数
+    define wait
+		@timeout /t $(1) /nobreak > nul 2>&1 || ping -n $(1) 127.0.0.1 > nul 2>&1
+    endef
+else
+    # Unix系用のwait関数
+    define wait
+		@sleep $(1)
+    endef
+endif 

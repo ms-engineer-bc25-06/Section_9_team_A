@@ -6,10 +6,10 @@ import uuid
 
 from app.models.chat_room import ChatRoom, ChatMessage, ChatRoomParticipant
 from app.models.user import User
-from app.repositories.chat_room_repository import (
-    ChatRoomRepository,
-    ChatMessageRepository,
-    ChatRoomParticipantRepository,
+from app.repositories import (
+    chat_room_repository,
+    chat_message_repository,
+    chat_participant_repository,
 )
 from app.schemas.chat_room import (
     ChatRoomCreate,
@@ -45,9 +45,9 @@ class ChatRoomService:
 
     def __init__(self, db: AsyncSession):
         self.db = db
-        self.chat_room_repository = ChatRoomRepository()
-        self.chat_message_repository = ChatMessageRepository()
-        self.chat_participant_repository = ChatRoomParticipantRepository()
+        self.chat_room_repository = chat_room_repository
+        self.chat_message_repository = chat_message_repository
+        self.chat_participant_repository = chat_participant_repository
 
     async def create_room(
         self, user_id: int, room_data: ChatRoomCreate
