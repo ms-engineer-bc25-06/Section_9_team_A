@@ -53,14 +53,14 @@ setup:
 	else \
 		echo "Setup script not found."; \
 		echo "Please run the following commands manually:"; \
-		echo "  docker-compose up --build -d"; \
+		echo "  docker compose up --build -d"; \
 		echo "  docker exec bridge_line_backend alembic upgrade head"; \
 	fi
 
 # Start Docker environment
 start:
 	@echo "Starting Docker environment..."
-	docker-compose up -d
+	docker compose up -d
 	@echo "Environment started successfully."
 	@echo "Access URLs:"
 	@echo "  Backend API: http://localhost:8000"
@@ -69,29 +69,29 @@ start:
 # Stop Docker environment
 stop:
 	@echo "Stopping Docker environment..."
-	docker-compose down
+	docker compose down
 	@echo "Environment stopped successfully."
 
 # Restart Docker environment
 restart:
 	@echo "Restarting Docker environment..."
-	docker-compose restart
+	docker compose restart
 	@echo "Environment restarted successfully."
 
 # Show logs
 logs:
 	@echo "Showing logs..."
-	docker-compose logs -f
+	docker compose logs -f
 
 # Show backend logs
 backend:
 	@echo "Showing backend logs..."
-	docker-compose logs -f backend
+	docker compose logs -f backend
 
 # Rebuild containers
 build:
 	@echo "Rebuilding containers..."
-	docker-compose build
+	docker compose build
 	@echo "Build completed successfully."
 
 # Run tests
@@ -121,7 +121,7 @@ frontend:
 # Cleanup
 clean:
 	@echo "Running cleanup..."
-	docker-compose down -v
+	docker compose down -v
 	docker system prune -f
 	@echo "Cleanup completed successfully."
 
@@ -131,8 +131,8 @@ reset: clean setup
 # Database reset
 db-reset:
 	@echo "Resetting database..."
-	docker-compose down -v
-	docker-compose up -d postgres
+	docker compose down -v
+	docker compose up -d postgres
 	@echo "Database restarted."
 	@echo "Please run migrations: make migrate"
 
@@ -162,7 +162,7 @@ env-check:
 deps-check:
 	@echo "Checking dependencies..."
 	@echo "Docker: $$(docker --version 2>/dev/null || echo 'Not installed')"
-	@echo "Docker Compose: $$(docker-compose --version 2>/dev/null || echo 'Not installed')"
+	@echo "Docker Compose: $$(docker compose version 2>/dev/null || echo 'Not installed')"
 	@if [ -d "frontend" ]; then \
 		echo "Node.js: $$(node --version 2>/dev/null || echo 'Not installed')"; \
 		echo "npm: $$(npm --version 2>/dev/null || echo 'Not installed')"; \
@@ -170,34 +170,34 @@ deps-check:
 
 # Database related commands
 db-test-connection:
-	docker-compose run --rm backend python scripts/test_db_connection.py
+	docker compose run --rm backend python scripts/test_db_connection.py
 
 db-test-connection-local:
 	cd backend && python scripts/test_db_connection.py
 
 db-check-migrations:
-	docker-compose run --rm backend python scripts/check_migrations.py
+	docker compose run --rm backend python scripts/check_migrations.py
 
 db-check-migrations-local:
 	cd backend && python scripts/check_migrations.py
 
 db-init:
-	docker-compose exec postgres psql -U bridge_user -d bridge_line_db -f /docker-entrypoint-initdb.d/init_db.sql
+	docker compose exec postgres psql -U bridge_user -d bridge_line_db -f /docker-entrypoint-initdb.d/init_db.sql
 
 db-init-test:
-	docker-compose exec postgres psql -U bridge_user -d postgres -f /docker-entrypoint-initdb.d/init_test_db.sql
+	docker compose exec postgres psql -U bridge_line_postgres psql -U bridge_user -d postgres -f /docker-entrypoint-initdb.d/init_test_db.sql
 
 db-migrate:
-	docker-compose exec backend alembic upgrade head
+	docker compose exec backend alembic upgrade head
 
 db-migrate-create:
-	docker-compose exec backend alembic revision --autogenerate -m "$(message)"
+	docker compose exec backend alembic revision --autogenerate -m "$(message)"
 
 db-status:
-	docker-compose exec backend alembic current
+	docker compose exec backend alembic current
 
 db-history:
-	docker-compose exec backend alembic history
+	docker compose exec backend alembic current
 
 # Test related commands
 test-db:
@@ -208,17 +208,17 @@ test-db-unit:
 
 # Development environment
 dev-setup:
-	docker-compose up -d postgres redis
+	docker compose up -d postgres redis
 	@echo "Waiting for database to start..."
 	@$(call wait,10)
 	$(MAKE) db-init
 	@echo "Running migrations with temporary backend container..."
-	docker-compose run --rm backend alembic upgrade head
+	docker compose run --rm backend alembic upgrade head
 	@echo "Starting development server..."
-	docker-compose run --rm -p 8000:8000 backend uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+	docker compose run --rm -p 8000:8000 backend uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 dev-stop:
-	docker-compose down
+	docker compose down
 
 # Cross-platform wait function
 define wait

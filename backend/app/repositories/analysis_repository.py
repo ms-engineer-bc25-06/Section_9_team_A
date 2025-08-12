@@ -5,11 +5,11 @@ from sqlalchemy.orm import selectinload
 
 from app.models.analysis import Analysis
 from app.models.user import User
-from app.schemas.analysis import AnalysisType
+from app.schemas.analysis import AnalysisType, AnalysisCreate, AnalysisUpdate
 from app.repositories.base import BaseRepository
 from app.core.exceptions import NotFoundException, DatabaseException
 
-class AnalysisRepository(BaseRepository[Analysis]):
+class AnalysisRepository(BaseRepository[Analysis, AnalysisCreate, AnalysisUpdate]):
     """分析リポジトリ"""
     
     def __init__(self):

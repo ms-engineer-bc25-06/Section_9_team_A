@@ -3,12 +3,13 @@
 
 import type React from "react"
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/components/auth/AuthProvider"
-import { Bell, Settings, LogOut,User, ChevronDown } from "lucide-react"
+import { Bell, Settings, LogOut, User, ChevronDown, Home, Users, MessageSquare, BarChart3, Target } from "lucide-react"
 
 const DashboardHeader: React.FC = () => {
   const router = useRouter()
+  const pathname = usePathname()
   const { user, logout } = useAuth()
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
 
@@ -31,6 +32,14 @@ const DashboardHeader: React.FC = () => {
     }
     return "U"
   }
+
+  const navigationItems = [
+    { name: 'ダッシュボード', href: '/dashboard', icon: Home },
+    { name: 'チーム管理', href: '/team', icon: Users },
+    { name: '音声チャット', href: '/voice-chat', icon: MessageSquare },
+    { name: '分析', href: '/analytics', icon: BarChart3 },
+    { name: 'チームダイナミクス', href: '/team-dynamics', icon: Target },
+  ]
 
   return (
     <header className="bg-white shadow-sm border-b">
@@ -94,6 +103,30 @@ const DashboardHeader: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* ナビゲーションメニュー */}
+        <nav className="mt-4">
+          <div className="flex space-x-1">
+            {navigationItems.map((item) => {
+              const Icon = item.icon
+              const isActive = pathname === item.href
+              return (
+                <button
+                  key={item.name}
+                  onClick={() => router.push(item.href)}
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span>{item.name}</span>
+                </button>
+              )
+            })}
+          </div>
+        </nav>
       </div>
 
       {/* メニューが開いている時の背景オーバーレイ */}
