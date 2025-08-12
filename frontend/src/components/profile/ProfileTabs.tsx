@@ -4,6 +4,8 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
 import { Badge } from "@/components/ui/Badge"
 import { Separator } from "@/components/ui/Separator"
+import { Button } from "@/components/ui/Button"
+import Link from "next/link"
 import { 
   User, 
   Brain, 
@@ -22,7 +24,8 @@ import {
   PawPrint,
   Star,
   Quote,
-  Target
+  Target,
+  BarChart3
 } from "lucide-react"
 
 interface ProfileTabsProps {
@@ -115,7 +118,30 @@ export function ProfileTabs({ profile, children }: ProfileTabsProps) {
         )
       
       case "ai-analysis":
-        return children
+        return (
+          <div className="space-y-6">
+            {children}
+            
+            {/* 分析結果一覧へのリンク */}
+            <Card>
+              <CardContent className="p-6">
+                <div className="text-center">
+                  <BarChart3 className="h-12 w-12 text-blue-500 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">より詳細な分析結果を確認</h3>
+                  <p className="text-gray-600 mb-4">
+                    すべての分析結果を一覧で確認し、詳細なレポートや統計情報を閲覧できます。
+                  </p>
+                  <Link href="/analytics">
+                    <Button className="bg-blue-600 hover:bg-blue-700">
+                      <BarChart3 className="h-4 w-4 mr-2" />
+                      分析結果一覧へ
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )
       
       case "growth":
         return (
