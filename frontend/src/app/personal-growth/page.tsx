@@ -13,8 +13,14 @@ import {
   Calendar,
   CheckCircle,
   Clock,
-  Star
+  Star,
+  Brain,
+  Settings,
+  Plus,
+  Download,
+  Trash2
 } from 'lucide-react';
+import { Switch } from '@/components/ui/Switch';
 
 interface ImprovementStep {
   id: string;
@@ -180,11 +186,13 @@ export default function PersonalGrowthPage() {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">概要</TabsTrigger>
           <TabsTrigger value="plan">改善計画</TabsTrigger>
           <TabsTrigger value="goals">成長目標</TabsTrigger>
           <TabsTrigger value="progress">進捗管理</TabsTrigger>
+          <TabsTrigger value="ai-analysis">AI分析結果</TabsTrigger>
+          <TabsTrigger value="settings">設定</TabsTrigger>
         </TabsList>
 
         {/* 概要タブ */}
@@ -398,6 +406,298 @@ export default function PersonalGrowthPage() {
                         {step.title}
                       </div>
                     ))}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* AI分析結果タブ */}
+        <TabsContent value="ai-analysis" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Brain className="h-5 w-5 text-purple-500" />
+                AI分析結果
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {/* スキルレベル分析 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">現在のスキルレベル</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-center">
+                        <div className="text-3xl font-bold text-blue-600 mb-2">
+                          {improvementPlan?.current_skill_level}
+                        </div>
+                        <Progress value={25} className="h-3 mb-2" />
+                        <p className="text-sm text-gray-600">レベル25%</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">目標スキルレベル</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-center">
+                        <div className="text-3xl font-bold text-green-600 mb-2">
+                          {improvementPlan?.target_skill_level}
+                        </div>
+                        <Progress value={100} className="h-3 mb-2" />
+                        <p className="text-sm text-gray-600">レベル100%</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* 改善提案 */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">AI改善提案</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="p-4 bg-blue-50 rounded-lg">
+                        <h4 className="font-semibold text-blue-800 mb-2">コミュニケーション能力の向上</h4>
+                        <p className="text-blue-700 text-sm">
+                          現在のレベル: 中級 → 目標レベル: 上級<br/>
+                          推奨改善期間: 90日<br/>
+                          重点改善項目: アクティブリスニング、フィードバック受容、意見表明
+                        </p>
+                      </div>
+                      
+                      <div className="p-4 bg-green-50 rounded-lg">
+                        <h4 className="font-semibold text-green-800 mb-2">リーダーシップスキル</h4>
+                        <p className="text-green-700 text-sm">
+                          現在のレベル: 初級 → 目標レベル: 中級<br/>
+                          推奨改善期間: 120日<br/>
+                          重点改善項目: チームマネジメント、意思決定、メンタリング
+                        </p>
+                      </div>
+                      
+                      <div className="p-4 bg-purple-50 rounded-lg">
+                        <h4 className="font-semibold text-purple-800 mb-2">問題解決能力</h4>
+                        <p className="text-purple-700 text-sm">
+                          現在のレベル: 中級 → 目標レベル: 上級<br/>
+                          推奨改善期間: 60日<br/>
+                          重点改善項目: 分析思考、創造的問題解決、意思決定
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* 詳細分析レポート */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">詳細分析レポート</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="font-semibold mb-2">強み</h4>
+                        <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
+                          <li>技術的な問題解決能力が高い</li>
+                          <li>チームワークを重視する姿勢</li>
+                          <li>継続的な学習意欲</li>
+                        </ul>
+                      </div>
+                      
+                      <div>
+                        <h4 className="font-semibold mb-2">改善点</h4>
+                        <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
+                          <li>会議での発言機会の創出</li>
+                          <li>フィードバックの効果的な活用</li>
+                          <li>リーダーシップの実践機会</li>
+                        </ul>
+                      </div>
+                      
+                      <div>
+                        <h4 className="font-semibold mb-2">推奨アクション</h4>
+                        <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
+                          <li>週1回のチームミーティングでの積極的な発言</li>
+                          <li>月1回の1on1でのフィードバック収集</li>
+                          <li>小規模プロジェクトでのリーダー役の経験</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 設定タブ */}
+        <TabsContent value="settings" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5 text-gray-500" />
+                設定・カスタマイズ
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {/* 基本設定 */}
+                <div>
+                  <h4 className="font-semibold text-lg mb-4">基本設定</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        目標スキルレベル
+                      </label>
+                      <select 
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={improvementPlan?.target_skill_level || ''}
+                        onChange={(e) => setImprovementPlan(prev => prev ? { ...prev, target_skill_level: e.target.value } : null)}
+                      >
+                        <option value="初級">初級</option>
+                        <option value="中級">中級</option>
+                        <option value="上級">上級</option>
+                        <option value="専門家">専門家</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        全体の難易度
+                      </label>
+                      <select 
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={improvementPlan?.overall_difficulty || ''}
+                        onChange={(e) => setImprovementPlan(prev => prev ? { ...prev, overall_difficulty: e.target.value } : null)}
+                      >
+                        <option value="beginner">初心者</option>
+                        <option value="intermediate">中級</option>
+                        <option value="advanced">上級</option>
+                        <option value="expert">専門家</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 改善ステップの追加 */}
+                <div>
+                  <h4 className="font-semibold text-lg mb-4">改善ステップの追加</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        ステップタイトル
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="例: アクティブリスニングの練習"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        説明
+                      </label>
+                      <textarea
+                        placeholder="ステップの詳細な説明を入力してください"
+                        rows={3}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          難易度
+                        </label>
+                        <select className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                          <option value="beginner">初心者</option>
+                          <option value="intermediate">中級</option>
+                          <option value="advanced">上級</option>
+                          <option value="expert">専門家</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          優先度
+                        </label>
+                        <select className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                          <option value="low">低</option>
+                          <option value="medium">中</option>
+                          <option value="high">高</option>
+                          <option value="critical">緊急</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          推定日数
+                        </label>
+                        <input
+                          type="number"
+                          placeholder="日数"
+                          min="1"
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+                    
+                    <Button className="w-full bg-blue-600 hover:bg-blue-700">
+                      <Plus className="h-4 w-4 mr-2" />
+                      改善ステップを追加
+                    </Button>
+                  </div>
+                </div>
+
+                {/* 通知設定 */}
+                <div>
+                  <h4 className="font-semibold text-lg mb-4">通知設定</h4>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">進捗リマインダー</p>
+                        <p className="text-sm text-gray-600">週1回の進捗確認通知</p>
+                      </div>
+                      <Switch defaultChecked />
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">目標期限の通知</p>
+                        <p className="text-sm text-gray-600">目標期限の1週間前に通知</p>
+                      </div>
+                      <Switch defaultChecked />
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">新しい改善提案</p>
+                        <p className="text-sm text-gray-600">AIによる新しい改善提案の通知</p>
+                      </div>
+                      <Switch />
+                    </div>
+                  </div>
+                </div>
+
+                {/* データ管理 */}
+                <div>
+                  <h4 className="font-semibold text-lg mb-4">データ管理</h4>
+                  <div className="space-y-3">
+                    <Button variant="outline" className="w-full">
+                      <Download className="h-4 w-4 mr-2" />
+                      進捗データをエクスポート
+                    </Button>
+                    
+                    <Button variant="outline" className="w-full text-red-600 hover:text-red-700 hover:bg-red-50">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      すべてのデータをリセット
+                    </Button>
                   </div>
                 </div>
               </div>

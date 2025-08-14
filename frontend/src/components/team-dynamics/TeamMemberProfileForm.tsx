@@ -161,9 +161,9 @@ export default function TeamMemberProfileForm({
       {/* ダッシュボードに戻るリンク */}
       <div className="flex justify-start">
         <Link href="/dashboard">
-          <Button variant="outline">
+          <Button variant="ghost" size="sm">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            ダッシュボードに戻る
+            ダッシュボードへ戻る
           </Button>
         </Link>
       </div>
