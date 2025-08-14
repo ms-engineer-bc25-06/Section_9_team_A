@@ -22,17 +22,17 @@ export default function AnalyticsPage() {
   ]
 
   const filteredAnalyses = analyses.filter(analysis => 
-    selectedType === "all" || analysis.analysisType === selectedType
+    selectedType === "all" || analysis.analysis_type === selectedType
   )
 
   const sortedAnalyses = [...filteredAnalyses].sort((a, b) => {
     switch (sortBy) {
       case "date":
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       case "confidence":
-        return b.confidenceScore - a.confidenceScore
+        return b.confidence_score - a.confidence_score
       case "type":
-        return a.analysisType.localeCompare(b.analysisType)
+        return a.analysis_type.localeCompare(b.analysis_type)
       default:
         return 0
     }
@@ -41,8 +41,8 @@ export default function AnalyticsPage() {
   const getAnalysisTypeStats = () => {
     const stats = { personality: 0, communication: 0, behavior: 0, total: analyses.length }
     analyses.forEach(analysis => {
-      if (analysis.analysisType in stats) {
-        stats[analysis.analysisType as keyof typeof stats]++
+      if (analysis.analysis_type in stats) {
+        stats[analysis.analysis_type as keyof typeof stats]++
       }
     })
     return stats

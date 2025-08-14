@@ -33,9 +33,9 @@ export default function ReportsPage() {
     const cutoffDate = new Date(now.getTime() - periodDays * 24 * 60 * 60 * 1000)
 
     return analyses.filter(analysis => {
-      const analysisDate = new Date(analysis.createdAt)
+      const analysisDate = new Date(analysis.created_at)
       const dateMatch = analysisDate >= cutoffDate
-      const typeMatch = selectedType === "all" || analysis.analysisType === selectedType
+      const typeMatch = selectedType === "all" || analysis.analysis_type === selectedType
       return dateMatch && typeMatch
     })
   }
@@ -45,14 +45,14 @@ export default function ReportsPage() {
   const getAnalysisStats = () => {
     const stats = {
       total: filteredAnalyses.length,
-      personality: filteredAnalyses.filter(a => a.analysisType === "personality").length,
-      communication: filteredAnalyses.filter(a => a.analysisType === "communication").length,
-      behavior: filteredAnalyses.filter(a => a.analysisType === "behavior").length,
+      personality: filteredAnalyses.filter(a => a.analysis_type === "personality").length,
+      communication: filteredAnalyses.filter(a => a.analysis_type === "communication").length,
+      behavior: filteredAnalyses.filter(a => a.analysis_type === "behavior").length,
       avgConfidence: filteredAnalyses.length > 0 
-        ? filteredAnalyses.reduce((sum, a) => sum + a.confidenceScore, 0) / filteredAnalyses.length 
+        ? filteredAnalyses.reduce((sum, a) => sum + a.confidence_score, 0) / filteredAnalyses.length 
         : 0,
       avgSentiment: filteredAnalyses.length > 0 
-        ? filteredAnalyses.reduce((sum, a) => sum + (a.sentimentScore || 0), 0) / filteredAnalyses.length 
+        ? filteredAnalyses.reduce((sum, a) => sum + (a.sentiment_score || 0), 0) / filteredAnalyses.length 
         : 0
     }
     return stats
@@ -68,14 +68,14 @@ export default function ReportsPage() {
       const dateStr = date.toISOString().split('T')[0]
       
       const dayAnalyses = filteredAnalyses.filter(a => 
-        a.createdAt.startsWith(dateStr)
+        a.created_at.startsWith(dateStr)
       )
       
       trendData.push({
         date: dateStr,
         count: dayAnalyses.length,
         avgConfidence: dayAnalyses.length > 0 
-          ? dayAnalyses.reduce((sum, a) => sum + a.confidenceScore, 0) / dayAnalyses.length 
+          ? dayAnalyses.reduce((sum, a) => sum + a.confidence_score, 0) / dayAnalyses.length 
           : 0
       })
     }
