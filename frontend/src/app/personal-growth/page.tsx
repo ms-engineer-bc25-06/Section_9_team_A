@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Progress } from '@/components/ui/Progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import Link from 'next/link';
 import { 
   Target, 
   TrendingUp, 
@@ -18,7 +19,8 @@ import {
   Settings,
   Plus,
   Download,
-  Trash2
+  Trash2,
+  ArrowLeft
 } from 'lucide-react';
 import { Switch } from '@/components/ui/Switch';
 
@@ -176,6 +178,16 @@ export default function PersonalGrowthPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      {/* マイプロフィールに戻るリンク */}
+      <div className="mb-6">
+        <Link href="/profile">
+          <Button variant="ghost" size="sm">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            マイプロフィールに戻る
+          </Button>
+        </Link>
+      </div>
+
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
           個人成長支援
