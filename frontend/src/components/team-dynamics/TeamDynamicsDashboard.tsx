@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -13,7 +14,8 @@ import {
   Activity,
   BarChart3,
   PieChart,
-  Lightbulb
+  Lightbulb,
+  ArrowLeft
 } from 'lucide-react';
 
 interface TeamDynamicsData {
@@ -147,6 +149,16 @@ export default function TeamDynamicsDashboard({
 
   return (
     <div className="space-y-6">
+      {/* ダッシュボードに戻るリンク */}
+      <div className="flex justify-start">
+        <Link href="/dashboard">
+          <Button variant="outline">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            ダッシュボードに戻る
+          </Button>
+        </Link>
+      </div>
+
       {/* ヘッダー */}
       <div className="flex items-center justify-between">
         <div>

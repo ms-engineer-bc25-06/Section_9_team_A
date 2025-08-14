@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -15,7 +16,8 @@ import {
   Briefcase,
   Save,
   Edit,
-  X
+  X,
+  ArrowLeft
 } from 'lucide-react';
 
 interface TeamMemberProfile {
@@ -155,172 +157,184 @@ export default function TeamMemberProfileForm({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center">
-            <User className="w-5 h-5 mr-2" />
-            チームメンバープロファイル
-          </CardTitle>
-          <div className="flex space-x-2">
-            {!editing && existingProfile && (
-              <Button onClick={() => setEditing(true)} variant="outline">
-                <Edit className="w-4 h-4 mr-2" />
-                編集
-              </Button>
-            )}
-            {editing && (
-              <>
-                <Button onClick={handleSave} disabled={loading}>
-                  <Save className="w-4 h-4 mr-2" />
-                  保存
+    <div className="space-y-6">
+      {/* ダッシュボードに戻るリンク */}
+      <div className="flex justify-start">
+        <Link href="/dashboard">
+          <Button variant="outline">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            ダッシュボードに戻る
+          </Button>
+        </Link>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center">
+              <User className="w-5 h-5 mr-2" />
+              チームメンバープロファイル
+            </CardTitle>
+            <div className="flex space-x-2">
+              {!editing && existingProfile && (
+                <Button onClick={() => setEditing(true)} variant="outline">
+                  <Edit className="w-4 h-4 mr-2" />
+                  編集
                 </Button>
-                <Button onClick={resetToExisting} variant="outline">
-                  <X className="w-4 h-4 mr-2" />
-                  キャンセル
-                </Button>
-              </>
-            )}
+              )}
+              {editing && (
+                <>
+                  <Button onClick={handleSave} disabled={loading}>
+                    <Save className="w-4 h-4 mr-2" />
+                    保存
+                  </Button>
+                  <Button onClick={resetToExisting} variant="outline">
+                    <X className="w-4 h-4 mr-2" />
+                    キャンセル
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
-        </div>
-      </CardHeader>
-      
-      <CardContent className="space-y-6">
-        {/* コミュニケーションスタイル */}
-        <div className="space-y-3">
-          <Label className="flex items-center">
-            <MessageSquare className="w-4 h-4 mr-2" />
-            コミュニケーションスタイル
-          </Label>
-          <select
-            value={profile.communication_style}
-            onChange={(e) => setProfile(prev => ({ ...prev, communication_style: e.target.value }))}
-            disabled={!editing}
-            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-          >
-            {COMMUNICATION_STYLES.map((style) => (
-              <option key={style.value} value={style.value}>
-                {style.label} - {style.description}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* 性格特性 */}
-        <div className="space-y-3">
-          <Label className="flex items-center">
-            <Brain className="w-4 h-4 mr-2" />
-            性格特性
-          </Label>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {PERSONALITY_TRAITS.map((trait) => (
-              <div key={trait.key} className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm font-medium">{trait.label}</span>
-                  <span className="text-xs text-gray-500">
-                    {profile.personality_traits[trait.key] || 0}/10
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="10"
-                  value={profile.personality_traits[trait.key] || 0}
-                  onChange={(e) => updatePersonalityTrait(trait.key, parseInt(e.target.value))}
-                  disabled={!editing}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                />
-                <p className="text-xs text-gray-500">{trait.description}</p>
-              </div>
-            ))}
+        </CardHeader>
+        
+        <CardContent className="space-y-6">
+          {/* コミュニケーションスタイル */}
+          <div className="space-y-3">
+            <Label className="flex items-center">
+              <MessageSquare className="w-4 h-4 mr-2" />
+              コミュニケーションスタイル
+            </Label>
+            <select
+              value={profile.communication_style}
+              onChange={(e) => setProfile(prev => ({ ...prev, communication_style: e.target.value }))}
+              disabled={!editing}
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            >
+              {COMMUNICATION_STYLES.map((style) => (
+                <option key={style.value} value={style.value}>
+                  {style.label} - {style.description}
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
 
-        {/* 仕事の好み */}
-        <div className="space-y-3">
-          <Label className="flex items-center">
-            <Briefcase className="w-4 h-4 mr-2" />
-            仕事の好み
-          </Label>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {WORK_PREFERENCES.map((pref) => (
-              <div key={pref.key} className="space-y-2">
-                <Label className="text-sm font-medium">{pref.label}</Label>
-                <select
-                  value={profile.work_preferences[pref.key] || ''}
-                  onChange={(e) => updateWorkPreference(pref.key, e.target.value)}
-                  disabled={!editing}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">選択してください</option>
-                  {pref.options.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* 現在のプロファイル表示 */}
-        {existingProfile && !editing && (
-          <div className="space-y-4 pt-4 border-t">
-            <h4 className="font-medium text-gray-900">現在のプロファイル</h4>
-            
+          {/* 性格特性 */}
+          <div className="space-y-3">
+            <Label className="flex items-center">
+              <Brain className="w-4 h-4 mr-2" />
+              性格特性
+            </Label>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label className="text-sm font-medium text-gray-700">コミュニケーションスタイル</Label>
-                <Badge variant="outline" className="mt-1">
-                  {COMMUNICATION_STYLES.find(s => s.value === existingProfile.communication_style)?.label}
-                </Badge>
+              {PERSONALITY_TRAITS.map((trait) => (
+                <div key={trait.key} className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">{trait.label}</span>
+                    <span className="text-xs text-gray-500">
+                      {profile.personality_traits[trait.key] || 0}/10
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="10"
+                    value={profile.personality_traits[trait.key] || 0}
+                    onChange={(e) => updatePersonalityTrait(trait.key, parseInt(e.target.value))}
+                    disabled={!editing}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                  />
+                  <p className="text-xs text-gray-500">{trait.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 仕事の好み */}
+          <div className="space-y-3">
+            <Label className="flex items-center">
+              <Briefcase className="w-4 h-4 mr-2" />
+              仕事の好み
+            </Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {WORK_PREFERENCES.map((pref) => (
+                <div key={pref.key} className="space-y-2">
+                  <Label className="text-sm font-medium">{pref.label}</Label>
+                  <select
+                    value={profile.work_preferences[pref.key] || ''}
+                    onChange={(e) => updateWorkPreference(pref.key, e.target.value)}
+                    disabled={!editing}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">選択してください</option>
+                    {pref.options.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 現在のプロファイル表示 */}
+          {existingProfile && !editing && (
+            <div className="space-y-4 pt-4 border-t">
+              <h4 className="font-medium text-gray-900">現在のプロファイル</h4>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">コミュニケーションスタイル</Label>
+                  <Badge variant="outline" className="mt-1">
+                    {COMMUNICATION_STYLES.find(s => s.value === existingProfile.communication_style)?.label}
+                  </Badge>
+                </div>
+                
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">主要な性格特性</Label>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {Object.entries(existingProfile.personality_traits)
+                      .filter(([_, value]) => value >= 7)
+                      .slice(0, 3)
+                      .map(([key, value]) => (
+                        <Badge key={key} variant="secondary" className="text-xs">
+                          {PERSONALITY_TRAITS.find(t => t.key === key)?.label}: {value}/10
+                        </Badge>
+                      ))}
+                  </div>
+                </div>
               </div>
               
               <div>
-                <Label className="text-sm font-medium text-gray-700">主要な性格特性</Label>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {Object.entries(existingProfile.personality_traits)
-                    .filter(([_, value]) => value >= 7)
-                    .slice(0, 3)
-                    .map(([key, value]) => (
-                      <Badge key={key} variant="secondary" className="text-xs">
-                        {PERSONALITY_TRAITS.find(t => t.key === key)?.label}: {value}/10
-                      </Badge>
-                    ))}
+                <Label className="text-sm font-medium text-gray-700">仕事の好み</Label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-1">
+                  {Object.entries(existingProfile.work_preferences).map(([key, value]) => (
+                    <div key={key} className="text-sm">
+                      <span className="text-gray-600">{WORK_PREFERENCES.find(p => p.key === key)?.label}:</span>
+                      <span className="ml-1 font-medium">{value}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
-            
-            <div>
-              <Label className="text-sm font-medium text-gray-700">仕事の好み</Label>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-1">
-                {Object.entries(existingProfile.work_preferences).map(([key, value]) => (
-                  <div key={key} className="text-sm">
-                    <span className="text-gray-600">{WORK_PREFERENCES.find(p => p.key === key)?.label}:</span>
-                    <span className="ml-1 font-medium">{value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+          )}
 
-        {/* アクションボタン */}
-        {!existingProfile && (
-          <div className="flex justify-end space-x-2 pt-4">
-            <Button onClick={handleSave} disabled={loading}>
-              <Save className="w-4 h-4 mr-2" />
-              プロファイル作成
-            </Button>
-            {onCancel && (
-              <Button onClick={onCancel} variant="outline">
-                キャンセル
+          {/* アクションボタン */}
+          {!existingProfile && (
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button onClick={handleSave} disabled={loading}>
+                <Save className="w-4 h-4 mr-2" />
+                プロファイル作成
               </Button>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+              {onCancel && (
+                <Button onClick={onCancel} variant="outline">
+                  キャンセル
+                </Button>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
