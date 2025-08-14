@@ -55,16 +55,38 @@ export interface AnalysisListResponse {
 class AnalyticsAPI {
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    authToken?: string
   ): Promise<T> {
     const url = `${API_BASE_URL}/api/v1/analytics${endpoint}`
     
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+
+    // 既存のヘッダーを追加
+    if (options.headers) {
+      if (options.headers instanceof Headers) {
+        options.headers.forEach((value, key) => {
+          headers[key] = value
+        })
+      } else if (typeof options.headers === 'object') {
+        Object.entries(options.headers).forEach(([key, value]) => {
+          if (typeof value === 'string') {
+            headers[key] = value
+          }
+        })
+      }
+    }
+
+    // 認証トークンがある場合はAuthorizationヘッダーを追加
+    if (authToken) {
+      headers['Authorization'] = `Bearer ${authToken}`
+    }
+    
     const response = await fetch(url, {
       ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+      headers,
     })
 
     if (!response.ok) {
@@ -80,7 +102,8 @@ class AnalyticsAPI {
     page: number = 1,
     pageSize: number = 20,
     analysisType?: string,
-    status?: string
+    status?: string,
+    authToken?: string
   ): Promise<AnalysisListResponse> {
     const params = new URLSearchParams({
       page: page.toString(),
@@ -95,38 +118,39 @@ class AnalyticsAPI {
       params.append('status', status)
     }
 
-    return this.request<AnalysisListResponse>(`/?${params.toString()}`)
+    return this.request<AnalysisListResponse>(`/?${params.toString()}`, {}, authToken)
   }
 
   // 特定の分析結果を取得
-  async getAnalysis(analysisId: string): Promise<AnalysisResponse> {
-    return this.request<AnalysisResponse>(`/${analysisId}`)
+  async getAnalysis(analysisId: string, authToken?: string): Promise<AnalysisResponse> {
+    return this.request<AnalysisResponse>(`/${analysisId}`, {}, authToken)
   }
 
   // 新しい分析を作成
-  async createAnalysis(request: AnalysisRequest): Promise<AnalysisResponse[]> {
+  async createAnalysis(request: AnalysisRequest, authToken?: string): Promise<AnalysisResponse[]> {
     return this.request<AnalysisResponse[]>('/', {
       method: 'POST',
       body: JSON.stringify(request),
-    })
+    }, authToken)
   }
 
   // 分析結果を更新
   async updateAnalysis(
     analysisId: string,
-    updates: Partial<AnalysisResponse>
+    updates: Partial<AnalysisResponse>,
+    authToken?: string
   ): Promise<AnalysisResponse> {
     return this.request<AnalysisResponse>(`/${analysisId}`, {
       method: 'PUT',
       body: JSON.stringify(updates),
-    })
+    }, authToken)
   }
 
   // 分析結果を削除
-  async deleteAnalysis(analysisId: string): Promise<void> {
+  async deleteAnalysis(analysisId: string, authToken?: string): Promise<void> {
     await this.request(`/${analysisId}`, {
       method: 'DELETE',
-    })
+    }, authToken)
   }
 }
 

@@ -1,25 +1,65 @@
 "use client"
 
-import { useState } from "react"
-import { AnalyticsCard } from "@/components/analytics/AnalyticsCard"
-import { Button } from "@/components/ui/Button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
-import { Badge } from "@/components/ui/Badge"
+import { AnalyticsCard, AnalyticsDashboard } from "@/components/analytics"
 import { useAIAnalysis } from "@/hooks/useAIAnalysis"
-import { ArrowLeft, BarChart3, Filter, Download, Calendar, TrendingUp, Brain, MessageSquare, Activity } from "lucide-react"
+import { useAuth } from "@/components/auth/AuthProvider"
+import { useState } from "react"
+import { Button } from "@/components/ui/Button"
+import { Badge } from "@/components/ui/Badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select"
+import { 
+  Brain, 
+  MessageSquare, 
+  TrendingUp, 
+  Activity, 
+  Star,
+  Plus,
+  Filter,
+  BarChart3,
+  LogIn
+} from "lucide-react"
 import Link from "next/link"
 
 export default function AnalyticsPage() {
-  const { analyses, isLoading, error } = useAIAnalysis()
+  const { analyses, isLoading, error, deleteAnalysis } = useAIAnalysis()
+  const { backendToken, user } = useAuth()
   const [selectedType, setSelectedType] = useState<string>("all")
-  const [sortBy, setSortBy] = useState<"date" | "confidence" | "type">("date")
+  const [sortBy, setSortBy] = useState<string>("date")
+  const [viewMode, setViewMode] = useState<'list' | 'dashboard'>('dashboard')
 
-  const analysisTypes = [
-    { id: "all", label: "すべて", icon: <Brain className="h-4 w-4" /> },
-    { id: "personality", label: "個性分析", icon: <Brain className="h-4 w-4 text-yellow-500" /> },
-    { id: "communication", label: "コミュニケーション", icon: <MessageSquare className="h-4 w-4 text-blue-500" /> },
-    { id: "behavior", label: "行動特性", icon: <Activity className="h-4 w-4 text-purple-500" /> }
-  ]
+  // 認証が必要な場合の表示
+  if (!backendToken) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">
+          <div className="mb-6">
+            <LogIn className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">認証が必要です</h1>
+            <p className="text-gray-600 mb-4">
+              AI分析結果を表示するには、ログインが必要です。
+            </p>
+            <Link href="/auth/login">
+              <Button className="bg-blue-600 hover:bg-blue-700">
+                <LogIn className="h-4 w-4 mr-2" />
+                ログイン
+              </Button>
+            </Link>
+          </div>
+          
+          {user && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 max-w-md mx-auto">
+              <p className="text-sm text-yellow-800">
+                <strong>Firebase認証済み:</strong> {user.email}
+              </p>
+              <p className="text-sm text-yellow-700 mt-1">
+                バックエンドとの連携が完了していません。ページを再読み込みしてください。
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   const filteredAnalyses = analyses.filter(analysis => 
     selectedType === "all" || analysis.analysis_type === selectedType
@@ -50,27 +90,13 @@ export default function AnalyticsPage() {
 
   const stats = getAnalysisTypeStats()
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="container mx-auto px-4 py-8">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">分析結果を読み込み中...</p>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="container mx-auto px-4 py-8">
-          <div className="text-center">
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-              エラーが発生しました: {error}
-            </div>
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">エラーが発生しました</h1>
+          <p className="text-gray-600">{error}</p>
+          <div className="mt-4">
             <Button onClick={() => window.location.reload()}>
               再読み込み
             </Button>
@@ -81,159 +107,158 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="container mx-auto px-4 py-8">
       {/* ヘッダー */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Link href="/profile">
-                <Button variant="ghost" size="sm">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  プロフィールへ戻る
-                </Button>
-              </Link>
-              <h1 className="text-2xl font-bold text-gray-900">AI分析結果</h1>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Link href="/analytics/reports">
-                <Button variant="outline">
-                  <BarChart3 className="h-4 w-4 mr-2" />
-                  詳細レポート
-                </Button>
-              </Link>
-              <Button>
-                <Download className="h-4 w-4 mr-2" />
-                エクスポート
-              </Button>
-            </div>
+      <div className="mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              AI分析結果
+            </h1>
+            <p className="text-gray-600">
+              音声チャットのAI分析結果を確認・管理できます
+            </p>
+          </div>
+          
+          <div className="flex items-center space-x-3">
+            <Button
+              onClick={() => setViewMode(viewMode === 'dashboard' ? 'list' : 'dashboard')}
+              variant="outline"
+              className="flex items-center space-x-2"
+            >
+              {viewMode === 'dashboard' ? (
+                <>
+                  <BarChart3 className="h-4 w-4" />
+                  <span>リスト表示</span>
+                </>
+              ) : (
+                <>
+                  <TrendingUp className="h-4 w-4" />
+                  <span>ダッシュボード</span>
+                </>
+              )}
+            </Button>
+            
+            <Button className="bg-blue-600 hover:bg-blue-700">
+              <Plus className="h-4 w-4 mr-2" />
+              新規分析
+            </Button>
           </div>
         </div>
-      </header>
 
-      <main className="container mx-auto px-4 py-8">
-        {/* 統計サマリー */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">総分析数</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">個性分析</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-yellow-600">{stats.personality}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">コミュニケーション</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{stats.communication}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">行動特性</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-600">{stats.behavior}</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* フィルターとソート */}
-        <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Filter className="h-4 w-4 text-gray-500" />
-                <span className="text-sm font-medium text-gray-700">分析タイプ:</span>
-              </div>
-              <div className="flex space-x-2">
-                {analysisTypes.map((type) => (
-                  <Button
-                    key={type.id}
-                    variant={selectedType === type.id ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setSelectedType(type.id)}
-                    className="flex items-center space-x-2"
-                  >
-                    {type.icon}
-                    <span>{type.label}</span>
-                  </Button>
-                ))}
+        {/* 統計情報 */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white p-4 rounded-lg shadow-sm border">
+            <div className="flex items-center space-x-2">
+              <Brain className="h-5 w-5 text-blue-500" />
+              <div>
+                <p className="text-sm text-gray-600">総分析数</p>
+                <p className="text-2xl font-bold text-blue-600">{stats.total}</p>
               </div>
             </div>
+          </div>
+          
+          <div className="bg-white p-4 rounded-lg shadow-sm border">
             <div className="flex items-center space-x-2">
-              <span className="text-sm font-medium text-gray-700">並び順:</span>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as "date" | "confidence" | "type")}
-                className="border border-gray-300 rounded-md px-3 py-1 text-sm"
-              >
-                <option value="date">日付順</option>
-                <option value="confidence">信頼度順</option>
-                <option value="type">タイプ順</option>
-              </select>
+              <Star className="h-5 w-5 text-yellow-500" />
+              <div>
+                <p className="text-sm text-gray-600">個性分析</p>
+                <p className="text-2xl font-bold text-yellow-600">{stats.personality}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white p-4 rounded-lg shadow-sm border">
+            <div className="flex items-center space-x-2">
+              <MessageSquare className="h-5 w-5 text-green-500" />
+              <div>
+                <p className="text-sm text-gray-600">コミュニケーション</p>
+                <p className="text-2xl font-bold text-green-600">{stats.communication}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white p-4 rounded-lg shadow-sm border">
+            <div className="flex items-center space-x-2">
+              <Activity className="h-5 w-5 text-purple-500" />
+              <div>
+                <p className="text-sm text-gray-600">行動特性</p>
+                <p className="text-2xl font-bold text-purple-600">{stats.behavior}</p>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* 分析結果一覧 */}
-        {sortedAnalyses.length === 0 ? (
-          <Card>
-            <CardContent className="text-center py-12">
-              <Brain className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+        {/* フィルター・ソート */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-gray-50 rounded-lg">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <Filter className="h-4 w-4 text-gray-500" />
+              <span className="text-sm font-medium text-gray-700">フィルター:</span>
+            </div>
+            
+            <Select value={selectedType} onValueChange={setSelectedType}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">すべての分析</SelectItem>
+                <SelectItem value="personality">個性分析</SelectItem>
+                <SelectItem value="communication">コミュニケーション</SelectItem>
+                <SelectItem value="behavior">行動特性</SelectItem>
+                <SelectItem value="sentiment">感情分析</SelectItem>
+                <SelectItem value="topic">トピック分析</SelectItem>
+                <SelectItem value="summary">要約</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <span className="text-sm font-medium text-gray-700">ソート:</span>
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="date">日付順</SelectItem>
+                <SelectItem value="confidence">信頼度順</SelectItem>
+                <SelectItem value="type">タイプ順</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
+      {/* メインコンテンツ */}
+      {viewMode === 'dashboard' ? (
+        <AnalyticsDashboard analyses={analyses} isLoading={isLoading} />
+      ) : (
+        <div className="space-y-6">
+          {isLoading ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-4 text-gray-600">分析結果を読み込み中...</p>
+            </div>
+          ) : sortedAnalyses.length === 0 ? (
+            <div className="text-center py-8">
+              <Brain className="h-16 w-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">分析結果がありません</h3>
-              <p className="text-gray-600 mb-4">
-                まだAI分析が実行されていないか、選択された条件に一致する結果がありません。
-              </p>
-              <Link href="/profile">
-                <Button>
-                  プロフィールで分析を実行
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-6">
-            {sortedAnalyses.map((analysis) => (
-              <AnalyticsCard
-                key={analysis.id}
-                analysis={analysis}
-                onViewDetails={(analysis) => {
-                  // 詳細表示の処理（必要に応じて実装）
-                  console.log("詳細表示:", analysis)
-                }}
-                onDelete={(analysisId) => {
-                  // 削除処理（必要に応じて実装）
-                  console.log("削除:", analysisId)
-                }}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* ページネーション（必要に応じて） */}
-        {sortedAnalyses.length > 10 && (
-          <div className="mt-8 flex justify-center">
-            <div className="flex space-x-2">
-              <Button variant="outline" size="sm">前へ</Button>
-              <Button variant="outline" size="sm">1</Button>
-              <Button variant="outline" size="sm">2</Button>
-              <Button variant="outline" size="sm">3</Button>
-              <Button variant="outline" size="sm">次へ</Button>
+              <p className="text-gray-600">音声チャットに参加してAI分析を開始してください</p>
             </div>
-          </div>
-        )}
-      </main>
+          ) : (
+            <div className="grid grid-cols-1 gap-6">
+              {sortedAnalyses.map((analysis) => (
+                <AnalyticsCard
+                  key={analysis.id}
+                  analysis={analysis}
+                  onDelete={deleteAnalysis}
+                  showActions={true}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

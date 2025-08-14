@@ -1,30 +1,48 @@
 "use client"
 
-import { useState } from "react"
+import { AnalyticsChart } from "@/components/analytics"
 import { useAIAnalysis } from "@/hooks/useAIAnalysis"
-import { Button } from "@/components/ui/Button"
+import { useAuth } from "@/components/auth/AuthProvider"
+import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
 import { Badge } from "@/components/ui/Badge"
-import { ArrowLeft, BarChart3, TrendingUp, Calendar, Download, Filter, Brain, MessageSquare, Activity, Star, Users, Target } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select"
+import { 
+  BarChart3, 
+  TrendingUp, 
+  Activity, 
+  Star, 
+  MessageSquare,
+  Calendar,
+  Filter,
+  Download,
+  Eye,
+  LogIn
+} from "lucide-react"
 import Link from "next/link"
+import { Button } from "@/components/ui/Button"
 
 export default function ReportsPage() {
   const { analyses, isLoading, error } = useAIAnalysis()
-  const [selectedPeriod, setSelectedPeriod] = useState<string>("month")
+  const { backendToken, user } = useAuth()
+  const [selectedPeriod, setSelectedPeriod] = useState<string>("30")
   const [selectedType, setSelectedType] = useState<string>("all")
 
   const periods = [
-    { id: "week", label: "1週間", days: 7 },
-    { id: "month", label: "1ヶ月", days: 30 },
-    { id: "quarter", label: "3ヶ月", days: 90 },
-    { id: "year", label: "1年", days: 365 }
+    { id: "7", label: "過去7日", days: 7 },
+    { id: "30", label: "過去30日", days: 30 },
+    { id: "90", label: "過去90日", days: 90 },
+    { id: "all", label: "すべて", days: 0 }
   ]
 
   const analysisTypes = [
-    { id: "all", label: "すべて", icon: <Brain className="h-4 w-4" /> },
-    { id: "personality", label: "個性分析", icon: <Brain className="h-4 w-4 text-yellow-500" /> },
-    { id: "communication", label: "コミュニケーション", icon: <MessageSquare className="h-4 w-4 text-blue-500" /> },
-    { id: "behavior", label: "行動特性", icon: <Activity className="h-4 w-4 text-purple-500" /> }
+    { id: "all", label: "すべての分析" },
+    { id: "personality", label: "個性分析" },
+    { id: "communication", label: "コミュニケーション" },
+    { id: "behavior", label: "行動特性" },
+    { id: "sentiment", label: "感情分析" },
+    { id: "topic", label: "トピック分析" },
+    { id: "summary", label: "要約" }
   ]
 
   const getFilteredAnalyses = () => {
@@ -84,16 +102,16 @@ export default function ReportsPage() {
   }
 
   const getTopKeywords = () => {
-    const keywordCounts: Record<string, number> = {}
+    const keywordCount: Record<string, number> = {}
     
     filteredAnalyses.forEach(analysis => {
       analysis.keywords?.forEach(keyword => {
-        keywordCounts[keyword] = (keywordCounts[keyword] || 0) + 1
+        keywordCount[keyword] = (keywordCount[keyword] || 0) + 1
       })
     })
     
-    return Object.entries(keywordCounts)
-      .sort(([,a], [,b]) => b - a)
+    return Object.entries(keywordCount)
+      .sort(([, a], [, b]) => b - a)
       .slice(0, 10)
       .map(([keyword, count]) => ({ keyword, count }))
   }
@@ -113,19 +131,35 @@ export default function ReportsPage() {
       .map(([topic, count]) => ({ topic, count }))
   }
 
-  const stats = getAnalysisStats()
-  const trendData = getTrendData()
-  const topKeywords = getTopKeywords()
-  const topTopics = getTopTopics()
-
-  if (isLoading) {
+  // 認証が必要な場合の表示
+  if (!backendToken) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="container mx-auto px-4 py-8">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">レポートを読み込み中...</p>
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">
+          <div className="mb-6">
+            <LogIn className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">認証が必要です</h1>
+            <p className="text-gray-600 mb-4">
+              分析レポートを表示するには、ログインが必要です。
+            </p>
+            <Link href="/auth/login">
+              <Button className="bg-blue-600 hover:bg-blue-700">
+                <LogIn className="h-4 w-4 mr-2" />
+                ログイン
+              </Button>
+            </Link>
           </div>
+          
+          {user && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 max-w-md mx-auto">
+              <p className="text-sm text-yellow-800">
+                <strong>Firebase認証済み:</strong> {user.email}
+              </p>
+              <p className="text-sm text-yellow-700 mt-1">
+                バックエンドとの連携が完了していません。ページを再読み込みしてください。
+              </p>
+            </div>
+          )}
         </div>
       </div>
     )
@@ -136,274 +170,274 @@ export default function ReportsPage() {
       <div className="min-h-screen bg-gray-50">
         <div className="container mx-auto px-4 py-8">
           <div className="text-center">
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-              エラーが発生しました: {error}
-            </div>
-            <Button onClick={() => window.location.reload()}>
-              再読み込み
-            </Button>
+            <h1 className="text-2xl font-bold text-red-600 mb-4">エラーが発生しました</h1>
+            <p className="text-gray-600">{error}</p>
           </div>
         </div>
       </div>
     )
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* ヘッダー */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Link href="/analytics">
-                <Button variant="ghost" size="sm">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  分析結果一覧へ戻る
-                </Button>
-              </Link>
-              <h1 className="text-2xl font-bold text-gray-900">詳細レポート</h1>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button>
-                <Download className="h-4 w-4 mr-2" />
-                PDF出力
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+  const stats = getAnalysisStats()
+  const trendData = getTrendData()
+  const topKeywords = getTopKeywords()
+  const topTopics = getTopTopics()
 
-      <main className="container mx-auto px-4 py-8">
+  return (
+    <div className="container mx-auto px-4 py-8">
+      {/* ヘッダー */}
+      <div className="mb-8">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            分析レポート
+          </h1>
+          <p className="text-gray-600">
+            期間別・タイプ別の詳細な分析レポートとトレンド分析
+          </p>
+        </div>
+
         {/* フィルター */}
-        <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-gray-50 rounded-lg">
+          <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Calendar className="h-4 w-4 text-gray-500" />
               <span className="text-sm font-medium text-gray-700">期間:</span>
-              <select
-                value={selectedPeriod}
-                onChange={(e) => setSelectedPeriod(e.target.value)}
-                className="border border-gray-300 rounded-md px-3 py-1 text-sm"
-              >
-                {periods.map((period) => (
-                  <option key={period.id} value={period.id}>
-                    {period.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Filter className="h-4 w-4 text-gray-500" />
-              <span className="text-sm font-medium text-gray-700">分析タイプ:</span>
-              <select
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-                className="border border-gray-300 rounded-md px-3 py-1 text-sm"
-              >
-                {analysisTypes.map((type) => (
-                  <option key={type.id} value={type.id}>
-                    {type.label}
-                  </option>
-                ))}
-              </select>
+              <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {periods.map(period => (
+                    <SelectItem key={period.id} value={period.id}>
+                      {period.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
+          
+          <div className="flex items-center space-x-2">
+            <span className="text-sm font-medium text-gray-700">分析タイプ:</span>
+            <Select value={selectedType} onValueChange={setSelectedType}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {analysisTypes.map(type => (
+                  <SelectItem key={type.id} value={type.id}>
+                    {type.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
+      </div>
 
-        {/* 統計サマリー */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
-                <BarChart3 className="h-4 w-4 mr-2" />
-                総分析数
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-gray-900">{stats.total}</div>
-              <p className="text-sm text-gray-500 mt-1">
-                選択期間内の分析結果
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
-                <Star className="h-4 w-4 mr-2 text-yellow-500" />
-                平均信頼度
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-blue-600">
-                {Math.round(stats.avgConfidence * 100)}%
+      {/* 統計サマリー */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <BarChart3 className="h-5 w-5 text-blue-500" />
+              <div>
+                <p className="text-sm text-gray-600">総分析数</p>
+                <p className="text-2xl font-bold text-blue-600">{stats.total}</p>
               </div>
-              <p className="text-sm text-gray-500 mt-1">
-                AI分析の精度
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
-                <TrendingUp className="h-4 w-4 mr-2 text-green-500" />
-                平均感情スコア
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-green-600">
-                {Math.round(stats.avgSentiment * 100)}%
-              </div>
-              <p className="text-sm text-gray-500 mt-1">
-                ポジティブ度
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* 分析タイプ別統計 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
-                <Brain className="h-4 w-4 mr-2 text-yellow-500" />
-                個性分析
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-yellow-600">{stats.personality}</div>
-              <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                <div 
-                  className="bg-yellow-500 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${stats.total > 0 ? (stats.personality / stats.total) * 100 : 0}%` }}
-                ></div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
-                <MessageSquare className="h-4 w-4 mr-2 text-blue-500" />
-                コミュニケーション
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{stats.communication}</div>
-              <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                <div 
-                  className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${stats.total > 0 ? (stats.communication / stats.total) * 100 : 0}%` }}
-                ></div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
-                <Activity className="h-4 w-4 mr-2 text-purple-500" />
-                行動特性
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-600">{stats.behavior}</div>
-              <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                <div 
-                  className="bg-purple-500 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${stats.total > 0 ? (stats.behavior / stats.total) * 100 : 0}%` }}
-                ></div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* トレンド分析 */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <TrendingUp className="h-5 w-5 mr-2 text-green-500" />
-              分析頻度の推移
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64 flex items-end space-x-1">
-              {trendData.map((data, index) => (
-                <div key={index} className="flex-1 flex flex-col items-center">
-                  <div 
-                    className="w-full bg-blue-500 rounded-t transition-all duration-300"
-                    style={{ 
-                      height: `${Math.max(data.count * 20, 4)}px`,
-                      opacity: data.count > 0 ? 0.8 : 0.3
-                    }}
-                  ></div>
-                  <span className="text-xs text-gray-500 mt-1">
-                    {new Date(data.date).getDate()}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <div className="text-center text-sm text-gray-500 mt-2">
-              日別の分析実行回数
             </div>
           </CardContent>
         </Card>
-
-        {/* キーワードとトピック */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Target className="h-5 w-5 mr-2 text-indigo-500" />
-                頻出キーワード
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {topKeywords.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between">
-                    <span className="text-sm text-gray-700">{item.keyword}</span>
-                    <Badge variant="outline">{item.count}</Badge>
-                  </div>
-                ))}
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <Star className="h-5 w-5 text-yellow-500" />
+              <div>
+                <p className="text-sm text-gray-600">個性分析</p>
+                <p className="text-2xl font-bold text-yellow-600">{stats.personality}</p>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <MessageSquare className="h-5 w-5 text-green-500" />
+              <div>
+                <p className="text-sm text-gray-600">コミュニケーション</p>
+                <p className="text-2xl font-bold text-green-600">{stats.communication}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <Activity className="h-5 w-5 text-purple-500" />
+              <div>
+                <p className="text-sm text-gray-600">行動特性</p>
+                <p className="text-2xl font-bold text-purple-600">{stats.behavior}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <TrendingUp className="h-5 w-5 text-indigo-500" />
+              <div>
+                <p className="text-sm text-gray-600">平均信頼度</p>
+                <p className="text-2xl font-bold text-indigo-600">
+                  {Math.round(stats.avgConfidence * 100)}%
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* メインコンテンツ */}
+      {isLoading ? (
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">レポートを読み込み中...</p>
+        </div>
+      ) : filteredAnalyses.length === 0 ? (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <BarChart3 className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">データがありません</h3>
+            <p className="text-gray-600">選択された条件に一致する分析データがありません</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-8">
+          {/* トレンド分析 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <TrendingUp className="h-5 w-5 text-green-500" />
+                  <span>分析件数の推移</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <AnalyticsChart
+                  analyses={filteredAnalyses}
+                  chartType="line"
+                  dataType="confidence"
+                  title=""
+                  className="h-64"
+                />
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <BarChart3 className="h-5 w-5 text-blue-500" />
+                  <span>信頼度の推移</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <AnalyticsChart
+                  analyses={filteredAnalyses}
+                  chartType="area"
+                  dataType="confidence"
+                  title=""
+                  className="h-64"
+                />
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* 詳細分析 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {stats.personality > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Star className="h-5 w-5 text-yellow-500" />
+                    <span>性格特性分析</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <AnalyticsChart
+                    analyses={filteredAnalyses}
+                    chartType="radar"
+                    dataType="personality"
+                    title=""
+                    className="h-64"
+                  />
+                </CardContent>
+              </Card>
+            )}
+            
+            {stats.communication > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <MessageSquare className="h-5 w-5 text-green-500" />
+                    <span>コミュニケーションパターン</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <AnalyticsChart
+                    analyses={filteredAnalyses}
+                    chartType="pie"
+                    dataType="communication"
+                    title=""
+                    className="h-64"
+                  />
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* キーワード分析 */}
+          {topKeywords.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Eye className="h-5 w-5 text-purple-500" />
+                  <span>トップキーワード</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  {topKeywords.map(({ keyword, count }, index) => (
+                    <div key={index} className="text-center p-3 bg-gray-50 rounded-lg">
+                      <p className="text-sm font-medium text-gray-900">{keyword}</p>
+                      <Badge variant="secondary" className="mt-1">
+                        {count}回
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* データ更新情報 */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Users className="h-5 w-5 mr-2 text-green-500" />
-                主要トピック
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {topTopics.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between">
-                    <span className="text-sm text-gray-700">{item.topic}</span>
-                    <Badge variant="outline">{item.count}</Badge>
-                  </div>
-                ))}
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between text-sm text-gray-500">
+                <div className="flex items-center space-x-2">
+                  <Calendar className="h-4 w-4" />
+                  <span>最終更新: {new Date().toLocaleString('ja-JP')}</span>
+                </div>
+                <Badge variant="outline">
+                  {filteredAnalyses.length}件のデータ
+                </Badge>
               </div>
             </CardContent>
           </Card>
         </div>
-
-        {/* 分析結果がない場合 */}
-        {filteredAnalyses.length === 0 && (
-          <Card>
-            <CardContent className="text-center py-12">
-              <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">レポートデータがありません</h3>
-              <p className="text-gray-600 mb-4">
-                選択された期間と条件に一致する分析結果がありません。
-              </p>
-              <Link href="/profile">
-                <Button>
-                  プロフィールで分析を実行
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        )}
-      </main>
+      )}
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { analyticsAPI, AnalysisRequest, AnalysisResponse, AnalysisListResponse } from '@/lib/api/analytics'
+import { useAuth } from '@/components/auth/AuthProvider'
 
 interface UseAIAnalysisReturn {
   analyses: AnalysisResponse[]
@@ -18,14 +19,20 @@ export function useAIAnalysis(): UseAIAnalysisReturn {
   const [analyses, setAnalyses] = useState<AnalysisResponse[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { backendToken } = useAuth()
 
   // 分析結果を取得
   const fetchAnalyses = async () => {
+    if (!backendToken) {
+      setError('認証が必要です。ログインしてください。')
+      return
+    }
+
     setIsLoading(true)
     setError(null)
     
     try {
-      const response = await analyticsAPI.getAnalyses()
+      const response = await analyticsAPI.getAnalyses(undefined, undefined, undefined, undefined, backendToken)
       setAnalyses(response.analyses)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '分析結果の取得に失敗しました'
@@ -38,6 +45,11 @@ export function useAIAnalysis(): UseAIAnalysisReturn {
 
   // 新しい分析を作成
   const createAnalysis = async (text: string, analysisTypes: string[]): Promise<AnalysisResponse[] | null> => {
+    if (!backendToken) {
+      setError('認証が必要です。ログインしてください。')
+      return null
+    }
+
     setIsLoading(true)
     setError(null)
     
@@ -47,7 +59,7 @@ export function useAIAnalysis(): UseAIAnalysisReturn {
         analysis_types: analysisTypes,
       }
       
-      const newAnalyses = await analyticsAPI.createAnalysis(request)
+      const newAnalyses = await analyticsAPI.createAnalysis(request, backendToken)
       setAnalyses(prev => [...newAnalyses, ...prev])
       return newAnalyses
     } catch (err) {
@@ -62,8 +74,13 @@ export function useAIAnalysis(): UseAIAnalysisReturn {
 
   // 分析結果を更新
   const updateAnalysis = async (id: string, updates: Partial<AnalysisResponse>): Promise<AnalysisResponse | null> => {
+    if (!backendToken) {
+      setError('認証が必要です。ログインしてください。')
+      return null
+    }
+
     try {
-      const updatedAnalysis = await analyticsAPI.updateAnalysis(id, updates)
+      const updatedAnalysis = await analyticsAPI.updateAnalysis(id, updates, backendToken)
       setAnalyses(prev => prev.map(analysis => 
         analysis.id === id ? updatedAnalysis : analysis
       ))
@@ -78,8 +95,13 @@ export function useAIAnalysis(): UseAIAnalysisReturn {
 
   // 分析結果を削除
   const deleteAnalysis = async (id: string): Promise<boolean> => {
+    if (!backendToken) {
+      setError('認証が必要です。ログインしてください。')
+      return false
+    }
+
     try {
-      await analyticsAPI.deleteAnalysis(id)
+      await analyticsAPI.deleteAnalysis(id, backendToken)
       setAnalyses(prev => prev.filter(analysis => analysis.id !== id))
       return true
     } catch (err) {
