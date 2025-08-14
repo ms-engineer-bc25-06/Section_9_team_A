@@ -40,6 +40,12 @@ from .participant_management_service import ParticipantManagementService
 # ロールサービス
 from .role_service import RoleService
 
+# 個人成長支援サービス
+from .personal_growth_service import PersonalGrowthService
+
+# プライバシー制御サービス
+from .privacy_service import PrivacyService
+
 __all__ = [
     "AuthService",
     "VoiceSessionService",
@@ -55,4 +61,6 @@ __all__ = [
     "MessagingService",
     "ParticipantManagementService",
     "RoleService",
+    "PersonalGrowthService",
+    "PrivacyService",
 ]

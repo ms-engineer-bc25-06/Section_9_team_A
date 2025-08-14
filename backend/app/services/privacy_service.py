@@ -18,7 +18,7 @@ from app.models.privacy import (
     DataRetentionPolicy, PrivacyAuditLog, PrivacyLevel, DataCategory
 )
 from app.core.exceptions import PrivacyError, AccessDeniedError
-from app.core.config import settings
+from app.config import settings
 
 logger = structlog.get_logger()
 

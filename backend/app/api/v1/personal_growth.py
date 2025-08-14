@@ -7,8 +7,14 @@ from datetime import datetime
 from app.core.database import get_db
 from app.core.auth import get_current_active_user
 from app.models.user import User
-from app.schemas.analysis import (
+from app.schemas.personal_growth import (
     ImprovementPlan, ImprovementStep, GrowthGoal, PersonalGrowthProfile,
+    ImprovementPlanCreate, ImprovementPlanUpdate, ImprovementPlanResponse,
+    ImprovementStepCreate, ImprovementStepUpdate, ImprovementStepResponse,
+    GrowthGoalCreate, GrowthGoalUpdate, GrowthGoalResponse,
+    PersonalGrowthProfileResponse
+)
+from app.schemas.analysis import (
     AnalysisType
 )
 from app.services.personal_growth_service import PersonalGrowthService

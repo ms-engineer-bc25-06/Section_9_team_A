@@ -9,8 +9,11 @@ from sqlalchemy import select, and_
 
 from app.models.user import User
 from app.models.analysis import Analysis
-from app.schemas.analysis import (
+from app.schemas.personal_growth import (
     ImprovementPlan, ImprovementStep, GrowthGoal, PersonalGrowthProfile,
+    DifficultyLevel, PriorityLevel, GoalStatus
+)
+from app.schemas.analysis import (
     AnalysisType, AnalysisResult
 )
 from app.integrations.openai_client import OpenAIClient

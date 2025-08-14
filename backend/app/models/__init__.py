@@ -38,6 +38,17 @@ from .audit_log import AuditLog
 # チームダイナミクス分析関連
 from .team_dynamics import TeamInteraction, TeamCompatibility, TeamCohesion, TeamMemberProfile
 
+# プライバシー制御関連
+from .privacy import (
+    EncryptedData,
+    DataAccessPermission,
+    PrivacySettings,
+    DataRetentionPolicy,
+    PrivacyAuditLog,
+    PrivacyLevel,
+    DataCategory,
+)
+
 __all__ = [
     "Base",
     "User",
@@ -59,4 +70,12 @@ __all__ = [
     "TeamCompatibility",
     "TeamCohesion",
     "TeamMemberProfile",
+    # プライバシー制御関連
+    "EncryptedData",
+    "DataAccessPermission",
+    "PrivacySettings",
+    "DataRetentionPolicy",
+    "PrivacyAuditLog",
+    "PrivacyLevel",
+    "DataCategory",
 ]

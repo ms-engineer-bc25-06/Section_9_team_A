@@ -17,6 +17,8 @@ from app.api.v1 import (
     participant_management,
     topic_generation,
     team_dynamics,
+    personal_growth,
+    privacy,
 )
 
 api_router = APIRouter()
@@ -83,4 +85,14 @@ api_router.include_router(
 # チームダイナミクス分析
 api_router.include_router(
     team_dynamics.router, prefix="/team-dynamics", tags=["チームダイナミクス分析"]
+)
+
+# 個人成長支援
+api_router.include_router(
+    personal_growth.router, prefix="/personal-growth", tags=["個人成長支援"]
+)
+
+# プライバシー制御
+api_router.include_router(
+    privacy.router, prefix="/privacy", tags=["プライバシー制御"]
 )
