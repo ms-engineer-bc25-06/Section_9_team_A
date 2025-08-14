@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { Progress } from '@/components/ui/Progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { 
   Target, 
   TrendingUp, 
@@ -73,27 +73,27 @@ export default function PersonalGrowthPage() {
             id: '1',
             title: 'アクティブリスニングの練習',
             description: '相手の話を深く理解するための聞き方の練習',
-            difficulty: 'beginner',
+            difficulty: 'beginner' as const,
             estimated_duration_days: 14,
-            priority: 'high',
+            priority: 'high' as const,
             completed: false
           },
           {
             id: '2',
             title: 'フィードバックの受け入れ方',
             description: '建設的なフィードバックを効果的に受け入れる方法',
-            difficulty: 'intermediate',
+            difficulty: 'intermediate' as const,
             estimated_duration_days: 21,
-            priority: 'medium',
+            priority: 'medium' as const,
             completed: false
           },
           {
             id: '3',
             title: 'チーム内での意見表明',
             description: '会議やディスカッションで自分の意見を効果的に伝える',
-            difficulty: 'advanced',
+            difficulty: 'advanced' as const,
             estimated_duration_days: 30,
-            priority: 'high',
+            priority: 'high' as const,
             completed: false
           }
         ],
@@ -107,7 +107,7 @@ export default function PersonalGrowthPage() {
           description: '3ヶ月以内に自信を持ってプレゼンできるようになる',
           category: 'コミュニケーション',
           target_date: '2025-11-14',
-          status: 'in_progress',
+          status: 'in_progress' as const,
           progress_percentage: 60,
           milestones: ['資料作成の基本', '話し方の練習', '実践練習']
         },
@@ -117,7 +117,7 @@ export default function PersonalGrowthPage() {
           description: 'チームをまとめるリーダーとしての能力を身につける',
           category: 'マネジメント',
           target_date: '2026-02-14',
-          status: 'not_started',
+          status: 'not_started' as const,
           progress_percentage: 0,
           milestones: ['チームビルディング', '意思決定', 'メンタリング']
         }
