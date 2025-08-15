@@ -1,17 +1,9 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, Enum
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-import enum
+from datetime import datetime
 
-from app.core.database import Base
-
-
-class InvitationStatus(enum.Enum):
-    """招待の状態"""
-    PENDING = "pending"
-    ACCEPTED = "accepted"
-    DECLINED = "declined"
-    EXPIRED = "expired"
+from app.models.base import Base
 
 
 class Invitation(Base):
@@ -20,29 +12,51 @@ class Invitation(Base):
     __tablename__ = "invitations"
 
     id = Column(Integer, primary_key=True, index=True)
-    team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
-    inviter_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
     
     # 招待情報
-    email = Column(String(255), nullable=False)
+    invitation_id = Column(String(255), unique=True, index=True, nullable=False)
+    email = Column(String(255), nullable=False, index=True)
+    
+    # 招待内容
+    invitation_type = Column(String(50), nullable=False)  # team, project, etc.
     role = Column(String(50), default="member")  # owner, admin, member, guest
-    message = Column(Text, nullable=True)
     
     # 招待状態
-    status = Column(Enum(InvitationStatus), default=InvitationStatus.PENDING)
-    token = Column(String(255), unique=True, nullable=False)
+    status = Column(String(50), default="pending")  # pending, accepted, declined, expired
+    is_active = Column(Boolean, default=True)
     
-    # 期限
-    expires_at = Column(DateTime(timezone=True), nullable=False)
-    accepted_at = Column(DateTime(timezone=True), nullable=True)
+    # 招待メッセージ
+    message = Column(Text, nullable=True)
     
+    # 外部キー
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    invited_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    invited_user = Column(Integer, ForeignKey("users.id"), nullable=True)
+
     # タイムスタンプ
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    accepted_at = Column(DateTime(timezone=True), nullable=True)
     
     # リレーションシップ
-    team = relationship("Team", back_populates="invitations")
-    inviter = relationship("User", foreign_keys=[inviter_id], back_populates="sent_invitations")
-    
+    team = relationship("Team")
+    inviter = relationship("User", foreign_keys=[invited_by])
+    invitee = relationship("User", foreign_keys=[invited_user])
+
     def __repr__(self):
-        return f"<Invitation(id={self.id}, team_id={self.team_id}, email='{self.email}', status='{self.status.value}')>"
+        return f"<Invitation(id={self.id}, email='{self.email}', status='{self.status}')>"
+
+    @property
+    def is_expired(self) -> bool:
+        """招待が期限切れかどうか"""
+        if not self.expires_at:
+            return False
+        return datetime.utcnow() > self.expires_at
+
+    @property
+    def is_accepted(self) -> bool:
+        """招待が承認されたかどうか"""
+        return self.status == "accepted" and self.accepted_at is not None

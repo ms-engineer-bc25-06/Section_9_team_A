@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
@@ -30,12 +30,15 @@ class VoiceSessionCreate(VoiceSessionBase):
 
     session_id: str = Field(..., max_length=255, description="セッションID")
 
-    @validator("session_id")
+    @field_validator("session_id")
     def validate_session_id(cls, v):
         """セッションIDのバリデーション"""
-        if not v or len(v.strip()) == 0:
+        if v is None:
             raise ValueError("session_id cannot be empty")
-        return v.strip()
+        value = str(v).strip()
+        if len(value) == 0:
+            raise ValueError("session_id cannot be empty")
+        return value
 
 
 class VoiceSessionUpdate(BaseModel):
@@ -74,7 +77,7 @@ class VoiceSessionResponse(VoiceSessionBase, TimestampMixin):
     """音声セッション応答スキーマ"""
 
     id: int
-    session_id: str
+    session_id: str = Field(..., description="セッションID")
     audio_file_path: Optional[str] = None
     audio_duration: Optional[float] = None
     audio_format: Optional[AudioFormatEnum] = None
@@ -85,13 +88,37 @@ class VoiceSessionResponse(VoiceSessionBase, TimestampMixin):
     analysis_summary: Optional[str] = None
     sentiment_score: Optional[float] = None
     key_topics: Optional[str] = None
-    user_id: int
+    user_id: int = Field(..., description="ユーザーID")
     team_id: Optional[int] = None
     started_at: Optional[datetime] = None
     ended_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
+        populate_by_name = True
+
+    @classmethod
+    def model_validate(cls, obj):
+        """VoiceSessionモデルからVoiceSessionResponseを作成"""
+        if hasattr(obj, "room_id"):
+            # VoiceSessionモデルの場合
+            data = {
+                "id": obj.id,
+                "session_id": obj.room_id,  # room_idをsession_idにマッピング
+                "title": obj.title,
+                "description": obj.description,
+                "status": obj.status,
+                "is_public": obj.is_public,
+                "participant_count": obj.participant_count,
+                "user_id": obj.host_id,  # host_idをuser_idにマッピング
+                "team_id": obj.team_id,
+                "started_at": obj.started_at,
+                "ended_at": obj.ended_at,
+                "created_at": obj.created_at,
+                "updated_at": obj.updated_at,
+            }
+            return cls(**data)
+        return super().model_validate(obj)
 
 
 class VoiceSessionListResponse(BaseModel):
@@ -148,3 +175,135 @@ class VoiceSessionStats(BaseModel):
     analyzed_sessions: int
     public_sessions: int
     private_sessions: int
+
+
+class ParticipantRoleEnum(str, Enum):
+    """参加者権限列挙型"""
+
+    OWNER = "owner"
+    MODERATOR = "moderator"
+    PARTICIPANT = "participant"
+    VIEWER = "viewer"
+
+
+class ParticipantInfo(BaseModel):
+    """参加者情報スキーマ"""
+
+    user_id: int
+    username: str
+    email: str
+    role: ParticipantRoleEnum = ParticipantRoleEnum.PARTICIPANT
+    joined_at: datetime
+    is_active: bool = True
+
+
+class ParticipantAddRequest(BaseModel):
+    """参加者追加リクエストスキーマ"""
+
+    user_id: int
+    role: ParticipantRoleEnum = ParticipantRoleEnum.PARTICIPANT
+
+
+class ParticipantUpdateRequest(BaseModel):
+    """参加者更新リクエストスキーマ"""
+
+    role: ParticipantRoleEnum
+
+
+class ParticipantResponse(BaseModel):
+    """参加者応答スキーマ"""
+
+    user_id: int
+    username: str
+    email: str
+    role: ParticipantRoleEnum
+    joined_at: datetime
+    is_active: bool
+
+    class Config:
+        from_attributes = True
+
+
+class ParticipantListResponse(BaseModel):
+    """参加者一覧応答スキーマ"""
+
+    participants: List[ParticipantResponse]
+    total: int
+    active_count: int
+
+
+# 録音制御スキーマ
+class RecordingStatusEnum(str, Enum):
+    """録音状態列挙型"""
+
+    IDLE = "idle"
+    RECORDING = "recording"
+    PAUSED = "paused"
+    STOPPED = "stopped"
+    ERROR = "error"
+
+
+class RecordingControlRequest(BaseModel):
+    """録音制御リクエストスキーマ"""
+
+    action: str = Field(..., description="録音アクション（start, stop, pause, resume）")
+    quality: Optional[str] = Field("high", description="録音品質（low, medium, high）")
+    format: Optional[str] = Field(
+        "mp3", description="録音フォーマット（mp3, wav, m4a）"
+    )
+
+
+class RecordingStatusResponse(BaseModel):
+    """録音状態応答スキーマ"""
+
+    session_id: str
+    status: RecordingStatusEnum
+    is_recording: bool
+    recording_duration: Optional[float] = None  # 秒
+    file_path: Optional[str] = None
+    file_size: Optional[int] = None  # バイト
+    quality: Optional[str] = None
+    format: Optional[str] = None
+    started_at: Optional[datetime] = None
+    error_message: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+# リアルタイム統計スキーマ
+class RealtimeStatsResponse(BaseModel):
+    """リアルタイム統計応答スキーマ"""
+
+    session_id: str
+    current_duration: float  # 現在の継続時間（秒）
+    participant_count: int
+    active_participants: int
+    recording_duration: Optional[float] = None  # 録音時間（秒）
+    transcription_count: int
+    analysis_progress: float  # 分析進捗（0.0-1.0）
+    sentiment_score: Optional[float] = None
+    key_topics_count: int
+    last_activity: datetime
+    is_live: bool
+
+    class Config:
+        from_attributes = True
+
+
+class SessionProgressResponse(BaseModel):
+    """セッション進行状況応答スキーマ"""
+
+    session_id: str
+    status: StatusEnum
+    progress_percentage: float  # 進行状況（0.0-100.0）
+    current_phase: str  # 現在のフェーズ
+    estimated_completion: Optional[datetime] = None
+    completed_steps: List[str]
+    remaining_steps: List[str]
+    total_duration: float  # 総継続時間（秒）
+    recording_status: RecordingStatusEnum
+    analysis_status: str  # 分析状態
+
+    class Config:
+        from_attributes = True

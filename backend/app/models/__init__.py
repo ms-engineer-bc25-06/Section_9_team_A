@@ -4,6 +4,9 @@ from .base import Base
 # ユーザー関連
 from .user import User
 
+# ロール関連
+from .role import Role, UserRole
+
 # チーム関連
 from .team import Team
 from .team_member import TeamMember
@@ -32,9 +35,14 @@ from .invitation import Invitation
 # 監査ログ関連
 from .audit_log import AuditLog
 
+# チームダイナミクス分析関連
+from .team_dynamics import TeamInteraction, TeamCompatibility, TeamCohesion, TeamMemberProfile
+
 __all__ = [
     "Base",
     "User",
+    "Role",
+    "UserRole",
     "Team",
     "TeamMember",
     "VoiceSession",
@@ -47,4 +55,8 @@ __all__ = [
     "Billing",
     "Invitation",
     "AuditLog",
+    "TeamInteraction",
+    "TeamCompatibility",
+    "TeamCohesion",
+    "TeamMemberProfile",
 ]

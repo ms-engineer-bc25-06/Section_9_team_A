@@ -4,7 +4,7 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 from typing import Optional, cast
 
-from app.core.database import Base
+from app.models.base import Base
 
 
 class User(Base):
@@ -45,6 +45,7 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
     is_premium = Column(Boolean, default=False)
+    is_admin = Column(Boolean, default=False)
 
     # サブスクリプション関連
     subscription_status = Column(String(50), default="free")  # free, basic, premium
@@ -66,9 +67,14 @@ class User(Base):
     transcriptions = relationship("Transcription", back_populates="user")
     analyses = relationship("Analysis", back_populates="user")
     subscriptions = relationship("Subscription", back_populates="user")
-    billings = relationship("Billing", back_populates="user")
-    sent_invitations = relationship("Invitation", foreign_keys="Invitation.inviter_id", back_populates="inviter")
-    audit_logs = relationship("AuditLog", back_populates="user")
+    billing_records = relationship("Billing", back_populates="user")
+    created_chat_rooms = relationship("ChatRoom", back_populates="creator")
+    chat_messages = relationship("ChatMessage", back_populates="sender")
+    chat_room_participations = relationship("ChatRoomParticipant", back_populates="user")
+    
+    # チームダイナミクス分析関連
+    team_profiles = relationship("TeamMemberProfile", back_populates="user")
+
 
     def __repr__(self):
         return f"<User(id={self.id}, email='{self.email}', username='{self.username}')>"

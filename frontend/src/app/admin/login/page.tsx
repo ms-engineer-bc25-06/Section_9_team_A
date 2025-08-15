@@ -1,27 +1,57 @@
 // 管理者ログインページ。認証フォームを表示。
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Mail, Lock, Shield } from "lucide-react"
+import { useAuth } from "@/components/auth/AuthProvider"
+import { auth } from "@/lib/firebase"
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const { login, backendToken } = useAuth()
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
 
-    // 管理者ログイン処理のシミュレーション
-    setTimeout(() => {
-      setIsLoading(false)
+    try {
+      const token = await login(email, password)
+      
+      // 管理者権限をチェック
+      try {
+        if (!token) {
+          alert("バックエンド認証が完了していません。しばらく待ってから再試行してください。")
+          return
+        }
+        
+        const response = await fetch('http://localhost:8000/api/v1/admin-role/check-admin', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        })
+        
+        if (!response.ok) {
+          alert("このアカウントは管理者ではありません")
+          return
+        }
+      } catch (error) {
+        console.error("管理者権限チェック失敗:", error)
+        alert("管理者権限の確認に失敗しました")
+        return
+      }
+
       router.push("/admin/dashboard")
-    }, 1000)
+    } catch (error) {
+      console.error("管理者ログイン失敗:", error)
+      alert("ログインに失敗しました")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
