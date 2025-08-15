@@ -6,6 +6,7 @@ import structlog
 
 from app.config import settings
 from app.api.v1.api import api_router
+from app.api.v1.health import router as health_router  # ← 追加
 from app.api.v1 import websocket as websocket_v1
 from app.core.message_handlers import initialize_message_handlers
 from app.core.exceptions import BridgeLineException
@@ -71,6 +72,7 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan,
 )
+app.include_router(health_router, prefix="/api/v1")   # ← 追加
 
 # CORS設定
 app.add_middleware(

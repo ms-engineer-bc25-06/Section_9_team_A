@@ -6,7 +6,7 @@ import Link from "next/link"
 
 interface Props {
   params: {
-    teamId: string
+    memberId: string
   }
 }
 
@@ -32,7 +32,7 @@ export default function MemberDetailPage({ params }: Props) {
       </header>
             
       <main className="container mx-auto px-4 py-8">
-        <MemberDetail memberId={params.teamId} />
+        <MemberDetail memberId={params.memberId} />
       </main>
     </div>
   )

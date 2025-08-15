@@ -1,63 +1,119 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-import structlog
+from sqlalchemy import select
+from typing import List, Optional, Dict, Any
 
-from app.core.database import get_db
-from app.core.auth import get_current_active_user
+from app.api.deps import get_session, get_current_user
+from app.schemas.team import TeamsListResponse, TeamMemberOut, TeamDetailOut, TeamMini
 from app.models.user import User
+from app.models.team import Team
+from app.models.team_member import TeamMember  # ← ここがポイント
 
-router = APIRouter()
-logger = structlog.get_logger()
+router = APIRouter()  # prefix は api.py 側で付与
 
+def _get_department_from_profile(profile: Optional[Dict[str, Any]]) -> Optional[str]:
+    if isinstance(profile, dict):
+        dept = profile.get("department")
+        if isinstance(dept, str) and dept.strip():
+            return dept.strip()
+    return None
 
-@router.get("/")
-async def get_teams(
-    current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db),
+@router.get("", response_model=TeamsListResponse)
+async def list_my_teams(
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
-    """ユーザーのチーム一覧を取得"""
-    # TODO: チームモデルとサービスを実装後に完成
-    return {"message": "Teams endpoint - coming soon"}
+    stmt = (
+        select(Team)
+        .join(TeamMember, TeamMember.team_id == Team.id)
+        .where(TeamMember.user_id == current_user.id)
+        .order_by(Team.created_at.desc())
+    )
+    result = await db.execute(stmt)
+    teams = result.scalars().all()
+    minis = [TeamMini(id=str(t.id), name=t.name) for t in teams]
+    return {"teams": minis, "total": len(minis), "has_more": False}
 
-
-@router.post("/")
-async def create_team(
-    current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db),
+@router.get("/{team_id}", response_model=TeamDetailOut)
+async def get_team_detail(
+    team_id: str,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
-    """新しいチームを作成"""
-    # TODO: チーム作成機能を実装
-    return {"message": "Create team - coming soon"}
+    # アクセス権（所属チェック）
+    member_stmt = select(TeamMember).where(
+        TeamMember.team_id == team_id,
+        TeamMember.user_id == current_user.id,
+    ).limit(1)
+    if not (await db.execute(member_stmt)).first():
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="TEAM_ACCESS_DENIED")
 
+    team = await db.get(Team, team_id)
+    if not team:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="TEAM_NOT_FOUND")
 
-@router.get("/{team_id}")
-async def get_team(
-    team_id: int,
-    current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db),
+    # メンバー取得（User.profile は JSON を想定、Python 側でフィルタ）
+    stmt = (
+        select(User, TeamMember)
+        .join(TeamMember, TeamMember.user_id == User.id)
+        .where(TeamMember.team_id == team_id)
+    )
+    rows = (await db.execute(stmt)).all()
+
+    members: List[TeamMemberOut] = []
+    for u, tm in rows:
+        name_ok = isinstance(u.display_name, str) and u.display_name.strip()
+        department = _get_department_from_profile(getattr(u, "profile", None))
+        if not name_ok or not department:
+            continue
+        members.append(
+            TeamMemberOut(
+                id=str(u.id),
+                display_name=u.display_name,
+                avatar_url=getattr(u, "avatar_url", None),
+                role=getattr(tm, "role", None),
+                status=getattr(tm, "status", None),
+                profile={"department": department},
+            )
+        )
+
+    return {"id": str(team.id), "name": team.name, "members": members}
+
+@router.get("/{team_id}/members", response_model=dict)
+async def list_team_members_minimal(
+    team_id: str,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
-    """指定されたチームの詳細を取得"""
-    # TODO: チーム詳細取得機能を実装
-    return {"message": f"Team {team_id} details - coming soon"}
+    member_stmt = select(TeamMember).where(
+        TeamMember.team_id == team_id,
+        TeamMember.user_id == current_user.id,
+    ).limit(1)
+    if not (await db.execute(member_stmt)).first():
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="TEAM_ACCESS_DENIED")
 
+    stmt = (
+        select(User, TeamMember)
+        .join(TeamMember, TeamMember.user_id == User.id)
+        .where(TeamMember.team_id == team_id)
+    )
+    rows = (await db.execute(stmt)).all()
 
-@router.put("/{team_id}")
-async def update_team(
-    team_id: int,
-    current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """チーム情報を更新"""
-    # TODO: チーム更新機能を実装
-    return {"message": f"Update team {team_id} - coming soon"}
+    members = []
+    for u, tm in rows:
+        name_ok = isinstance(u.display_name, str) and u.display_name.strip()
+        department = _get_department_from_profile(getattr(u, "profile", None))
+        if not name_ok or not department:
+            continue
+        members.append(
+            {
+                "id": str(u.id),
+                "display_name": u.display_name,
+                "avatar_url": getattr(u, "avatar_url", None),
+                "role": getattr(tm, "role", None),
+                "status": getattr(tm, "status", None),
+                "profile": {"department": department},
+            }
+        )
 
-
-@router.delete("/{team_id}")
-async def delete_team(
-    team_id: int,
-    current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """チームを削除"""
-    # TODO: チーム削除機能を実装
-    return {"message": f"Delete team {team_id} - coming soon"}
+    return {"members": members}
