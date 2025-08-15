@@ -5,6 +5,8 @@ from app.api.v1 import (
     users,
     teams,
     voice_sessions,
+    transcriptions,
+    analyses,
 )
 
 api_router = APIRouter()
@@ -21,4 +23,14 @@ api_router.include_router(teams.router, prefix="/teams", tags=["チーム"])
 # 音声セッション
 api_router.include_router(
     voice_sessions.router, prefix="/voice-sessions", tags=["音声セッション"]
+)
+
+# 文字起こし
+api_router.include_router(
+    transcriptions.router, prefix="/transcriptions", tags=["文字起こし"]
+)
+
+# AI分析
+api_router.include_router(
+    analyses.router, prefix="/analyses", tags=["AI分析"]
 )

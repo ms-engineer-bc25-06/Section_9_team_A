@@ -14,6 +14,12 @@ from .team_member import TeamMember
 # 音声セッション関連
 from .voice_session import VoiceSession
 
+# 文字起こし関連
+from .transcription import Transcription
+
+# AI分析関連
+from .analysis import Analysis
+
 __all__ = [
     "Base",
     "User",
@@ -22,4 +28,6 @@ __all__ = [
     "Team",
     "TeamMember",
     "VoiceSession",
+    "Transcription",
+    "Analysis",
 ]
