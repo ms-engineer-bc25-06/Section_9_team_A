@@ -22,13 +22,26 @@ import Link from "next/link"
 
 export default function AnalyticsPage() {
   const { analyses, isLoading, error, deleteAnalysis } = useAIAnalysis()
-  const { backendToken, user } = useAuth()
+  const { backendToken, user, isLoading: authLoading } = useAuth()
   const [selectedType, setSelectedType] = useState<string>("all")
   const [sortBy, setSortBy] = useState<string>("date")
   const [viewMode, setViewMode] = useState<'list' | 'dashboard'>('dashboard')
+  const [isRetrying, setIsRetrying] = useState(false)
+
+  // 認証状態の読み込み中
+  if (authLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">認証状態を確認中...</p>
+        </div>
+      </div>
+    )
+  }
 
   // 認証が必要な場合の表示
-  if (!backendToken) {
+  if (!user) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
@@ -38,24 +51,69 @@ export default function AnalyticsPage() {
             <p className="text-gray-600 mb-4">
               AI分析結果を表示するには、ログインが必要です。
             </p>
-            <Link href="/auth/login">
+            <Link href="/analytics/login">
               <Button className="bg-blue-600 hover:bg-blue-700">
                 <LogIn className="h-4 w-4 mr-2" />
-                ログイン
+                AI分析にログイン
               </Button>
             </Link>
           </div>
-          
-          {user && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 max-w-md mx-auto">
-              <p className="text-sm text-yellow-800">
-                <strong>Firebase認証済み:</strong> {user.email}
-              </p>
-              <p className="text-sm text-yellow-700 mt-1">
-                バックエンドとの連携が完了していません。ページを再読み込みしてください。
-              </p>
+        </div>
+      </div>
+    )
+  }
+
+  // Firebase認証済みだがバックエンド連携が未完了の場合
+  if (!backendToken) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">
+          <div className="mb-6">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 max-w-md mx-auto">
+              <div className="mb-4">
+                <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-2xl">⚠️</span>
+                </div>
+                <h2 className="text-xl font-semibold text-yellow-800 mb-2">
+                  Firebase認証済み: {user.email}
+                </h2>
+                <p className="text-sm text-yellow-700 mb-4">
+                  バックエンドとの連携が完了していません。
+                </p>
+              </div>
+              
+              <div className="space-y-3">
+                <Button 
+                  onClick={() => window.location.reload()} 
+                  className="w-full bg-yellow-600 hover:bg-yellow-700"
+                  disabled={isRetrying}
+                >
+                  {isRetrying ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      連携中...
+                    </>
+                  ) : (
+                    <>
+                      <LogIn className="h-4 w-4 mr-2" />
+                      再読み込み
+                    </>
+                  )}
+                </Button>
+                
+                <Link href="/analytics/login">
+                  <Button variant="outline" className="w-full">
+                    ログインページに戻る
+                  </Button>
+                </Link>
+              </div>
+              
+              <div className="mt-4 text-xs text-yellow-600 bg-yellow-100 p-2 rounded">
+                <p>Debug: backendToken = {backendToken ? '存在' : 'null'}</p>
+                <p>Debug: user.uid = {user.uid}</p>
+              </div>
             </div>
-          )}
+          </div>
         </div>
       </div>
     )

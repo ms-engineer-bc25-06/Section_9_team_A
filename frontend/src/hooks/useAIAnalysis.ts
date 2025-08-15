@@ -21,6 +21,13 @@ export function useAIAnalysis(): UseAIAnalysisReturn {
   const [error, setError] = useState<string | null>(null)
   const { backendToken } = useAuth()
 
+  // 認証トークンが取得されたら自動的にデータを取得
+  useEffect(() => {
+    if (backendToken) {
+      fetchAnalyses()
+    }
+  }, [backendToken])
+
   // 分析結果を取得
   const fetchAnalyses = async () => {
     if (!backendToken) {
@@ -126,11 +133,6 @@ export function useAIAnalysis(): UseAIAnalysisReturn {
   const refreshAnalyses = async () => {
     await fetchAnalyses()
   }
-
-  // 初回読み込み時に分析結果を取得
-  useEffect(() => {
-    fetchAnalyses()
-  }, [])
 
   return {
     analyses,

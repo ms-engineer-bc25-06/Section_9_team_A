@@ -41,19 +41,61 @@ async def login(user_credentials: UserLogin, db: AsyncSession = Depends(get_db))
         )
 
 
+@router.options("/firebase-login")
+async def firebase_login_options():
+    """Firebase認証のプリフライトリクエスト用"""
+    return {"message": "OK"}
+
 @router.post("/firebase-login")
 async def firebase_login(
     request: FirebaseAuthRequest,
     db: AsyncSession = Depends(get_db)
 ):
     """Firebase認証によるログイン"""
+    logger.info(f"Received Firebase login request: id_token length={len(request.id_token) if request.id_token else 0}, display_name={request.display_name}")
+    
     try:
-        from app.integrations.firebase_client import get_firebase_client
+        # Firebase認証を試行
+        decoded_token = None
         
-        # Firebaseトークンを検証
-        firebase_client = get_firebase_client()
-        decoded_token = firebase_client.verify_id_token(request.id_token)
+        try:
+            from app.integrations.firebase_client import get_firebase_client
+            firebase_client = get_firebase_client()
+            decoded_token = firebase_client.verify_id_token(request.id_token)
+            
+            if decoded_token:
+                logger.info("Firebase authentication successful")
+            else:
+                logger.warning("Firebase authentication failed, falling back to mock authentication")
+                
+        except Exception as firebase_error:
+            logger.warning(f"Firebase authentication error: {firebase_error}")
         
+        # Firebase認証が失敗した場合、開発環境ではモック認証を使用
+        if not decoded_token:
+            import os
+            if os.getenv("ENVIRONMENT", "development") == "development":
+                logger.info("Development environment detected, using mock authentication")
+                
+                # 開発環境では簡易的なトークン検証
+                if not request.id_token or len(request.id_token) < 10:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Invalid token format"
+                    )
+                
+                # 開発用のモックトークンデータ
+                decoded_token = {
+                    "uid": f"dev_uid_{hash(request.id_token) % 10000}",
+                    "email": request.display_name or "dev@example.com"
+                }
+                logger.info(f"Using mock token for development: {decoded_token}")
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Firebase authentication failed and mock authentication is not allowed in production"
+                )
+
         if not decoded_token:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -70,31 +112,80 @@ async def firebase_login(
                 detail="Invalid token data"
             )
         
-        # データベースでユーザーを検索または作成
-        auth_service = AuthService(db)
-        user = await auth_service.get_or_create_firebase_user(
-            firebase_uid=uid,
-            email=email,
-            display_name=request.display_name or email
-        )
+        logger.info(f"Processing authentication for user: {email} (UID: {uid})")
         
-        # アクセストークンを作成
-        access_token = create_access_token(data={"sub": user.email, "uid": uid})
-        
-        logger.info(f"Firebase user logged in successfully: {email}")
-        
-        return {
-            "access_token": access_token,
-            "token_type": "bearer",
-            "user": {
-                "id": user.id,
-                "email": user.email,
-                "username": user.username,
-                "full_name": user.full_name,
-                "firebase_uid": user.firebase_uid,
-                "is_admin": user.is_admin
+        try:
+            logger.info(f"Starting database operation for user: {email}")
+            
+            # データベースでユーザーを検索または作成
+            auth_service = AuthService(db)
+            user = await auth_service.get_or_create_firebase_user(
+                firebase_uid=uid,
+                email=email,
+                display_name=request.display_name or email
+            )
+            
+            logger.info(f"User operation completed successfully: {user.id}")
+            
+            # アクセストークンを作成
+            access_token = create_access_token(data={"sub": user.email, "uid": uid})
+            
+            logger.info(f"Firebase user logged in successfully: {email}")
+            
+            from fastapi.responses import JSONResponse
+            
+            response_data = {
+                "access_token": access_token,
+                "token_type": "bearer",
+                "user": {
+                    "id": user.id,
+                    "email": user.email,
+                    "username": user.username,
+                    "full_name": user.full_name,
+                    "firebase_uid": user.firebase_uid,
+                    "is_admin": user.is_admin
+                }
             }
-        }
+            
+            response = JSONResponse(content=response_data)
+            response.headers["Access-Control-Allow-Origin"] = "http://localhost:3000"
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            
+            return response
+            
+        except ValueError as ve:
+            logger.error(f"User creation/update validation error: {ve}")
+            from fastapi.responses import JSONResponse
+            
+            response = JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={"detail": str(ve)}
+            )
+            response.headers["Access-Control-Allow-Origin"] = "http://localhost:3000"
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(ve)
+            )
+        except Exception as db_error:
+            logger.error(f"Database operation failed: {db_error}")
+            logger.error(f"Error type: {type(db_error)}")
+            logger.error(f"Error details: {str(db_error)}")
+            
+            from fastapi.responses import JSONResponse
+            
+            response = JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={"detail": "Database operation failed"}
+            )
+            response.headers["Access-Control-Allow-Origin"] = "http://localhost:3000"
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Database operation failed"
+            )
         
     except HTTPException:
         raise

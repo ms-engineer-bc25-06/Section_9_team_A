@@ -209,7 +209,7 @@ class PrivacyAuditLog(Base):
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
     
     # リレーションシップ
-    user = relationship("User", foreign_keys=[user_id])
+    user = relationship("User", foreign_keys=[user_id], back_populates="privacy_audit_logs")
     actor = relationship("User", foreign_keys=[accessed_by])
     
     def __repr__(self):

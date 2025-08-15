@@ -2,6 +2,7 @@ import firebase_admin
 from firebase_admin import credentials, auth, firestore
 from typing import Optional, Dict, Any
 import structlog
+import os
 
 from app.config import settings
 
@@ -27,6 +28,16 @@ class FirebaseClient:
             # サービスアカウントキーファイルのパス
             service_account_path = "firebase-admin-key.json"
             
+            # ファイルの存在確認
+            if not os.path.exists(service_account_path):
+                if os.getenv("ENVIRONMENT", "development") == "development":
+                    logger.warning(f"Firebase service account file not found: {service_account_path}")
+                    logger.info("Development environment detected, Firebase will use mock authentication")
+                    return False
+                else:
+                    logger.error(f"Firebase service account file not found: {service_account_path}")
+                    return False
+            
             # 認証情報を読み込み
             cred = credentials.Certificate(service_account_path)
             
@@ -48,6 +59,10 @@ class FirebaseClient:
             
         except Exception as e:
             logger.error(f"Firebase initialization failed: {e}")
+            # 開発環境では初期化失敗を許容
+            if os.getenv("ENVIRONMENT", "development") == "development":
+                logger.info("Firebase initialization failed in development, will use mock authentication")
+                return False
             return False
 
     def verify_id_token(self, id_token: str) -> Optional[Dict[str, Any]]:

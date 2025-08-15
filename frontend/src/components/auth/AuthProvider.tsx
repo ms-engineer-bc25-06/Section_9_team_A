@@ -22,12 +22,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Firebaseログイン状態を監視
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser || null) // nullを明示
-      if (!firebaseUser) {
+      
+      if (firebaseUser) {
+        // Firebase認証が成功したら、自動的にバックエンドと連携
+        try {
+          console.log("🔄 Firebase認証成功、バックエンド連携を開始...")
+          const idToken = await firebaseUser.getIdToken()
+          const response = await fetch('http://localhost:8000/api/v1/auth/firebase-login', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              id_token: idToken,
+              display_name: firebaseUser.displayName || firebaseUser.email || "ユーザー"
+            })
+          })
+          
+          if (response.ok) {
+            const data = await response.json()
+            const token = data.access_token
+            setBackendToken(token)
+            console.log("✅ バックエンドユーザー登録・同期完了")
+          } else {
+            const errorData = await response.json().catch(() => ({}))
+            console.warn(`バックエンド連携に失敗 (ステータス: ${response.status}) - ${errorData.detail || 'Unknown error'}`)
+            
+            // エラーの詳細をログに出力
+            if (errorData.detail) {
+              console.error("エラー詳細:", errorData.detail)
+            }
+            
+            setBackendToken(null)
+          }
+        } catch (error) {
+          console.warn("バックエンド連携エラー:", error)
+          setBackendToken(null)
+        }
+      } else {
         setBackendToken(null) // ユーザーがログアウトした場合、バックエンドトークンもクリア
       }
-      setIsLoading(false)           // 読み込み完了
+      
+      setIsLoading(false) // 読み込み完了
     })
     return () => unsubscribe()
   }, [])
@@ -62,9 +100,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.log("✅ バックエンドユーザー登録・同期完了")
             return token
           } else {
-            console.warn("バックエンドユーザー登録に失敗 (ステータス:", response.status, ") - Firebase認証は成功")
-            // バックエンド認証が失敗しても、Firebase認証は成功しているのでログインを継続
-            return null
+            const errorData = await response.json().catch(() => ({}))
+            console.warn(`バックエンドユーザー登録に失敗 (ステータス: ${response.status}) - ${errorData.detail || 'Unknown error'}`)
+            
+            // 400エラーの場合は詳細なエラーメッセージを表示
+            if (response.status === 400) {
+              throw new Error(`バックエンドエラー: ${errorData.detail || 'Invalid request'}`)
+            }
+            
+            // 500エラーの場合は一般的なエラーメッセージを表示
+            if (response.status === 500) {
+              throw new Error('サーバー内部エラーが発生しました。しばらく待ってから再試行してください。')
+            }
+            
+            // その他のエラーの場合
+            throw new Error(`認証エラー: ${response.status} ${response.statusText}`)
           }
         } catch (backendError) {
           console.warn("バックエンド連携エラー (接続問題):", backendError)

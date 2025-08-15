@@ -142,10 +142,10 @@ export default function ReportsPage() {
             <p className="text-gray-600 mb-4">
               分析レポートを表示するには、ログインが必要です。
             </p>
-            <Link href="/auth/login">
+            <Link href="/analytics/login">
               <Button className="bg-blue-600 hover:bg-blue-700">
                 <LogIn className="h-4 w-4 mr-2" />
-                ログイン
+                AI分析にログイン
               </Button>
             </Link>
           </div>
