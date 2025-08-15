@@ -1,115 +1,167 @@
-// FIXME （メンバー詳細表示）
-"use client"
+"use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar"
-import { Badge } from "@/components/ui/Badge"
-import { Separator } from "@/components/ui/Separator"
-import { User,Briefcase,CalendarDays,Cake, MapPin, Home, Heart, Trophy, Sun, Utensils, BookOpen, Music, PawPrint, Star, Quote, Target, MessageSquare } from "lucide-react"
+import { useEffect, useState, Fragment  } from "react";
+import { apiGet } from "@/lib/apiClient";
+import type { UserDetailResponse, MemberProfile } from "@/types/team";
+import {
+  User as UserIcon,
+  Briefcase,
+  CalendarDays,
+  Cake,
+  MapPin,
+  Home,
+  Heart,
+  Trophy,
+  Sun,
+  Utensils,
+  BookOpen,
+  Music,
+  PawPrint,
+  Star,
+  Quote,
+  Target,
+} from "lucide-react";
 
-interface Props {
-  memberId: string
-}
-
-const mockMemberDetail = {
-  id: 1,
-  name: "田中太郎",
-  department: "開発部",
-  nickname: "太郎",
-  join_date: "2023-04-01",
-  birth_date: "1990-05-15",
-  hometown: "東京都",
-  residence: "神奈川県横浜市",
-  hobbies: "プログラミング、読書、映画鑑賞",
-  student_activities: "テニス部",
-  holiday_activities: "カフェ巡り、散歩",
-  favorite_food: "ラーメン、寿司",
-  favorite_media: "映画、漫画、ドラマ",
-  favorite_music: "カラオケの18番",
-  pets_oshi: "犬、猫",
-  respected_person: "父親",
-  motto: "努力は報われる",
-  future_goals: "エンジニアとしての成長",
-  feedback: [
-    "いつも丁寧に教えてくれてありがとうございます！",
-    "チームワークを大切にしてくれる素晴らしい方です",
-    "技術力が高く、頼りになる存在です",
-  ],
-}
+type Props = { memberId: string };
 
 export function MemberDetail({ memberId }: Props) {
-  const member = mockMemberDetail // 実際はAPIから取得
+  const [data, setData] = useState<UserDetailResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
 
-  const profileItems = [
-    { icon: User, label: "名前", value: member.name },
-    { icon: Briefcase, label: "部署", value: member.department },
-    { icon: User, label: "ニックネーム", value: member.nickname },
-    { icon: CalendarDays, label: "入社年月", value: member.join_date },
-    { icon: Cake, label: "生年月日", value: member.birth_date },
-    { icon: MapPin, label: "出身地", value: member.hometown },
-    { icon: Home, label: "居住地", value: member.residence },
-    { icon: Heart, label: "趣味／特技", value: member.hobbies },
-    { icon: Trophy, label: "学生時代の部活／サークル", value: member.student_activities },
-    { icon: Sun, label: "休日の過ごし方", value: member.holiday_activities },
-    { icon: Utensils, label: "好きな食べ物", value: member.favorite_food },
-    { icon: BookOpen, label: "好きな本・漫画・映画・ドラマ", value: member.favorite_media },
-    { icon: Music, label: "好きな音楽・カラオケの18番", value: member.favorite_music },
-    { icon: PawPrint, label: "ペット・推し", value: member.pets_oshi },
-    { icon: Star, label: "尊敬する人", value: member.respected_person },
-    { icon: Quote, label: "座右の銘", value: member.motto },
-    { icon: Target, label: "将来の目標・生きてるうちにやってみたいこと ", value: member.future_goals },
-  ]
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await apiGet<UserDetailResponse>(`/users/${memberId}`);
+        setData(res);
+      } catch (e: any) {
+        setErr(e?.message ?? "メンバー詳細の取得に失敗しました。");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [memberId]);
+
+  if (loading) return <div className="text-sm text-gray-600">読み込み中…</div>;
+  if (err) return <div className="text-sm text-red-600">{err}</div>;
+  if (!data) return null;
+
+  const p: MemberProfile = data.profile ?? {};
+
+  // value のフォーマット（空なら "未設定"）
+  const v = (x: any) => (x && String(x).trim() ? String(x) : "未設定");
+
+  const fields: { icon: JSX.Element; label: string; value: string }[] = [
+    { icon: <UserIcon className="h-4 w-4" />, label: "名前", value: v(data.display_name) },
+    { icon: <Briefcase className="h-4 w-4" />, label: "部署", value: v(p.department) },
+    { icon: <UserIcon className="h-4 w-4" />, label: "ニックネーム", value: v(p.nickname) },
+    { icon: <CalendarDays className="h-4 w-4" />, label: "入社年月", value: v(p.join_date) },
+    { icon: <Cake className="h-4 w-4" />, label: "生年月日", value: v(p.birth_date) },
+    { icon: <MapPin className="h-4 w-4" />, label: "出身地", value: v(p.hometown) },
+    { icon: <Home className="h-4 w-4" />, label: "居住地", value: v(p.residence) },
+    { icon: <Heart className="h-4 w-4" />, label: "趣味／特技", value: v(p.hobbies) },
+    { icon: <Trophy className="h-4 w-4" />, label: "学生時代の部活／サークル", value: v(p.student_activities) },
+    { icon: <Sun className="h-4 w-4" />, label: "休日の過ごし方", value: v(p.holiday_activities) },
+    { icon: <Utensils className="h-4 w-4" />, label: "好きな食べ物", value: v(p.favorite_food) },
+    { icon: <BookOpen className="h-4 w-4" />, label: "好きな本・漫画・映画・ドラマ", value: v(p.favorite_media) },
+    { icon: <Music className="h-4 w-4" />, label: "好きな音楽・カラオケの18番", value: v(p.favorite_music) },
+    { icon: <PawPrint className="h-4 w-4" />, label: "ペット・推し", value: v(p.pets_oshi) },
+    { icon: <Star className="h-4 w-4" />, label: "尊敬する人", value: v(p.respected_person) },
+    { icon: <Quote className="h-4 w-4" />, label: "座右の銘", value: v(p.motto) },
+    { icon: <Target className="h-4 w-4" />, label: "将来の目標・生きてるうちにやってみたいこと", value: v(p.future_goals) },
+  ];
+
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center space-x-6">
-            <Avatar className="h-24 w-24">
-              <AvatarImage src={`/placeholder.svg?height=96&width=96&query=${member.name}`} />
-              <AvatarFallback className="text-2xl">{member.name.slice(0, 2)}</AvatarFallback>
-            </Avatar>
-            <div>
-              <CardTitle className="text-3xl mb-2">{member.name}</CardTitle>
-              <Badge variant="secondary" className="text-lg px-3 py-1">
-                {member.department}
-              </Badge>
-            </div>
+    <div className="mx-auto max-w-2xl rounded-2xl bg-white shadow p-6 border space-y-6">
+      {/* ヘッダー（アイコン・名前・部署） */}
+      <div className="flex items-center gap-3">
+        {data.avatar_url ? (
+          <img
+            src={data.avatar_url}
+            alt={`${data.display_name}のアイコン`}
+            className="h-12 w-12 rounded-full object-cover border"
+          />
+        ) : (
+          <div className="h-12 w-12 rounded-full border grid place-items-center text-base text-gray-600 bg-gray-50">
+            {(data.display_name || "？").slice(0, 1)}
           </div>
-        </CardHeader>
+        )}
+        <div>
+          <div className="text-lg font-bold text-gray-900">{data.display_name}</div>
+          <div className="text-sm text-gray-600">{p.department ?? "部署未設定"}</div>
+        </div>
+      </div>
 
-        <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {profileItems.map((item, index) => (
-              <div key={index} className="flex items-start space-x-3">
-                <item.icon className="h-5 w-5 text-gray-500 mt-0.5 flex-shrink-0" />
-                <div className="flex-1">
-                  <dt className="text-sm font-medium text-gray-500 mb-1">{item.label}</dt>
-                  <dd className="text-gray-900">{item.value}</dd>
-                </div>
+      {/* 詳細一覧 */}
+      <section>
+        <ul className="divide-y">
+          {fields.map((f, i) => (
+            <li key={i} className="py-3 flex items-start gap-3">
+              <span className="mt-1">{f.icon}</span>
+              <div className="min-w-0">
+                <div className="text-xs text-gray-500">{f.label}</div>
+                <div className="text-sm text-gray-900 break-words">{f.value}</div>
               </div>
-            ))}
-          </div>
-
-          <Separator />
-
-          <div>
-            <div className="flex items-center space-x-2 mb-4">
-              <MessageSquare className="h-5 w-5 text-gray-500" />
-              <h3 className="text-lg font-semibold">フィードバック</h3>
-            </div>
-            <div className="space-y-3">
-              {member.feedback.map((feedback, index) => (
-                <Card key={index} className="bg-blue-50 border-blue-200">
-                  <CardContent className="p-4">
-                    <p className="text-gray-700">{feedback}</p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            </li>
+          ))}
+        </ul>
+      </section>
     </div>
-  )
+  );
 }
+
+
+//// mockデータ
+// interface Props {
+//   memberId: string
+// }
+
+// const mockMemberDetail = {
+//   id: 1,
+//   name: "田中太郎",
+//   department: "開発部",
+//   nickname: "太郎",
+//   join_date: "2023-04-01",
+//   birth_date: "1990-05-15",
+//   hometown: "東京都",
+//   residence: "神奈川県横浜市",
+//   hobbies: "プログラミング、読書、映画鑑賞",
+//   student_activities: "テニス部",
+//   holiday_activities: "カフェ巡り、散歩",
+//   favorite_food: "ラーメン、寿司",
+//   favorite_media: "映画、漫画、ドラマ",
+//   favorite_music: "カラオケの18番",
+//   pets_oshi: "犬、猫",
+//   respected_person: "父親",
+//   motto: "努力は報われる",
+//   future_goals: "エンジニアとしての成長",
+//   feedback: [
+//     "いつも丁寧に教えてくれてありがとうございます！",
+//     "チームワークを大切にしてくれる素晴らしい方です",
+//     "技術力が高く、頼りになる存在です",
+//   ],
+// }
+
+// export function MemberDetail({ memberId }: Props) {
+//   const member = mockMemberDetail // 実際はAPIから取得
+
+//   const profileItems = [
+//     { icon: User, label: "名前", value: member.name },
+//     { icon: Briefcase, label: "部署", value: member.department },
+//     { icon: User, label: "ニックネーム", value: member.nickname },
+//     { icon: CalendarDays, label: "入社年月", value: member.join_date },
+//     { icon: Cake, label: "生年月日", value: member.birth_date },
+//     { icon: MapPin, label: "出身地", value: member.hometown },
+//     { icon: Home, label: "居住地", value: member.residence },
+//     { icon: Heart, label: "趣味／特技", value: member.hobbies },
+//     { icon: Trophy, label: "学生時代の部活／サークル", value: member.student_activities },
+//     { icon: Sun, label: "休日の過ごし方", value: member.holiday_activities },
+//     { icon: Utensils, label: "好きな食べ物", value: member.favorite_food },
+//     { icon: BookOpen, label: "好きな本・漫画・映画・ドラマ", value: member.favorite_media },
+//     { icon: Music, label: "好きな音楽・カラオケの18番", value: member.favorite_music },
+//     { icon: PawPrint, label: "ペット・推し", value: member.pets_oshi },
+//     { icon: Star, label: "尊敬する人", value: member.respected_person },
+//     { icon: Quote, label: "座右の銘", value: member.motto },
+//     { icon: Target, label: "将来の目標・生きてるうちにやってみたいこと ", value: member.future_goals },
+//   ]

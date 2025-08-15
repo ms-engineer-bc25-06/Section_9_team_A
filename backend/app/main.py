@@ -6,6 +6,7 @@ import structlog
 
 from app.config import settings
 from app.api.v1.api import api_router
+
 from app.core.exceptions import BridgeLineException
 from app.api.deps import handle_bridge_line_exceptions
 
@@ -62,6 +63,7 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan,
 )
+app.include_router(health_router, prefix="/api/v1")   # ← 追加
 
 # CORS設定
 app.add_middleware(
