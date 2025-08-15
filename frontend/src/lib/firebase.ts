@@ -44,6 +44,12 @@ if (typeof window !== "undefined") {
     console.error("Firebase Auth persistence setting error:", error)
   })
 }
+if (process.env.NODE_ENV !== "production" && typeof window !== "undefined") {
+  (window as any).__auth = auth;
+  (window as any).__getIdToken = (force = true) => auth.currentUser?.getIdToken(force);
+  // console.log("[dev] window.__auth / __getIdToken available");
+}
+
 
 export { auth }
 export const db = getFirestore(app)

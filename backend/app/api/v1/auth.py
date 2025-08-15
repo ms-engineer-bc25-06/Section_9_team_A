@@ -5,7 +5,7 @@ import structlog
 
 from app.core.database import get_db
 from app.core.auth import get_current_user, create_access_token
-from app.schemas.auth import Token, TokenData, UserLogin, UserRegister, FirebaseAuthRequest
+from app.schemas.auth import Token, TokenData, UserLogin, UserRegister, FirebaseAuthRequest, UserResponse
 from app.services.auth_service import AuthService
 
 router = APIRouter()
@@ -146,7 +146,7 @@ async def logout(
         )
 
 
-@router.get("/me")
+@router.get("/me", response_model=UserResponse)
 async def get_current_user_info(current_user=Depends(get_current_user)):
     """現在のユーザー情報を取得"""
     return current_user

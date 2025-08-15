@@ -44,6 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (user) {
         try {
           const idToken = await user.getIdToken()
+          console.log("バックエンドユーザー登録・同期開始...")
           const response = await fetch('http://localhost:8000/api/v1/auth/firebase-login', {
             method: 'POST',
             headers: {
@@ -62,12 +63,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.log("✅ バックエンドユーザー登録・同期完了")
             return token
           } else {
-            console.warn("バックエンドユーザー登録に失敗 (ステータス:", response.status, ") - Firebase認証は成功")
+            const errorText = await response.text()
+            console.warn("⚠️ バックエンドユーザー登録に失敗 (ステータス:", response.status, ")", errorText, "- Firebase認証は成功")
             // バックエンド認証が失敗しても、Firebase認証は成功しているのでログインを継続
             return null
           }
         } catch (backendError) {
-          console.warn("バックエンド連携エラー (接続問題):", backendError)
+          console.warn("⚠️ バックエンド連携エラー (接続問題):", backendError)
           // Firebase認証は成功しているので、バックエンドエラーでもログインを継続
           return null
         }

@@ -22,7 +22,8 @@ const DashboardPage: React.FC = () => {
     if (user && backendToken && !backendAuthChecked) {
       const checkBackendAuth = async () => {
         try {
-          const response = await fetch('http://localhost:8000/api/v1/users/me', {
+          console.log("バックエンド認証確認開始...")
+          const response = await fetch('http://localhost:8000/api/v1/auth/me', {
             headers: {
               'Authorization': `Bearer ${backendToken}`,
               'Content-Type': 'application/json'
@@ -30,15 +31,17 @@ const DashboardPage: React.FC = () => {
           })
           
           if (response.ok) {
-            console.log("バックエンド認証確認済み")
+            const userData = await response.json()
+            console.log("✅ バックエンド認証確認済み")
             setBackendAuthChecked(true)
           } else {
-            console.warn("バックエンド認証失敗 (ステータス:", response.status, ")")
+            const errorText = await response.text()
+            console.warn("⚠️ バックエンド認証失敗 (ステータス:", response.status, ")", errorText)
             // バックエンドエラーでもダッシュボード表示を継続（Firebase認証は成功済み）
             setBackendAuthChecked(true)
           }
         } catch (error) {
-          console.error("バックエンド認証エラー (接続問題):", error)
+          console.error("❌ バックエンド認証エラー (接続問題):", error)
           // 接続エラーでもダッシュボード表示を継続（Firebase認証は成功済み）
           setBackendAuthChecked(true)
         }
