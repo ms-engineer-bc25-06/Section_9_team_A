@@ -20,6 +20,23 @@ from .transcription import Transcription
 # AI分析関連
 from .analysis import Analysis
 
+# チャットルーム関連
+from .chat_room import ChatRoom, ChatMessage, ChatRoomParticipant
+
+# チームダイナミクス関連
+from .team_dynamics import TeamInteraction, TeamCompatibility, TeamCohesion, TeamMemberProfile
+
+# プライバシー関連
+from .privacy import (
+    PrivacyLevel,
+    DataCategory,
+    EncryptedData,
+    DataAccessPermission,
+    PrivacySettings,
+    DataRetentionPolicy,
+    PrivacyAuditLog,
+)
+
 __all__ = [
     "Base",
     "User",
@@ -30,4 +47,18 @@ __all__ = [
     "VoiceSession",
     "Transcription",
     "Analysis",
+    "ChatRoom",
+    "ChatMessage",
+    "ChatRoomParticipant",
+    "TeamInteraction",
+    "TeamCompatibility",
+    "TeamCohesion",
+    "TeamMemberProfile",
+    "PrivacyLevel",
+    "DataCategory",
+    "EncryptedData",
+    "DataAccessPermission",
+    "PrivacySettings",
+    "DataRetentionPolicy",
+    "PrivacyAuditLog",
 ]

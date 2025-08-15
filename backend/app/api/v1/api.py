@@ -7,6 +7,9 @@ from app.api.v1 import (
     voice_sessions,
     transcriptions,
     analyses,
+    chat_rooms,
+    team_dynamics,
+    privacy,
 )
 
 api_router = APIRouter()
@@ -33,4 +36,19 @@ api_router.include_router(
 # AI分析
 api_router.include_router(
     analyses.router, prefix="/analyses", tags=["AI分析"]
+)
+
+# チャットルーム
+api_router.include_router(
+    chat_rooms.router, prefix="/chat-rooms", tags=["チャットルーム"]
+)
+
+# チームダイナミクス
+api_router.include_router(
+    team_dynamics.router, prefix="/team-dynamics", tags=["チームダイナミクス"]
+)
+
+# プライバシー制御
+api_router.include_router(
+    privacy.router, prefix="/privacy", tags=["プライバシー制御"]
 )

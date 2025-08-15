@@ -16,6 +16,17 @@ from .transcription_repository import TranscriptionRepository, transcription_rep
 # AI分析関連
 from .analysis_repository import AnalysisRepository, analysis_repository
 
+# チャットルーム関連
+from .chat_room_repository import ChatRoomRepository, chat_room_repository
+from .chat_message_repository import ChatMessageRepository, chat_message_repository
+from .chat_room_participant_repository import ChatRoomParticipantRepository, chat_room_participant_repository
+
+# チームダイナミクス関連
+from .team_dynamics_repository import TeamDynamicsRepository, team_dynamics_repository
+
+# プライバシー関連
+from .privacy_repository import PrivacyRepository, privacy_repository
+
 __all__ = [
     "BaseRepository",
     "VoiceSessionRepository",
@@ -28,4 +39,14 @@ __all__ = [
     "transcription_repository",
     "AnalysisRepository",
     "analysis_repository",
+    "ChatRoomRepository",
+    "chat_room_repository",
+    "ChatMessageRepository",
+    "chat_message_repository",
+    "ChatRoomParticipantRepository",
+    "chat_room_participant_repository",
+    "TeamDynamicsRepository",
+    "team_dynamics_repository",
+    "PrivacyRepository",
+    "privacy_repository",
 ]
