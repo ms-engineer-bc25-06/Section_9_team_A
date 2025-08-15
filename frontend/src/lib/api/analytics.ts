@@ -1,6 +1,14 @@
 // AI分析APIクライアント
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
+export type AnalysisType = 
+  | 'personality' 
+  | 'communication' 
+  | 'behavior' 
+  | 'sentiment' 
+  | 'topic' 
+  | 'summary'
+
 export interface AnalysisRequest {
   text_content: string
   analysis_types: string[]
@@ -17,6 +25,9 @@ export interface AnalysisResponse {
   topics: string[]
   sentiment_score: number
   sentiment_label: string
+  word_count?: number
+  sentence_count?: number
+  speaking_time?: number
   confidence_score: number
   created_at: string
   personality_traits?: PersonalityTrait[]
