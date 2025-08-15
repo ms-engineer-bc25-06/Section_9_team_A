@@ -37,6 +37,18 @@ from .privacy import (
     PrivacyAuditLog,
 )
 
+# サブスクリプション関連
+from .subscription import Subscription
+
+# 招待関連
+from .invitation import Invitation
+
+# 請求関連
+from .billing import Billing
+
+# 監査ログ関連
+from .audit_log import AuditLog
+
 __all__ = [
     "Base",
     "User",
@@ -61,4 +73,8 @@ __all__ = [
     "PrivacySettings",
     "DataRetentionPolicy",
     "PrivacyAuditLog",
+    "Subscription",
+    "Invitation",
+    "Billing",
+    "AuditLog",
 ]
