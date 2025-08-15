@@ -27,6 +27,18 @@ from .team_dynamics_repository import TeamDynamicsRepository, team_dynamics_repo
 # プライバシー関連
 from .privacy_repository import PrivacyRepository, privacy_repository
 
+# サブスクリプション関連
+from .subscription_repository import SubscriptionRepository, subscription_repository
+
+# 招待関連
+from .invitation_repository import InvitationRepository, invitation_repository
+
+# 請求関連
+from .billing_repository import BillingRepository, billing_repository
+
+# 監査ログ関連
+from .audit_log_repository import AuditLogRepository, audit_log_repository
+
 __all__ = [
     "BaseRepository",
     "VoiceSessionRepository",
@@ -49,4 +61,12 @@ __all__ = [
     "team_dynamics_repository",
     "PrivacyRepository",
     "privacy_repository",
+    "SubscriptionRepository",
+    "subscription_repository",
+    "InvitationRepository",
+    "invitation_repository",
+    "BillingRepository",
+    "billing_repository",
+    "AuditLogRepository",
+    "audit_log_repository",
 ]

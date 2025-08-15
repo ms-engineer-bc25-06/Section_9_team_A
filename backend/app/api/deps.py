@@ -21,6 +21,18 @@ def get_voice_session_service(
     return VoiceSessionService(db)
 
 
+async def get_current_superuser(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """現在のスーパーユーザーを取得"""
+    if not current_user.is_superuser:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="スーパーユーザーの権限が必要です"
+        )
+    return current_user
+
+
 def handle_bridge_line_exceptions(exc: BridgeLineException) -> HTTPException:
     """BridgeLine例外をHTTP例外に変換"""
     if isinstance(exc, ValidationException):
