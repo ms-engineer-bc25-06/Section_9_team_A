@@ -7,7 +7,7 @@ from typing import Optional, Dict, Any
 from app.api.deps import get_session, get_current_user
 from app.schemas.team import UserOut
 from app.models.user import User
-from app.models.team_member import TeamMember  # ← ここがポイント
+from app.models.team_member import TeamMember  
 
 router = APIRouter()  # prefix は api.py 側で付与
 
@@ -68,5 +68,7 @@ async def get_user_detail(
             "respected_person": _val(prof, "respected_person"),
             "motto": _val(prof, "motto"),
             "future_goals": _val(prof, "future_goals"),
+            "feedback": prof.get("feedback"),
+            "ai_analysis": prof.get("ai_analysis"),
         },
     )

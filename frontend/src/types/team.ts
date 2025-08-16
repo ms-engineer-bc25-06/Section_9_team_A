@@ -34,6 +34,21 @@ export type MemberProfile = {
   total_chat_sessions?: number | null;
   total_speaking_time_seconds?: number | null;
   last_analysis_at?: string | null;
+
+  // AI分析フィードバック関連
+  feedback?: string[] | null;
+  ai_analysis?: {
+    collaboration_score?: number | null;
+    leadership_score?: number | null;
+    empathy_score?: number | null;
+    assertiveness_score?: number | null;
+    creativity_score?: number | null;
+    analytical_score?: number | null;
+    communication_style?: string | null;
+    team_dynamics_insights?: string | null;
+    improvement_suggestions?: string[] | null;
+    last_updated?: string | null;
+  } | null;
 };
 
 export type TeamMember = {
