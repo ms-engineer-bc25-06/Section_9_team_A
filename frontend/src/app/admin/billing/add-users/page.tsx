@@ -53,7 +53,7 @@ const mockUsers = [
   },
 ]
 
-export function AdminUserList() {
+function AdminUserList() {
   const [searchTerm, setSearchTerm] = useState("")
 
   const filteredUsers = mockUsers.filter(
@@ -199,6 +199,23 @@ export function AdminUserList() {
           </Table>
         </CardContent>
       </Card>
+    </div>
+  )
+}
+
+// Next.jsページファイルとしてdefault export
+export default function AdminBillingAddUsersPage() {
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-white shadow-sm border-b">
+        <div className="container mx-auto px-4 py-4">
+          <h1 className="text-2xl font-bold text-gray-900">ユーザー管理</h1>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-4 py-8">
+        <AdminUserList />
+      </main>
     </div>
   )
 }
