@@ -14,6 +14,7 @@ from app.api.v1 import (
     invitations,
     billing,
     audit_logs,
+    feedback_approvals,
 )
 
 api_router = APIRouter()
@@ -75,4 +76,9 @@ api_router.include_router(
 # 監査ログ
 api_router.include_router(
     audit_logs.router, prefix="/audit-logs", tags=["監査ログ"]
+)
+
+# フィードバック承認
+api_router.include_router(
+    feedback_approvals.router, prefix="/feedback-approvals", tags=["フィードバック承認"]
 )

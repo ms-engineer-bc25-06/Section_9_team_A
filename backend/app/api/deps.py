@@ -11,8 +11,6 @@ from app.core.auth import (
     get_current_active_user as _get_current_active_user,
 )
 from app.models.user import User
-from app.models.organization import Organization
-from app.models.organization_member import OrganizationMember
 from app.services.voice_session_service import VoiceSessionService
 from app.core.exceptions import (
     BridgeLineException,
@@ -56,57 +54,8 @@ async def get_current_admin_user(
     return current_user
 
 
-async def get_organization_by_id(
-    organization_id: int,
-    db: Session = Depends(get_db)
-) -> Organization:
-    """
-    組織IDで組織を取得
-    """
-    organization = db.query(Organization).filter(Organization.id == organization_id).first()
-    if not organization:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="組織が見つかりません"
-        )
-    return organization
-
-
-async def get_organization_member(
-    organization_id: int,
-    user_id: int,
-    db: Session = Depends(get_db)
-) -> OrganizationMember:
-    """
-    組織のメンバー情報を取得
-    """
-    member = db.query(OrganizationMember).filter(
-        OrganizationMember.organization_id == organization_id,
-        OrganizationMember.user_id == user_id
-    ).first()
-    if not member:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="組織メンバーが見つかりません"
-        )
-    return member
-
-
-async def check_organization_admin_access(
-    organization_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-) -> OrganizationMember:
-    """
-    現在のユーザーが指定された組織の管理者権限を持っているかチェック
-    """
-    member = await get_organization_member(organization_id, current_user.id, db)
-    if member.role not in ['admin', 'owner']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="組織の管理者権限が必要です"
-        )
-    return member
+# 組織関連の関数は現在実装されていないため、コメントアウト
+# 必要に応じて後で実装
 
 
 def handle_bridge_line_exceptions(exc: BridgeLineException) -> HTTPException:
@@ -131,3 +80,12 @@ def handle_bridge_line_exceptions(exc: BridgeLineException) -> HTTPException:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"message": "Internal server error", "error_code": "INTERNAL_ERROR"},
         )
+
+async def get_current_superuser(current_user: User = Depends(get_current_user)) -> User:
+    """スーパーユーザー（管理者）のみ許可"""
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="管理者権限が必要です"
+        )
+    return current_user
