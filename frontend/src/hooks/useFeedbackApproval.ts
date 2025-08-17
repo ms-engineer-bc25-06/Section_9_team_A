@@ -108,7 +108,7 @@ export const useFeedbackApproval = () => {
     }
   }, []);
 
-  // 本人確認を実行
+  // ユーザーが承認リクエストを確認
   const confirmApproval = useCallback(async (
     approvalId: number,
     data: UserConfirmationRequest
@@ -118,16 +118,10 @@ export const useFeedbackApproval = () => {
     
     try {
       const result = await feedbackApprovalApi.confirmApproval(approvalId, data);
-      
-      if (data.confirm) {
-        toast.success('本人確認が完了しました');
-      } else {
-        toast.success('承認リクエストが削除されました');
-      }
-      
+      toast.success('承認リクエストが確認されました');
       return result;
     } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || '本人確認に失敗しました';
+      const errorMessage = err.response?.data?.detail || '承認リクエストの確認に失敗しました';
       setError(errorMessage);
       toast.error(errorMessage);
       throw err;
@@ -137,12 +131,12 @@ export const useFeedbackApproval = () => {
   }, []);
 
   // 承認済みの分析結果を公開
-  const publishAnalysis = useCallback(async (approvalId: number) => {
+  const publishApprovedAnalysis = useCallback(async (approvalId: number) => {
     setLoading(true);
     setError(null);
     
     try {
-      const result = await feedbackApprovalApi.publishAnalysis(approvalId);
+      const result = await feedbackApprovalApi.publishApprovedAnalysis(approvalId);
       toast.success('分析結果が公開されました');
       return result;
     } catch (err: any) {
@@ -155,17 +149,35 @@ export const useFeedbackApproval = () => {
     }
   }, []);
 
-  // 段階的公開の次の段階に進む
+  // 段階的公開の次の段階に進める
   const advancePublicationStage = useCallback(async (approvalId: number) => {
     setLoading(true);
     setError(null);
     
     try {
       const result = await feedbackApprovalApi.advancePublicationStage(approvalId);
-      toast.success('次の公開段階に進行しました');
+      toast.success('公開段階が進行しました');
       return result;
     } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || '段階的公開の進行に失敗しました';
+      const errorMessage = err.response?.data?.detail || '公開段階の進行に失敗しました';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // 承認リクエストを削除
+  const deleteApproval = useCallback(async (approvalId: number) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      await feedbackApprovalApi.deleteApproval(approvalId);
+      toast.success('承認リクエストが削除されました');
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.detail || '承認リクエストの削除に失敗しました';
       setError(errorMessage);
       toast.error(errorMessage);
       throw err;
@@ -192,30 +204,6 @@ export const useFeedbackApproval = () => {
     }
   }, []);
 
-  // 承認リクエストを削除
-  const deleteApproval = useCallback(async (approvalId: number) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const result = await feedbackApprovalApi.deleteApproval(approvalId);
-      toast.success('承認リクエストが削除されました');
-      return result;
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || '承認リクエストの削除に失敗しました';
-      setError(errorMessage);
-      toast.error(errorMessage);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // エラーをクリア
-  const clearError = useCallback(() => {
-    setError(null);
-  }, []);
-
   return {
     loading,
     error,
@@ -224,11 +212,10 @@ export const useFeedbackApproval = () => {
     getPendingApprovals,
     reviewApproval,
     confirmApproval,
-    publishAnalysis,
+    publishApprovedAnalysis,
     advancePublicationStage,
-    getApprovalStats,
     deleteApproval,
-    clearError,
+    getApprovalStats,
   };
 };
 

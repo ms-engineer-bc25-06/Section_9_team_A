@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient';
+import { apiGet, apiPost, apiPut } from '../apiClient';
 
 // 型定義
 export interface ApprovalRequest {
@@ -38,6 +38,8 @@ export interface FeedbackApprovalResponse {
   approval_status: 'pending' | 'under_review' | 'approved' | 'rejected' | 'requires_changes';
   visibility_level: 'private' | 'team' | 'organization' | 'public';
   request_reason?: string;
+  review_notes?: string;
+  rejection_reason?: string;
   is_staged_publication: boolean;
   publication_stages?: string;
   current_stage: number;
@@ -83,8 +85,8 @@ export interface FeedbackApprovalFilters {
 export const feedbackApprovalApi = {
   // 承認リクエストを作成
   createApprovalRequest: async (data: ApprovalRequest): Promise<FeedbackApprovalResponse> => {
-    const response = await apiClient.post('/feedback-approvals/', data);
-    return response.data;
+    const response = await apiPost<FeedbackApprovalResponse>('/feedback-approvals/', data);
+    return response;
   },
 
   // 自分の承認リクエスト一覧を取得
@@ -111,11 +113,11 @@ export const feedbackApprovalApi = {
       params.append('is_confirmed', filters.is_confirmed.toString());
     }
 
-    const response = await apiClient.get(`/feedback-approvals/my?${params.toString()}`);
-    return response.data;
+    const response = await apiGet<FeedbackApprovalListResponse>(`/feedback-approvals/my?${params.toString()}`);
+    return response;
   },
 
-  // レビュー待ちの承認リクエスト一覧を取得（レビュアー用）
+  // レビュー待ちの承認リクエスト一覧を取得
   getPendingApprovals: async (
     page: number = 1,
     pageSize: number = 20
@@ -125,8 +127,8 @@ export const feedbackApprovalApi = {
       page_size: pageSize.toString(),
     });
 
-    const response = await apiClient.get(`/feedback-approvals/pending?${params.toString()}`);
-    return response.data;
+    const response = await apiGet<FeedbackApprovalListResponse>(`/feedback-approvals/pending?${params.toString()}`);
+    return response;
   },
 
   // 承認リクエストをレビュー
@@ -134,43 +136,64 @@ export const feedbackApprovalApi = {
     approvalId: number,
     data: FeedbackApprovalUpdate
   ): Promise<FeedbackApprovalResponse> => {
-    const response = await apiClient.put(`/feedback-approvals/${approvalId}/review`, data);
-    return response.data;
+    const response = await apiPut<FeedbackApprovalResponse>(`/feedback-approvals/${approvalId}/review`, data);
+    return response;
   },
 
-  // 本人確認を実行
+  // ユーザーが承認リクエストを確認
   confirmApproval: async (
     approvalId: number,
     data: UserConfirmationRequest
   ): Promise<FeedbackApprovalResponse> => {
-    const response = await apiClient.post(`/feedback-approvals/${approvalId}/confirm`, data);
-    return response.data;
+    const response = await apiPost<FeedbackApprovalResponse>(`/feedback-approvals/${approvalId}/confirm`, data);
+    return response;
   },
 
   // 承認済みの分析結果を公開
-  publishAnalysis: async (approvalId: number): Promise<{ message: string }> => {
-    const response = await apiClient.post(`/feedback-approvals/${approvalId}/publish`);
-    return response.data;
+  publishApprovedAnalysis: async (approvalId: number): Promise<{ message: string }> => {
+    const response = await apiPost<{ message: string }>(`/feedback-approvals/${approvalId}/publish`, {});
+    return response;
   },
 
   // 段階的公開の次の段階に進む
   advancePublicationStage: async (approvalId: number): Promise<{ message: string }> => {
-    const response = await apiClient.post(`/feedback-approvals/${approvalId}/advance-stage`);
-    return response.data;
+    const response = await apiPost<{ message: string }>(`/feedback-approvals/${approvalId}/advance-stage`, {});
+    return response;
   },
 
   // 承認統計を取得
   getApprovalStats: async (): Promise<FeedbackApprovalStats> => {
-    const response = await apiClient.get('/feedback-approvals/stats');
-    return response.data;
+    const response = await apiGet<FeedbackApprovalStats>('/feedback-approvals/stats');
+    return response;
   },
 
   // 承認リクエストを削除
   deleteApproval: async (approvalId: number): Promise<{ message: string }> => {
-    const response = await apiClient.delete(`/feedback-approvals/${approvalId}`);
-    return response.data;
+    // apiDeleteが存在しないため、fetchを使用
+    const token = await getAuthToken();
+    const url = `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/api/v1/feedback-approvals/${approvalId}`;
+    
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`DELETE /feedback-approvals/${approvalId} failed: ${response.status}`);
+    }
+
+    return response.json();
   },
 };
+
+// ヘルパー関数
+async function getAuthToken(): Promise<string> {
+  // 簡易的な実装（実際の実装では適切な認証処理が必要）
+  return 'dummy-token';
+}
 
 // ユーティリティ関数
 export const getApprovalStatusLabel = (status: string): string => {

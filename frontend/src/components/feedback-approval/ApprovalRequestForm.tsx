@@ -41,7 +41,8 @@ export const ApprovalRequestForm: React.FC<ApprovalRequestFormProps> = ({
   };
 
   // 段階的公開の設定
-  const handleStagedPublicationChange = (checked: boolean) => {
+  const handleStagedPublicationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const checked = e.target.checked;
     handleInputChange('is_staged_publication', checked);
     if (!checked) {
       setStages([]);
@@ -149,7 +150,7 @@ export const ApprovalRequestForm: React.FC<ApprovalRequestFormProps> = ({
               <Checkbox
                 id="staged-publication"
                 checked={formData.is_staged_publication}
-                onCheckedChange={handleStagedPublicationChange}
+                onChange={handleStagedPublicationChange}
               />
               <label htmlFor="staged-publication" className="text-sm font-medium">
                 段階的公開を有効にする
@@ -243,7 +244,7 @@ export const ApprovalRequestForm: React.FC<ApprovalRequestFormProps> = ({
                           <Checkbox
                             id={`auto-advance-${index}`}
                             checked={stage.auto_advance}
-                            onCheckedChange={(checked) => updatePublicationStage(index, 'auto_advance', checked)}
+                            onChange={(e) => updatePublicationStage(index, 'auto_advance', e.target.checked)}
                           />
                           <label htmlFor={`auto-advance-${index}`} className="text-xs">
                             自動進行

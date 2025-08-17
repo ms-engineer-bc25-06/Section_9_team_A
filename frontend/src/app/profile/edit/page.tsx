@@ -1,3 +1,5 @@
+"use client"
+
 // プロフィール編集ページ
 import { ProfileEditForm } from "@/components/profile/ProfileEditForm"
 import { FeedbackApprovalManager } from "@/components/profile/FeedbackApprovalManager"
