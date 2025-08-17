@@ -73,3 +73,45 @@ class UserResponse(UserBase):
 
     class Config:
         from_attributes = True
+
+
+# プロフィール専用スキーマ
+class ProfileUpdate(BaseModel):
+    """プロフィール更新用スキーマ"""
+    nickname: Optional[str] = None
+    department: Optional[str] = None
+    join_date: Optional[str] = None
+    birth_date: Optional[str] = None
+    hometown: Optional[str] = None
+    residence: Optional[str] = None
+    hobbies: Optional[str] = None
+    student_activities: Optional[str] = None
+    holiday_activities: Optional[str] = None
+    favorite_food: Optional[str] = None
+    favorite_media: Optional[str] = None
+    favorite_music: Optional[str] = None
+    pets_oshi: Optional[str] = None
+    respected_person: Optional[str] = None
+    motto: Optional[str] = None
+    future_goals: Optional[str] = None
+
+
+class ProfileResponse(BaseModel):
+    """プロフィール表示用スキーマ"""
+    nickname: str
+    department: str
+    join_date: str
+    birth_date: str
+    hometown: str
+    residence: str
+    hobbies: str
+    student_activities: str
+    holiday_activities: str
+    favorite_food: str
+    favorite_media: str
+    favorite_music: str
+    pets_oshi: str
+    respected_person: str
+    motto: str
+    future_goals: str
+

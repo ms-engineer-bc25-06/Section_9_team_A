@@ -1,7 +1,7 @@
 //FIXME（プロフィール編集）
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
@@ -12,47 +12,127 @@ import { Badge } from "@/components/ui/Badge"
 import { Separator } from "@/components/ui/Separator"
 import { Camera, Save, List } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/components/auth/AuthProvider"
+import { fetchWithAuth } from "@/lib/auth"
 
-const mockProfile = {
-  name: "田中太郎",
-  nickname: "タロウ",
-  department: "開発部",
-  joinDate: "2023-04-01",
-  birthDate: "1990-05-15",
-  hometown: "東京都",
-  residence: "神奈川県横浜市",
-  hobbies: "プログラミング、読書、映画鑑賞",
-  studentActivities: "テニス部、プログラミングサークル",
-  holidayActivities: "カフェ巡り、散歩、映画鑑賞",
-  favoriteFood: "ラーメン、寿司、カレー",
-  favoriteMedia: "ハリーポッター、スターウォーズ、進撃の巨人",
-  favoriteMusic: "J-POP、ロック、カラオケでは「乾杯」",
-  petsOshi: "猫を飼っています、推しは初音ミク",
-  respectedPerson: "スティーブ・ジョブズ",
-  motto: "継続は力なり",
-  futureGoals: "AI技術で社会に貢献するプロダクトを作りたい",
+interface ProfileData {
+  nickname: string
+  department: string
+  join_date: string
+  birth_date: string
+  hometown: string
+  residence: string
+  hobbies: string
+  student_activities: string
+  holiday_activities: string
+  favorite_food: string
+  favorite_media: string
+  favorite_music: string
+  pets_oshi: string
+  respected_person: string
+  motto: string
+  future_goals: string
+}
+
+const defaultProfile: ProfileData = {
+  nickname: "",
+  department: "",
+  join_date: "",
+  birth_date: "",
+  hometown: "",
+  residence: "",
+  hobbies: "",
+  student_activities: "",
+  holiday_activities: "",
+  favorite_food: "",
+  favorite_media: "",
+  favorite_music: "",
+  pets_oshi: "",
+  respected_person: "",
+  motto: "",
+  future_goals: "",
 }
 
 export function ProfileEditForm() {
-  const [profile, setProfile] = useState(mockProfile)
+  const [profile, setProfile] = useState<ProfileData>(defaultProfile)
   const [isLoading, setIsLoading] = useState(false)
+  const [isInitializing, setIsInitializing] = useState(true)
   const router = useRouter()
+  const { user } = useAuth()
+
+  // 初期データの取得
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) return
+      
+      try {
+        const response = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/api/v1/users/profile`)
+        if (response.ok) {
+          const data = await response.json()
+          setProfile(data)
+        } else {
+          console.warn("プロフィール取得に失敗しました")
+        }
+      } catch (error) {
+        console.error("プロフィール取得エラー:", error)
+      } finally {
+        setIsInitializing(false)
+      }
+    }
+
+    fetchProfile()
+  }, [user])
 
   const handleInputChange = (field: string, value: string) => {
     setProfile((prev) => ({ ...prev, [field]: value }))
   }
 
   const handleSave = async () => {
+    if (!user) {
+      alert("ログインが必要です")
+      return
+    }
+
     setIsLoading(true)
-    // 保存処理のシミュレーション
-    setTimeout(() => {
+    
+    try {
+      const response = await fetchWithAuth(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/api/v1/users/profile`,
+        {
+          method: "PUT",
+          body: JSON.stringify(profile)
+        }
+      )
+
+      if (response.ok) {
+        alert("プロフィールを更新しました")
+        router.push("/profile")
+      } else {
+        const errorData = await response.json()
+        alert(`更新に失敗しました: ${errorData.detail || "エラーが発生しました"}`)
+      }
+    } catch (error) {
+      console.error("保存エラー:", error)
+      alert("保存中にエラーが発生しました")
+    } finally {
       setIsLoading(false)
-      router.push("/profile")
-    }, 1000)
+    }
   }
 
   const handleViewFeedback = () => {
     router.push("/profile/feedback")
+  }
+
+  if (isInitializing) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <Card>
+          <CardContent className="p-8">
+            <div className="text-center">読み込み中...</div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -62,17 +142,17 @@ export function ProfileEditForm() {
           <div className="flex items-center space-x-6">
             <div className="relative">
               <Avatar className="h-24 w-24">
-                <AvatarImage src={`/placeholder.svg?height=96&width=96&query=${profile.name}`} />
-                <AvatarFallback className="text-2xl">{profile.name.slice(0, 2)}</AvatarFallback>
+                <AvatarImage src={`/placeholder.svg?height=96&width=96&query=${profile.nickname}`} />
+                <AvatarFallback className="text-2xl">{profile.nickname.slice(0, 2) || "ユ"}</AvatarFallback>
               </Avatar>
               <Button size="sm" className="absolute -bottom-2 -right-2 rounded-full w-8 h-8 p-0">
                 <Camera className="h-4 w-4" />
               </Button>
             </div>
             <div>
-              <CardTitle className="text-3xl mb-2">{profile.name}</CardTitle>
+              <CardTitle className="text-3xl mb-2">{profile.nickname || "ニックネーム未設定"}</CardTitle>
               <Badge variant="secondary" className="text-lg px-3 py-1">
-                {profile.department}
+                {profile.department || "部署未設定"}
               </Badge>
             </div>
           </div>
@@ -80,11 +160,6 @@ export function ProfileEditForm() {
 
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label htmlFor="name">名前</Label>
-              <Input id="name" value={profile.name} onChange={(e) => handleInputChange("name", e.target.value)} />
-            </div>
-
             <div className="space-y-2">
               <Label htmlFor="nickname">ニックネーム</Label>
               <Input id="nickname" value={profile.nickname} onChange={(e) => handleInputChange("nickname", e.target.value)} />
@@ -100,22 +175,22 @@ export function ProfileEditForm() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="joinDate">入社年月</Label>
+              <Label htmlFor="join_date">入社年月</Label>
               <Input
-                id="joinDate"
+                id="join_date"
                 type="date"
-                value={profile.joinDate}
-                onChange={(e) => handleInputChange("joinDate", e.target.value)}
+                value={profile.join_date}
+                onChange={(e) => handleInputChange("join_date", e.target.value)}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="birthDate">生年月日</Label>
+              <Label htmlFor="birth_date">生年月日</Label>
               <Input
-                id="birthDate"
+                id="birth_date"
                 type="date"
-                value={profile.birthDate}
-                onChange={(e) => handleInputChange("birthDate", e.target.value)}
+                value={profile.birth_date}
+                onChange={(e) => handleInputChange("birth_date", e.target.value)}
               />
             </div>
 
@@ -150,71 +225,71 @@ export function ProfileEditForm() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="studentActivities">学生時代の部活・サークル・力を入れていたこと</Label>
+              <Label htmlFor="student_activities">学生時代の部活・サークル・力を入れていたこと</Label>
               <Textarea
-                id="studentActivities"
-                value={profile.studentActivities}
-                onChange={(e) => handleInputChange("studentActivities", e.target.value)}
+                id="student_activities"
+                value={profile.student_activities}
+                onChange={(e) => handleInputChange("student_activities", e.target.value)}
                 rows={2}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="holidayActivities">休日の過ごし方</Label>
+              <Label htmlFor="holiday_activities">休日の過ごし方</Label>
               <Textarea
-                id="holidayActivities"
-                value={profile.holidayActivities}
-                onChange={(e) => handleInputChange("holidayActivities", e.target.value)}
+                id="holiday_activities"
+                value={profile.holiday_activities}
+                onChange={(e) => handleInputChange("holiday_activities", e.target.value)}
                 rows={2}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="favoriteFood">好きな食べ物</Label>
+              <Label htmlFor="favorite_food">好きな食べ物</Label>
               <Textarea
-                id="favoriteFood"
-                value={profile.favoriteFood}
-                onChange={(e) => handleInputChange("favoriteFood", e.target.value)}
+                id="favorite_food"
+                value={profile.favorite_food}
+                onChange={(e) => handleInputChange("favorite_food", e.target.value)}
                 rows={2}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="favoriteMedia">好きな本・漫画・映画・ドラマ</Label>
+              <Label htmlFor="favorite_media">好きな本・漫画・映画・ドラマ</Label>
               <Textarea
-                id="favoriteMedia"
-                value={profile.favoriteMedia}
-                onChange={(e) => handleInputChange("favoriteMedia", e.target.value)}
+                id="favorite_media"
+                value={profile.favorite_media}
+                onChange={(e) => handleInputChange("favorite_media", e.target.value)}
                 rows={2}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="favoriteMusic">好きな音楽・カラオケの18番</Label>
+              <Label htmlFor="favorite_music">好きな音楽・カラオケの18番</Label>
               <Textarea
-                id="favoriteMusic"
-                value={profile.favoriteMusic}
-                onChange={(e) => handleInputChange("favoriteMusic", e.target.value)}
+                id="favorite_music"
+                value={profile.favorite_music}
+                onChange={(e) => handleInputChange("favorite_music", e.target.value)}
                 rows={2}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="petsOshi">ペット・推し</Label>
+              <Label htmlFor="pets_oshi">ペット・推し</Label>
               <Textarea
-                id="petsOshi"
-                value={profile.petsOshi}
-                onChange={(e) => handleInputChange("petsOshi", e.target.value)}
+                id="pets_oshi"
+                value={profile.pets_oshi}
+                onChange={(e) => handleInputChange("pets_oshi", e.target.value)}
                 rows={2}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="respectedPerson">尊敬する人</Label>
+              <Label htmlFor="respected_person">尊敬する人</Label>
               <Textarea
-                id="respectedPerson"
-                value={profile.respectedPerson}
-                onChange={(e) => handleInputChange("respectedPerson", e.target.value)}
+                id="respected_person"
+                value={profile.respected_person}
+                onChange={(e) => handleInputChange("respected_person", e.target.value)}
                 rows={2}
               />
             </div>
@@ -230,11 +305,11 @@ export function ProfileEditForm() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="futureGoals">将来の目標・生きてるうちにやってみたいこと</Label>
+              <Label htmlFor="future_goals">将来の目標・生きてるうちにやってみたいこと</Label>
               <Textarea
-                id="futureGoals"
-                value={profile.futureGoals}
-                onChange={(e) => handleInputChange("futureGoals", e.target.value)}
+                id="future_goals"
+                value={profile.future_goals}
+                onChange={(e) => handleInputChange("future_goals", e.target.value)}
                 rows={3}
               />
             </div>
