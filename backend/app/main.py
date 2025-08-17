@@ -6,9 +6,7 @@ import structlog
 
 from app.config import settings
 from app.api.v1.api import api_router
-from app.api.v1.health import router as health_router  # ← 追加
-from app.api.v1 import websocket as websocket_v1
-from app.core.message_handlers import initialize_message_handlers
+
 from app.core.exceptions import BridgeLineException
 from app.api.deps import handle_bridge_line_exceptions
 
@@ -43,13 +41,6 @@ async def lifespan(app: FastAPI):
     # データベースマイグレーションは Alembic を使用（自動作成は行わない）
     logger.info("Skipping automatic table creation. Use Alembic migrations instead.")
 
-    # WebSocket メッセージハンドラー初期化
-    try:
-        await initialize_message_handlers()
-        logger.info("WebSocket message handlers initialized")
-    except Exception as e:
-        logger.error(f"Failed to initialize WebSocket message handlers: {e}")
-
     # 初期管理者の自動設定
     try:
         from app.core.startup import startup_events
@@ -77,10 +68,12 @@ app.include_router(health_router, prefix="/api/v1")   # ← 追加
 # CORS設定
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_HOSTS,
+    allow_origins=settings.BACKEND_CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=86400,  # 24時間
 )
 
 # Trusted Host設定（開発環境では無効化）
@@ -95,22 +88,36 @@ async def bridge_line_exception_handler(request, exc: BridgeLineException):
     return handle_bridge_line_exceptions(exc)
 
 
+# ヘルスチェックエンドポイント
+@app.get("/health")
+async def health_check():
+    """ヘルスチェック"""
+    try:
+        from app.core.database import test_database_connection
+        from datetime import datetime
+        
+        db_status = await test_database_connection()
+        return {
+            "status": "healthy" if db_status else "unhealthy",
+            "database": "connected" if db_status else "disconnected",
+            "timestamp": datetime.utcnow().isoformat() + "Z"
+        }
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return {
+            "status": "unhealthy",
+            "error": str(e),
+            "timestamp": datetime.utcnow().isoformat() + "Z"
+        }
+
 # APIルーターの追加
 app.include_router(api_router, prefix="/api/v1")
-# WebSocket ルーターの追加
-app.include_router(websocket_v1.router, prefix="/api/v1")
 
 
 @app.get("/")
 async def root():
     """ルートエンドポイント"""
     return {"message": "Bridge Line API", "version": "1.0.0", "status": "running"}
-
-
-@app.get("/health")
-async def health_check():
-    """ヘルスチェックエンドポイント"""
-    return {"status": "healthy", "service": "bridge-line-api"}
 
 
 if __name__ == "__main__":

@@ -30,15 +30,11 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Bridge Line API"
 
     # CORS設定
-    ALLOWED_HOSTS: List[str] = [
+    BACKEND_CORS_ORIGINS: List[str] = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "http://localhost:3001",
         "http://127.0.0.1:3001",
-    ]
-    BACKEND_CORS_ORIGINS: List[str] = [
-        "http://localhost:3000",
-        "http://localhost:3001",
     ]
 
     # Firebase設定

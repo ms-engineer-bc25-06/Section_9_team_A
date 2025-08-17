@@ -84,7 +84,6 @@ from .analysis import (
     AnalysisUpdate,
     AnalysisResponse,
     AnalysisListResponse,
-    AnalysisRequest,
 )
 
 # サブスクリプション関連
@@ -101,6 +100,32 @@ from .billing import (
     BillingCreate,
     BillingUpdate,
     BillingResponse,
+)
+
+# 招待関連
+from .invitation import (
+    InvitationBase,
+    InvitationCreate,
+    InvitationUpdate,
+    InvitationResponse,
+    InvitationList,
+    InvitationAccept,
+    InvitationDecline,
+    InvitationResend,
+    InvitationCancel,
+    InvitationStats,
+)
+
+# 監査ログ関連
+from .audit_log import (
+    AuditLogBase,
+    AuditLogCreate,
+    AuditLogResponse,
+    AuditLogList,
+    AuditLogFilter,
+    AuditLogStats,
+    SystemAuditLogCreate,
+    UserAuditLogCreate,
 )
 
 # 認証関連
@@ -157,6 +182,48 @@ from .websocket import (
     ErrorMessage,
     WarningMessage,
     WebSocketMessage,
+)
+
+# 個人成長支援関連
+from .personal_growth import (
+    ImprovementPlan,
+    ImprovementStep,
+    GrowthGoal,
+    PersonalGrowthProfile,
+    ImprovementPlanCreate,
+    ImprovementPlanUpdate,
+    ImprovementPlanResponse,
+    ImprovementStepCreate,
+    ImprovementStepUpdate,
+    ImprovementStepResponse,
+    GrowthGoalCreate,
+    GrowthGoalUpdate,
+    GrowthGoalResponse,
+    PersonalGrowthProfileResponse,
+)
+
+# プライバシー制御関連
+from .privacy import (
+    PrivacySettingsBase,
+    PrivacySettingsCreate,
+    PrivacySettingsUpdate,
+    PrivacySettingsResponse,
+    DataAccessPermissionBase,
+    DataAccessPermissionCreate,
+    DataAccessPermissionUpdate,
+    DataAccessPermissionResponse,
+    EncryptedDataBase,
+    EncryptedDataCreate,
+    EncryptedDataUpdate,
+    EncryptedDataResponse,
+    DataRetentionPolicyBase,
+    DataRetentionPolicyCreate,
+    DataRetentionPolicyUpdate,
+    DataRetentionPolicyResponse,
+    PrivacyAuditLogBase,
+    PrivacyAuditLogResponse,
+    PrivacyLevel,
+    DataCategory,
 )
 
 __all__ = [
@@ -227,7 +294,6 @@ __all__ = [
     "AnalysisUpdate",
     "AnalysisResponse",
     "AnalysisListResponse",
-    "AnalysisRequest",
     # サブスクリプション
     "SubscriptionBase",
     "SubscriptionCreate",
@@ -238,6 +304,26 @@ __all__ = [
     "BillingCreate",
     "BillingUpdate",
     "BillingResponse",
+    # 招待
+    "InvitationBase",
+    "InvitationCreate",
+    "InvitationUpdate",
+    "InvitationResponse",
+    "InvitationList",
+    "InvitationAccept",
+    "InvitationDecline",
+    "InvitationResend",
+    "InvitationCancel",
+    "InvitationStats",
+    # 監査ログ
+    "AuditLogBase",
+    "AuditLogCreate",
+    "AuditLogResponse",
+    "AuditLogList",
+    "AuditLogFilter",
+    "AuditLogStats",
+    "SystemAuditLogCreate",
+    "UserAuditLogCreate",
     # 認証
     "Token",
     "TokenData",
@@ -279,4 +365,40 @@ __all__ = [
     "ErrorMessage",
     "WarningMessage",
     "WebSocketMessage",
+    # 個人成長支援
+    "ImprovementPlan",
+    "ImprovementStep",
+    "GrowthGoal",
+    "PersonalGrowthProfile",
+    "ImprovementPlanCreate",
+    "ImprovementPlanUpdate",
+    "ImprovementPlanResponse",
+    "ImprovementStepCreate",
+    "ImprovementStepUpdate",
+    "ImprovementStepResponse",
+    "GrowthGoalCreate",
+    "GrowthGoalUpdate",
+    "GrowthGoalResponse",
+    "PersonalGrowthProfileResponse",
+    # プライバシー制御
+    "PrivacySettingsBase",
+    "PrivacySettingsCreate",
+    "PrivacySettingsUpdate",
+    "PrivacySettingsResponse",
+    "DataAccessPermissionBase",
+    "DataAccessPermissionCreate",
+    "DataAccessPermissionUpdate",
+    "DataAccessPermissionResponse",
+    "EncryptedDataBase",
+    "EncryptedDataCreate",
+    "EncryptedDataUpdate",
+    "EncryptedDataResponse",
+    "DataRetentionPolicyBase",
+    "DataRetentionPolicyCreate",
+    "DataRetentionPolicyUpdate",
+    "DataRetentionPolicyResponse",
+    "PrivacyAuditLogBase",
+    "PrivacyAuditLogResponse",
+    "PrivacyLevel",
+    "DataCategory",
 ]

@@ -6,17 +6,14 @@ from app.api.v1 import (
     teams,
     voice_sessions,
     transcriptions,
-    analytics,
-    billing,
+    analyses,
+    chat_rooms,
+    team_dynamics,
+    privacy,
     subscriptions,
     invitations,
-    webhooks,
-    chat_rooms,
-    admin_role,
-    audio_enhancement,
-    participant_management,
-    topic_generation,
-    team_dynamics,
+    billing,
+    audit_logs,
 )
 
 api_router = APIRouter()
@@ -35,52 +32,47 @@ api_router.include_router(
     voice_sessions.router, prefix="/voice-sessions", tags=["音声セッション"]
 )
 
-# チャットルーム
-api_router.include_router(
-    chat_rooms.router, prefix="/chat-rooms", tags=["チャットルーム"]
-)
-
 # 文字起こし
 api_router.include_router(
     transcriptions.router, prefix="/transcriptions", tags=["文字起こし"]
 )
 
 # AI分析
-api_router.include_router(analytics.router, prefix="/analytics", tags=["AI分析"])
+api_router.include_router(
+    analyses.router, prefix="/analyses", tags=["AI分析"]
+)
 
-# 決済管理
-api_router.include_router(billing.router, prefix="/billing", tags=["決済"])
+# チャットルーム
+api_router.include_router(
+    chat_rooms.router, prefix="/chat-rooms", tags=["チャットルーム"]
+)
 
-# サブスクリプション
+# チームダイナミクス
+api_router.include_router(
+    team_dynamics.router, prefix="/team-dynamics", tags=["チームダイナミクス"]
+)
+
+# プライバシー制御
+api_router.include_router(
+    privacy.router, prefix="/privacy", tags=["プライバシー制御"]
+)
+
+# サブスクリプション管理
 api_router.include_router(
     subscriptions.router, prefix="/subscriptions", tags=["サブスクリプション"]
 )
 
 # 招待管理
-api_router.include_router(invitations.router, prefix="/invitations", tags=["招待"])
-
-# Webhook
-api_router.include_router(webhooks.router, prefix="/webhooks", tags=["Webhook"])
-
-# 音声品質向上
 api_router.include_router(
-    audio_enhancement.router, prefix="/audio-enhancement", tags=["音声品質向上"]
+    invitations.router, prefix="/invitations", tags=["招待管理"]
 )
 
-# 管理者のルートを登録
-api_router.include_router(admin_role.router, prefix="/admin-role", tags=["管理者"])
-
-# 参加者管理
+# 請求管理
 api_router.include_router(
-    participant_management.router, prefix="/participant-management", tags=["参加者管理"]
+    billing.router, prefix="/billing", tags=["請求管理"]
 )
 
-# トークテーマ生成
+# 監査ログ
 api_router.include_router(
-    topic_generation.router, prefix="/topic-generation", tags=["トークテーマ生成"]
-)
-
-# チームダイナミクス分析
-api_router.include_router(
-    team_dynamics.router, prefix="/team-dynamics", tags=["チームダイナミクス分析"]
+    audit_logs.router, prefix="/audit-logs", tags=["監査ログ"]
 )
