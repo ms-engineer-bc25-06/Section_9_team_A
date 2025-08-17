@@ -46,6 +46,10 @@ class UserProfileOut(BaseModel):
     total_speaking_time_seconds: Optional[int] = None
     last_analysis_at: Optional[str] = None
 
+    # AI分析フィードバック関連
+    feedback: Optional[List[str]] = None
+    ai_analysis: Optional[Dict[str, Any]] = None
+
     if _V2:
         model_config = ConfigDict(from_attributes=True)
 

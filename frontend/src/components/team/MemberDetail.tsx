@@ -20,6 +20,7 @@ import {
   Star,
   Quote,
   Target,
+  MessageSquare,
 } from "lucide-react";
 
 type Props = { memberId: string };
@@ -107,6 +108,43 @@ export function MemberDetail({ memberId }: Props) {
           ))}
         </ul>
       </section>
+
+             {/* フィードバック一覧 */}
+       {p.feedback && p.feedback.length > 0 ? (
+        <section className="border-t pt-6">
+                     <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+             <MessageSquare className="h-5 w-5 text-green-600" />
+             フィードバック一覧
+           </h3>
+          
+          {/* フィードバック一覧 */}
+          {p.feedback && p.feedback.length > 0 && (
+            <div className="mb-6">
+              <h4 className="text-md font-medium text-gray-800 mb-3 flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-green-600" />
+                フィードバック一覧
+              </h4>
+              <div className="space-y-3">
+                {p.feedback.map((feedback, index) => (
+                  <div key={index} className="bg-green-50 border border-green-200 rounded-lg p-3">
+                    <p className="text-sm text-green-800">{feedback}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+
+        </section>
+      ) : (
+                 <section className="border-t pt-6">
+           <div className="text-center text-gray-500 py-8">
+             <MessageSquare className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+             <p className="text-sm">フィードバックはまだありません</p>
+             <p className="text-xs text-gray-400 mt-1">マイプロフィールでフィードバックを登録すると表示されます</p>
+           </div>
+         </section>
+      )}
     </div>
   );
 }
