@@ -73,6 +73,9 @@ class User(Base):
     
     # チームダイナミクス分析関連
     team_profiles = relationship("TeamMemberProfile", back_populates="user")
+    
+    # 組織メンバーシップ関連
+    organization_memberships = relationship("OrganizationMember", back_populates="user")
 
 
     def __repr__(self):

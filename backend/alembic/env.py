@@ -13,7 +13,7 @@ os.environ["ALEMBIC_RUNNING"] = "1"
 # プロジェクトのルートディレクトリをPythonパスに追加
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from app.config import settings
+from app.core.config import settings
 from app.models.base import Base
 from app.models import *  # すべてのモデルをインポートしてメタデータを集約
 
