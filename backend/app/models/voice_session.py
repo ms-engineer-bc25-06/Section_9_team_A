@@ -15,7 +15,7 @@ from app.models.base import Base
 
 
 class VoiceSession(Base):
-    """音声セッションモデル（Alembicマイグレーションに準拠）"""
+    """音声セッションモデル（基本的な機能のみ）"""
 
     __tablename__ = "voice_sessions"
 
@@ -55,17 +55,9 @@ class VoiceSession(Base):
     started_at = Column(DateTime(timezone=True), nullable=True)
     ended_at = Column(DateTime(timezone=True), nullable=True)
 
-    # リレーションシップ
-    # 注意: User 側の back_populates は "voice_sessions" なので、こちらは "host" 名を維持
-    # （FK 名は user_id だが、既存の User.voice_sessions と整合させるため）
+    # リレーションシップ（基本的な機能のみ）
     host = relationship("User", back_populates="voice_sessions", foreign_keys=[user_id])
     team = relationship("Team", back_populates="voice_sessions")
-    transcriptions = relationship("Transcription", back_populates="voice_session")
-    analyses = relationship("Analysis", back_populates="voice_session")
-    
-    # チームダイナミクス分析関連
-    interactions = relationship("TeamInteraction", back_populates="session")
-    cohesions = relationship("TeamCohesion", back_populates="session")
 
     def __repr__(self) -> str:
         return f"<VoiceSession(id={self.id}, session_id='{self.session_id}', title='{self.title}')>"

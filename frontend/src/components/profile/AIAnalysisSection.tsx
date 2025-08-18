@@ -19,53 +19,16 @@ import {
   Users,
   Heart
 } from "lucide-react"
-
-// AI分析結果の型定義
-interface PersonalityTrait {
-  trait: string
-  score: number
-  description: string
-}
-
-interface CommunicationPattern {
-  pattern: string
-  frequency: number
-  strength: string
-  improvement: string
-}
-
-interface BehaviorScore {
-  category: string
-  score: number
-  maxScore: number
-  trend: "up" | "down" | "stable"
-}
-
-interface AnalysisResult {
-  id: string
-  analysisType: "personality" | "communication" | "behavior" | "sentiment" | "topic" | "summary"
-  title: string
-  content: string
-  summary: string
-  keywords: string[]
-  topics: string[]
-  sentimentScore: number
-  sentimentLabel: string
-  confidenceScore: number
-  createdAt: string
-  personalityTraits?: PersonalityTrait[]
-  communicationPatterns?: CommunicationPattern[]
-  behaviorScores?: BehaviorScore[]
-}
+import { AnalysisResponse } from "@/lib/api/analytics"
 
 interface AIAnalysisSectionProps {
-  analyses: AnalysisResult[]
+  analyses: AnalysisResponse[]
   isLoading?: boolean
 }
 
 export function AIAnalysisSection({ analyses, isLoading = false }: AIAnalysisSectionProps) {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
-  const [selectedAnalysis, setSelectedAnalysis] = useState<AnalysisResult | null>(null)
+  const [selectedAnalysis, setSelectedAnalysis] = useState<AnalysisResponse | null>(null)
 
   const toggleSection = (sectionId: string) => {
     setExpandedSections(prev => ({
@@ -144,9 +107,9 @@ export function AIAnalysisSection({ analyses, isLoading = false }: AIAnalysisSec
 
   // 最新の分析結果を取得
   const latestAnalysis = analyses[0]
-  const personalityAnalysis = analyses.find(a => a.analysisType === "personality")
-  const communicationAnalysis = analyses.find(a => a.analysisType === "communication")
-  const behaviorAnalysis = analyses.find(a => a.analysisType === "behavior")
+  const personalityAnalysis = analyses.find(a => a.analysis_type === "personality")
+  const communicationAnalysis = analyses.find(a => a.analysis_type === "communication")
+  const behaviorAnalysis = analyses.find(a => a.analysis_type === "behavior")
 
   return (
     <div className="space-y-6">
@@ -191,7 +154,7 @@ export function AIAnalysisSection({ analyses, isLoading = false }: AIAnalysisSec
               <div className="flex items-center justify-between mb-2">
                 <h4 className="font-medium">最新の分析: {latestAnalysis.title}</h4>
                 <Badge variant="outline">
-                  {new Date(latestAnalysis.createdAt).toLocaleDateString('ja-JP')}
+                  {new Date(latestAnalysis.created_at).toLocaleDateString('ja-JP')}
                 </Badge>
               </div>
               <p className="text-sm text-gray-600">{latestAnalysis.summary}</p>
@@ -221,12 +184,12 @@ export function AIAnalysisSection({ analyses, isLoading = false }: AIAnalysisSec
             <div className="space-y-4">
               <p className="text-gray-600">{personalityAnalysis.summary}</p>
               
-              {expandedSections['personality'] && personalityAnalysis.personalityTraits && (
+              {expandedSections['personality'] && personalityAnalysis.personality_traits && (
                 <div className="space-y-3">
                   <Separator />
                   <h5 className="font-medium">性格特性</h5>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {personalityAnalysis.personalityTraits.map((trait, index) => (
+                    {personalityAnalysis.personality_traits.map((trait, index) => (
                       <div key={index} className="bg-gray-50 p-3 rounded-lg">
                         <div className="flex items-center justify-between mb-2">
                           <span className="font-medium">{trait.trait}</span>
@@ -264,12 +227,12 @@ export function AIAnalysisSection({ analyses, isLoading = false }: AIAnalysisSec
             <div className="space-y-4">
               <p className="text-gray-600">{communicationAnalysis.summary}</p>
               
-              {expandedSections['communication'] && communicationAnalysis.communicationPatterns && (
+              {expandedSections['communication'] && communicationAnalysis.communication_patterns && (
                 <div className="space-y-3">
                   <Separator />
                   <h5 className="font-medium">パターン詳細</h5>
                   <div className="space-y-3">
-                    {communicationAnalysis.communicationPatterns.map((pattern, index) => (
+                    {communicationAnalysis.communication_patterns.map((pattern, index) => (
                       <div key={index} className="bg-blue-50 p-3 rounded-lg">
                         <div className="flex items-center justify-between mb-2">
                           <span className="font-medium">{pattern.pattern}</span>
@@ -310,26 +273,26 @@ export function AIAnalysisSection({ analyses, isLoading = false }: AIAnalysisSec
             <div className="space-y-4">
               <p className="text-gray-600">{behaviorAnalysis.summary}</p>
               
-              {expandedSections['behavior'] && behaviorAnalysis.behaviorScores && (
+              {expandedSections['behavior'] && behaviorAnalysis.behavior_scores && (
                 <div className="space-y-3">
                   <Separator />
                   <h5 className="font-medium">スコア詳細</h5>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {behaviorAnalysis.behaviorScores.map((score, index) => (
+                    {behaviorAnalysis.behavior_scores.map((score, index) => (
                       <div key={index} className="bg-purple-50 p-3 rounded-lg">
                         <div className="flex items-center justify-between mb-2">
                           <span className="font-medium">{score.category}</span>
                           <div className="flex items-center space-x-2">
                             {getTrendIcon(score.trend)}
                             <span className={`text-sm font-medium ${getTrendColor(score.trend)}`}>
-                              {score.score}/{score.maxScore}
+                              {score.score}/{score.max_score}
                             </span>
                           </div>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
                           <div 
                             className="bg-purple-600 h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${(score.score / score.maxScore) * 100}%` }}
+                            style={{ width: `${(score.score / score.max_score) * 100}%` }}
                           ></div>
                         </div>
                       </div>

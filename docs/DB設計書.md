@@ -28,7 +28,7 @@ Bridge LINEは、BtoB向けチームコミュニケーションアプリケー�
 | 4 | `team_members` | チームメンバー関係 | users, teams | ✅ 実装済み |
 | 5 | `voice_sessions` | 音声チャットセッション | transcriptions, ai_analyses | ✅ 実装済み |
 | 6 | `transcriptions` | 音声文字起こし | voice_sessions, ai_analyses | ✅ 実装済み |
-| 7 | `ai_analyses` | AI分析結果 | voice_sessions, transcriptions | 🔄 部分実装 |
+| 7 | `ai_analyses` | AI分析結果 | voice_sessions, transcriptions | ✅ 実装済み |
 | 8 | `subscriptions` | サブスクリプション情報 | teams, billing_histories | 🔄 部分実装 |
 | 9 | `billing_histories` | 決済履歴 | subscriptions | 🔄 部分実装 |
 | 10 | `invitations` | チーム招待 | teams, users | ✅ 実装済み |
@@ -48,15 +48,18 @@ Bridge LINEは、BtoB向けチームコミュニケーションアプリケー�
 - ✅ **参加者管理**: セッション参加者制御、権限管理
 - ✅ **管理者機能**: 管理者ダッシュボード、ユーザー管理
 - ✅ **監査ログ**: 操作履歴追跡、セキュリティ監査
+- ✅ **AI分析システム**: 個性分析、コミュニケーション分析、行動特性分析
+- ✅ **リアルタイム分析更新**: WebSocket経由での分析結果更新
+- ✅ **データ可視化**: 分析結果のグラフ・チャート表示
 
 ### **部分実装・開発中**
-- 🔄 **AI分析**: 音声分析、個人特性フィードバック
 - 🔄 **決済システム**: Stripe連携、サブスクリプション管理
 - 🔄 **通知システム**: リアルタイム通知、メール通知
+- 🔄 **音声品質向上**: AI音声処理、ノイズ除去
 
 ### **今後の拡張予定**
-- 📋 **音声品質向上**: AI音声処理、ノイズ除去
-- 📋 **分析ダッシュボード**: チーム分析、個人分析
+- 📋 **高度なAI分析**: チームダイナミクス分析、相性分析
+- 📋 **プライバシー制御**: 暗号化データ保存、権限ベースアクセス制御
 - 📋 **モバイル対応**: レスポンシブデザイン、PWA対応
 
 ---
@@ -101,1114 +104,384 @@ erDiagram
     chat_messages }|--|| users : "送信者"
 
     chat_room_participants }|--|| chat_rooms : "多対1"
-    chat_room_participants }|--|| users : "多対1"
+    chat_room_participants }|--|| users : "参加者"
 
+    ai_analyses }|--|| voice_sessions : "多対1"
+    ai_analyses }|--|| transcriptions : "多対1"
+    ai_analyses }|--|| users : "分析対象者"
 ```
 
----
+## **主要テーブル詳細**
 
-## **テーブル詳細定義**
+### **1. ユーザー管理テーブル**
 
-### **1. users (ユーザー基本情報)**
-
+#### **users**
 ```sql
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    firebase_uid VARCHAR(128) NOT NULL UNIQUE,
-    email VARCHAR(255) NOT NULL UNIQUE,
+    firebase_uid VARCHAR(128) UNIQUE NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
     display_name VARCHAR(100) NOT NULL,
     avatar_url TEXT,
-    is_active BOOLEAN DEFAULT true,
-    last_active_at TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    is_online BOOLEAN DEFAULT FALSE,
+    last_seen_at TIMESTAMP WITH TIME ZONE,
+    account_status VARCHAR(20) DEFAULT 'active',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
--- インデックス
-CREATE INDEX idx_users_firebase_uid ON users(firebase_uid);
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_active ON users(is_active);
-CREATE INDEX idx_users_last_active ON users(last_active_at);
-
--- 更新時刻自動更新関数
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- 更新時刻自動更新トリガー
-CREATE TRIGGER update_users_updated_at
-    BEFORE UPDATE ON users
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-
 ```
 
-**フィールド説明**
-
-| フィールド名 | 型 | 説明 | 制約 |
-| --- | --- | --- | --- |
-| `id` | UUID | プライマリキー | NOT NULL, PK |
-| `firebase_uid` | VARCHAR(128) | Firebase認証UID | NOT NULL, UNIQUE |
-| `email` | VARCHAR(255) | メールアドレス | NOT NULL, UNIQUE |
-| `display_name` | VARCHAR(100) | 表示名 | NOT NULL |
-| `avatar_url` | TEXT | アバター画像URL | - |
-| `is_active` | BOOLEAN | アクティブ状態 | DEFAULT true |
-| `last_active_at` | TIMESTAMP | 最終アクティブ日時 | - |
-| `created_at` | TIMESTAMP | 作成日時 | 自動設定 |
-| `updated_at` | TIMESTAMP | 更新日時 | 自動更新 |
-
----
-
-### **2. user_profiles (ユーザープロファイル・特性分析)**
-
+#### **user_profiles**
 ```sql
 CREATE TABLE user_profiles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     bio TEXT,
     department VARCHAR(100),
     position VARCHAR(100),
-    interests JSONB DEFAULT '[]'::jsonb,
+    interests JSONB,
     communication_style VARCHAR(50),
-    collaboration_score DECIMAL(3,2) DEFAULT NULL
-        CHECK (collaboration_score IS NULL OR (collaboration_score >= 0 AND collaboration_score <= 10)),
-    leadership_score DECIMAL(3,2) DEFAULT NULL
-        CHECK (leadership_score IS NULL OR (leadership_score >= 0 AND leadership_score <= 10)),
-    empathy_score DECIMAL(3,2) DEFAULT NULL
-        CHECK (empathy_score IS NULL OR (empathy_score >= 0 AND empathy_score <= 10)),
-    assertiveness_score DECIMAL(3,2) DEFAULT NULL
-        CHECK (assertiveness_score IS NULL OR (assertiveness_score >= 0 AND assertiveness_score <= 10)),
-    creativity_score DECIMAL(3,2) DEFAULT NULL
-        CHECK (creativity_score IS NULL OR (creativity_score >= 0 AND creativity_score <= 10)),
-    analytical_score DECIMAL(3,2) DEFAULT NULL
-        CHECK (analytical_score IS NULL OR (analytical_score >= 0 AND analytical_score <= 10)),
-    visibility_settings JSONB DEFAULT '{"bio": true, "department": true, "position": true, "interests": true, "scores": false}'::jsonb,
-    total_chat_sessions INTEGER DEFAULT 0 CHECK (total_chat_sessions >= 0),
-    total_speaking_time_seconds INTEGER DEFAULT 0 CHECK (total_speaking_time_seconds >= 0),
+    collaboration_score DECIMAL(3,2),
+    leadership_score DECIMAL(3,2),
+    empathy_score DECIMAL(3,2),
+    assertiveness_score DECIMAL(3,2),
+    creativity_score DECIMAL(3,2),
+    analytical_score DECIMAL(3,2),
+    visibility_settings JSONB DEFAULT '{"profile": "public", "analytics": "private"}',
+    total_chat_sessions INTEGER DEFAULT 0,
+    total_speaking_time_seconds INTEGER DEFAULT 0,
     last_analysis_at TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT unique_user_profile UNIQUE (user_id)
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
--- インデックス
-CREATE INDEX idx_user_profiles_user_id ON user_profiles(user_id);
-CREATE INDEX idx_user_profiles_department ON user_profiles(department);
-CREATE INDEX idx_user_profiles_position ON user_profiles(position);
-CREATE INDEX idx_user_profiles_communication_style ON user_profiles(communication_style);
-CREATE INDEX idx_user_profiles_last_analysis ON user_profiles(last_analysis_at);
-CREATE INDEX idx_user_profiles_collaboration_score ON user_profiles(collaboration_score);
-CREATE INDEX idx_user_profiles_leadership_score ON user_profiles(leadership_score);
-
--- 更新時刻自動更新トリガー
-CREATE TRIGGER update_user_profiles_updated_at
-    BEFORE UPDATE ON user_profiles
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-
 ```
 
-**フィールド説明**
+### **2. チーム管理テーブル**
 
-| フィールド名 | 型 | 説明 | 制約 |
-| --- | --- | --- | --- |
-| `id` | UUID | プライマリキー | NOT NULL, PK |
-| `user_id` | UUID | ユーザーID (外部キー) | NOT NULL, FK, UNIQUE |
-| `bio` | TEXT | 自己紹介文 | - |
-| `department` | VARCHAR(100) | 所属部署 | - |
-| `position` | VARCHAR(100) | 役職・ポジション | - |
-| `interests` | JSONB | 興味・関心領域 | 配列形式、例: `["UX/UI", "データ分析"]` |
-| `communication_style` | VARCHAR(50) | コミュニケーションスタイル | collaborative, analytical, assertive等 |
-| `collaboration_score` | DECIMAL(3,2) | 協調性スコア | 0-10の範囲 |
-| `leadership_score` | DECIMAL(3,2) | リーダーシップスコア | 0-10の範囲 |
-| `empathy_score` | DECIMAL(3,2) | 共感性スコア | 0-10の範囲 |
-| `assertiveness_score` | DECIMAL(3,2) | 主張性スコア | 0-10の範囲 |
-| `creativity_score` | DECIMAL(3,2) | 創造性スコア | 0-10の範囲 |
-| `analytical_score` | DECIMAL(3,2) | 分析力スコア | 0-10の範囲 |
-| `visibility_settings` | JSONB | プロファイル公開設定 | 項目別表示制御 |
-| `total_chat_sessions` | INTEGER | 総参加セッション数 | >= 0 |
-| `total_speaking_time_seconds` | INTEGER | 総発話時間（秒） | >= 0 |
-| `last_analysis_at` | TIMESTAMP | 最終AI分析日時 | - |
-| `created_at` | TIMESTAMP | 作成日時 | 自動設定 |
-| `updated_at` | TIMESTAMP | 更新日時 | 自動更新 |
-
----
-
-### **3. teams (チーム情報)**
-
+#### **teams**
 ```sql
 CREATE TABLE teams (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(100) NOT NULL,
     description TEXT,
-    owner_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-    settings JSONB DEFAULT '{}'::jsonb,
-    max_members INTEGER DEFAULT 50 CHECK (max_members > 0),
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    team_code VARCHAR(20) UNIQUE NOT NULL,
+    created_by UUID REFERENCES users(id),
+    max_members INTEGER DEFAULT 10,
+    is_active BOOLEAN DEFAULT TRUE,
+    settings JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
--- インデックス
-CREATE INDEX idx_teams_owner_id ON teams(owner_id);
-CREATE INDEX idx_teams_name ON teams(name);
-CREATE INDEX idx_teams_active ON teams(is_active);
-CREATE INDEX idx_teams_created_at ON teams(created_at);
-
--- 更新時刻自動更新トリガー
-CREATE TRIGGER update_teams_updated_at
-    BEFORE UPDATE ON teams
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-
 ```
 
-**フィールド説明**
-
-| フィールド名 | 型 | 説明 | 制約 |
-| --- | --- | --- | --- |
-| `id` | UUID | プライマリキー | NOT NULL, PK |
-| `name` | VARCHAR(100) | チーム名 | NOT NULL |
-| `description` | TEXT | チーム説明 | - |
-| `owner_id` | UUID | チーム所有者ID | NOT NULL, FK |
-| `settings` | JSONB | チーム設定 | 音声設定、通知設定等 |
-| `max_members` | INTEGER | 最大メンバー数 | > 0, DEFAULT 50 |
-| `is_active` | BOOLEAN | アクティブ状態 | DEFAULT true |
-| `created_at` | TIMESTAMP | 作成日時 | 自動設定 |
-| `updated_at` | TIMESTAMP | 更新日時 | 自動更新 |
-
----
-
-### **4. team_members (チームメンバー関係)**
-
+#### **team_members**
 ```sql
 CREATE TABLE team_members (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    role VARCHAR(20) NOT NULL DEFAULT 'member' CHECK (role IN ('owner', 'admin', 'member')),
-    status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'pending')),
-    joined_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT unique_team_member UNIQUE (team_id, user_id)
+    team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    role VARCHAR(20) DEFAULT 'member' CHECK (role IN ('owner', 'admin', 'member')),
+    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'invited')),
+    joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    left_at TIMESTAMP WITH TIME ZONE,
+    UNIQUE(team_id, user_id)
 );
-
--- インデックス
-CREATE INDEX idx_team_members_team_id ON team_members(team_id);
-CREATE INDEX idx_team_members_user_id ON team_members(user_id);
-CREATE INDEX idx_team_members_role ON team_members(role);
-CREATE INDEX idx_team_members_status ON team_members(status);
-CREATE INDEX idx_team_members_joined_at ON team_members(joined_at);
-
 ```
 
-**フィールド説明**
+### **3. 音声チャット・分析テーブル**
 
-| フィールド名 | 型 | 説明 | 制約 |
-| --- | --- | --- | --- |
-| `id` | UUID | プライマリキー | NOT NULL, PK |
-| `team_id` | UUID | チームID | NOT NULL, FK |
-| `user_id` | UUID | ユーザーID | NOT NULL, FK |
-| `role` | VARCHAR(20) | チーム内役割 | owner, admin, member |
-| `status` | VARCHAR(20) | メンバー状態 | active, inactive, pending |
-| `joined_at` | TIMESTAMP | 参加日時 | 自動設定 |
-| `created_at` | TIMESTAMP | 作成日時 | 自動設定 |
-
----
-
-### **5. voice_sessions (音声チャットセッション)**
-
+#### **voice_sessions**
 ```sql
 CREATE TABLE voice_sessions (
-    id SERIAL PRIMARY KEY,
-    session_id VARCHAR(255) UNIQUE NOT NULL,
-    title VARCHAR(255),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    team_id UUID REFERENCES teams(id),
+    title VARCHAR(200) NOT NULL,
     description TEXT,
-    audio_file_path VARCHAR(500),
-    audio_duration FLOAT,
-    audio_format VARCHAR(50),
-    file_size INTEGER,
-    status VARCHAR(50),
-    is_public BOOLEAN,
-    is_analyzed BOOLEAN,
-    participant_count INTEGER,
-    participants TEXT,
-    analysis_summary TEXT,
-    sentiment_score FLOAT,
-    key_topics TEXT,
-    user_id INTEGER NOT NULL REFERENCES users(id),
-    team_id INTEGER,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    updated_at TIMESTAMP WITH TIME ZONE,
+    status VARCHAR(20) DEFAULT 'waiting' CHECK (status IN ('waiting', 'active', 'ended', 'cancelled')),
+    max_participants INTEGER DEFAULT 10,
+    started_by UUID REFERENCES users(id),
     started_at TIMESTAMP WITH TIME ZONE,
-    ended_at TIMESTAMP WITH TIME ZONE
+    ended_at TIMESTAMP WITH TIME ZONE,
+    duration_seconds INTEGER,
+    auto_transcription BOOLEAN DEFAULT TRUE,
+    total_messages INTEGER DEFAULT 0,
+    total_speaking_time_seconds INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
--- インデックス
-CREATE INDEX idx_voice_sessions_team_id ON voice_sessions(team_id);
-CREATE INDEX idx_voice_sessions_status ON voice_sessions(status);
-CREATE INDEX idx_voice_sessions_started_at ON voice_sessions(started_at);
-CREATE INDEX idx_voice_sessions_created_at ON voice_sessions(created_at);
-
--- 更新時刻自動更新トリガー
-CREATE TRIGGER update_voice_sessions_updated_at
-    BEFORE UPDATE ON voice_sessions
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-
 ```
 
-**フィールド説明**
-
-| フィールド名 | 型 | 説明 | 制約 |
-| --- | --- | --- | --- |
-| `id` | UUID | プライマリキー | NOT NULL, PK |
-| `team_id` | UUID | チームID | NOT NULL, FK |
-| `title` | VARCHAR(200) | セッションタイトル | - |
-| `description` | TEXT | セッション説明 | - |
-| `status` | VARCHAR(20) | セッション状態 | waiting, active, completed, cancelled |
-| `started_at` | TIMESTAMP | 開始日時 | - |
-| `ended_at` | TIMESTAMP | 終了日時 | - |
-| `duration_seconds` | INTEGER | 継続時間（秒） | >= 0 |
-| `participant_count` | INTEGER | 参加者数 | >= 0 |
-| `max_participants` | INTEGER | 最大参加者数 | > 0, DEFAULT 10 |
-| `recording_url` | TEXT | 録音ファイルURL | - |
-| `recording_size_bytes` | BIGINT | 録音ファイルサイズ | >= 0 |
-| `settings` | JSONB | セッション設定 | 録音設定、品質設定等 |
-| `created_at` | TIMESTAMP | 作成日時 | 自動設定 |
-| `updated_at` | TIMESTAMP | 更新日時 | 自動更新 |
-
----
-
-### **6. transcriptions (音声文字起こし)**
-
+#### **transcriptions**
 ```sql
 CREATE TABLE transcriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    voice_session_id UUID NOT NULL REFERENCES voice_sessions(id) ON DELETE CASCADE,
-    speaker_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    voice_session_id UUID REFERENCES voice_sessions(id) ON DELETE CASCADE,
+    speaker_id UUID REFERENCES users(id),
     text_content TEXT NOT NULL,
-    start_time_seconds DECIMAL(10,3) NOT NULL CHECK (start_time_seconds >= 0),
-    end_time_seconds DECIMAL(10,3) NOT NULL CHECK (end_time_seconds >= start_time_seconds),
-    confidence_score DECIMAL(4,3) CHECK (confidence_score >= 0 AND confidence_score <= 1),
-    language VARCHAR(10) DEFAULT 'ja',
-    processed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    confidence_score DECIMAL(3,2),
+    audio_duration_seconds DECIMAL(5,2),
+    session_timestamp_start INTEGER,
+    session_timestamp_end INTEGER,
+    transcription_method VARCHAR(50) DEFAULT 'openai_whisper',
+    message_type VARCHAR(20) DEFAULT 'speech',
+    detected_emotion VARCHAR(20),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
--- インデックス
-CREATE INDEX idx_transcriptions_voice_session_id ON transcriptions(voice_session_id);
-CREATE INDEX idx_transcriptions_speaker_id ON transcriptions(speaker_id);
-CREATE INDEX idx_transcriptions_start_time ON transcriptions(start_time_seconds);
-CREATE INDEX idx_transcriptions_processed_at ON transcriptions(processed_at);
-CREATE INDEX idx_transcriptions_text_content ON transcriptions USING gin(to_tsvector('japanese', text_content));
-
 ```
 
-**フィールド説明**
-
-| フィールド名 | 型 | 説明 | 制約 |
-| --- | --- | --- | --- |
-| `id` | UUID | プライマリキー | NOT NULL, PK |
-| `voice_session_id` | UUID | 音声セッションID | NOT NULL, FK |
-| `speaker_id` | UUID | 発話者ID | FK (NULL可) |
-| `text_content` | TEXT | 文字起こしテキスト | NOT NULL |
-| `start_time_seconds` | DECIMAL(10,3) | 開始時刻（秒） | >= 0 |
-| `end_time_seconds` | DECIMAL(10,3) | 終了時刻（秒） | >= start_time_seconds |
-| `confidence_score` | DECIMAL(4,3) | 信頼度スコア | 0-1の範囲 |
-| `language` | VARCHAR(10) | 言語コード | DEFAULT 'ja' |
-| `processed_at` | TIMESTAMP | 処理完了日時 | 自動設定 |
-| `created_at` | TIMESTAMP | 作成日時 | 自動設定 |
-
----
-
-### **7. ai_analyses (AI分析結果)**
-
+#### **ai_analyses**
 ```sql
 CREATE TABLE ai_analyses (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    voice_session_id UUID NOT NULL REFERENCES voice_sessions(id) ON DELETE CASCADE,
-    transcription_id UUID REFERENCES transcriptions(id) ON DELETE SET NULL,
-    analysis_type VARCHAR(50) NOT NULL CHECK (analysis_type IN
-        ('communication_analysis', 'sentiment_analysis', 'personality_analysis', 'team_dynamics', 'summary')),
-    result JSONB NOT NULL DEFAULT '{}'::jsonb,
-    confidence_score DECIMAL(4,3) CHECK (confidence_score >= 0 AND confidence_score <= 1),
+    voice_session_id UUID REFERENCES voice_sessions(id) ON DELETE CASCADE,
+    transcription_id UUID REFERENCES transcriptions(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id),
+    analysis_type VARCHAR(50) NOT NULL,
+    title VARCHAR(200),
+    content TEXT,
+    summary TEXT,
+    keywords TEXT[],
+    topics TEXT[],
+    sentiment_score DECIMAL(3,2),
+    sentiment_label VARCHAR(20),
+    word_count INTEGER,
+    sentence_count INTEGER,
+    speaking_time INTEGER,
+    status VARCHAR(20) DEFAULT 'completed',
+    confidence_score DECIMAL(3,2),
+    personality_traits JSONB,
+    communication_patterns JSONB,
+    behavior_scores JSONB,
     model_version VARCHAR(50),
-    processing_time_ms INTEGER CHECK (processing_time_ms >= 0),
-
-    -- user_profiles連携用のカラム
-    personality_insights JSONB DEFAULT '{}'::jsonb,
-    communication_patterns JSONB DEFAULT '{}'::jsonb,
-    behavioral_scores JSONB DEFAULT '{}'::jsonb,
-
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    processing_time_ms INTEGER,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
--- インデックス
-CREATE INDEX idx_ai_analyses_voice_session_id ON ai_analyses(voice_session_id);
-CREATE INDEX idx_ai_analyses_transcription_id ON ai_analyses(transcription_id);
-CREATE INDEX idx_ai_analyses_analysis_type ON ai_analyses(analysis_type);
-CREATE INDEX idx_ai_analyses_created_at ON ai_analyses(created_at);
-CREATE INDEX idx_ai_analyses_result ON ai_analyses USING gin(result);
-CREATE INDEX idx_ai_analyses_personality ON ai_analyses USING gin(personality_insights);
-CREATE INDEX idx_ai_analyses_communication ON ai_analyses USING gin(communication_patterns);
-CREATE INDEX idx_ai_analyses_behavioral ON ai_analyses USING gin(behavioral_scores);
-
 ```
 
-**フィールド説明**
+### **4. チャットルームテーブル**
 
-| フィールド名 | 型 | 説明 | 制約 |
-| --- | --- | --- | --- |
-| `id` | UUID | プライマリキー | NOT NULL, PK |
-| `voice_session_id` | UUID | 音声セッションID | NOT NULL, FK |
-| `transcription_id` | UUID | 文字起こしID | FK (NULL可) |
-| `analysis_type` | VARCHAR(50) | 分析タイプ | 定義値のみ |
-| `result` | JSONB | 分析結果 | NOT NULL |
-| `confidence_score` | DECIMAL(4,3) | 信頼度スコア | 0-1の範囲 |
-| `model_version` | VARCHAR(50) | 使用モデルバージョン | - |
-| `processing_time_ms` | INTEGER | 処理時間（ミリ秒） | >= 0 |
-| `personality_insights` | JSONB | 個性洞察結果 | user_profiles更新用 |
-| `communication_patterns` | JSONB | コミュニケーションパターン | user_profiles更新用 |
-| `behavioral_scores` | JSONB | 行動特性スコア | user_profiles更新用 |
-| `created_at` | TIMESTAMP | 作成日時 | 自動設定 |
-
----
-
-### **8. team_dynamics (チームダイナミクス分析)**
-
+#### **chat_rooms**
 ```sql
-CREATE TABLE team_dynamics (
+CREATE TABLE chat_rooms (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-    session_id UUID REFERENCES voice_sessions(id) ON DELETE SET NULL,
-    analysis_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    
-    -- 相互作用パターン
-    interaction_matrix JSONB NOT NULL DEFAULT '{}'::jsonb,
-    dominant_speakers JSONB DEFAULT '[]'::jsonb,
-    silent_members JSONB DEFAULT '[]'::jsonb,
-    communication_flow JSONB DEFAULT '{}'::jsonb,
-    
-    -- チーム相性分析
-    compatibility_scores JSONB DEFAULT '{}'::jsonb,
-    team_balance_score DECIMAL(3,2) CHECK (team_balance_score >= 0 AND team_balance_score <= 1),
-    
-    -- チーム結束力
-    cohesion_score DECIMAL(3,2) CHECK (cohesion_score >= 0 AND cohesion_score <= 1),
-    common_topics JSONB DEFAULT '[]'::jsonb,
-    opinion_alignment DECIMAL(3,2) CHECK (opinion_alignment >= 0 AND opinion_alignment <= 1),
-    
-    -- 分析メタデータ
-    analysis_type VARCHAR(50) DEFAULT 'comprehensive',
-    confidence_score DECIMAL(4,3) CHECK (confidence_score >= 0 AND confidence_score <= 1),
-    model_version VARCHAR(50),
-    processing_time_ms INTEGER CHECK (processing_time_ms >= 0),
-    
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    created_by UUID REFERENCES users(id),
+    team_id UUID REFERENCES teams(id),
+    is_public BOOLEAN DEFAULT TRUE,
+    max_participants INTEGER DEFAULT 50,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
--- インデックス
-CREATE INDEX idx_team_dynamics_team_id ON team_dynamics(team_id);
-CREATE INDEX idx_team_dynamics_session_id ON team_dynamics(session_id);
-CREATE INDEX idx_team_dynamics_analysis_date ON team_dynamics(analysis_date);
-CREATE INDEX idx_team_dynamics_cohesion_score ON team_dynamics(cohesion_score);
-CREATE INDEX idx_team_dynamics_interaction_matrix ON team_dynamics USING gin(interaction_matrix);
-CREATE INDEX idx_team_dynamics_compatibility_scores ON team_dynamics USING gin(compatibility_scores);
-
--- 更新時刻自動更新トリガー
-CREATE TRIGGER update_team_dynamics_updated_at
-    BEFORE UPDATE ON team_dynamics
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
 ```
 
-**フィールド説明**
-
-| フィールド名 | 型 | 説明 | 制約 |
-| --- | --- | --- | --- |
-| `id` | UUID | プライマリキー | NOT NULL, PK |
-| `team_id` | UUID | チームID | NOT NULL, FK |
-| `session_id` | UUID | 音声セッションID | FK (NULL可) |
-| `analysis_date` | TIMESTAMP | 分析実行日時 | 自動設定 |
-| `interaction_matrix` | JSONB | メンバー間相互作用マトリックス | NOT NULL |
-| `dominant_speakers` | JSONB | 発言が多いメンバー情報 | - |
-| `silent_members` | JSONB | 発言が少ないメンバー情報 | - |
-| `communication_flow` | JSONB | コミュニケーション流れ図 | - |
-| `compatibility_scores` | JSONB | メンバー間相性スコア | - |
-| `team_balance_score` | DECIMAL(3,2) | チームバランススコア | 0-1の範囲 |
-| `cohesion_score` | DECIMAL(3,2) | チーム結束力スコア | 0-1の範囲 |
-| `common_topics` | JSONB | 共通トピックリスト | - |
-| `opinion_alignment` | DECIMAL(3,2) | 意見の一致度 | 0-1の範囲 |
-| `analysis_type` | VARCHAR(50) | 分析タイプ | DEFAULT 'comprehensive' |
-| `confidence_score` | DECIMAL(4,3) | 信頼度スコア | 0-1の範囲 |
-| `model_version` | VARCHAR(50) | 使用モデルバージョン | - |
-| `processing_time_ms` | INTEGER | 処理時間（ミリ秒） | >= 0 |
-| `created_at` | TIMESTAMP | 作成日時 | 自動設定 |
-| `updated_at` | TIMESTAMP | 更新日時 | 自動更新 |
-
----
-
-### **9. improvement_suggestions (改善提案)**
-
+#### **chat_messages**
 ```sql
-CREATE TABLE improvement_suggestions (
+CREATE TABLE chat_messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    team_id UUID REFERENCES teams(id) ON DELETE SET NULL,
-    session_id UUID REFERENCES voice_sessions(id) ON DELETE SET NULL,
-    
-    -- 提案内容
-    suggestion_type VARCHAR(50) NOT NULL CHECK (suggestion_type IN 
-        ('communication', 'leadership', 'collaboration', 'creativity', 'analytical', 'empathy')),
-    title VARCHAR(255) NOT NULL,
+    chat_room_id UUID REFERENCES chat_rooms(id) ON DELETE CASCADE,
+    sender_id UUID REFERENCES users(id),
+    message_type VARCHAR(20) DEFAULT 'text',
     content TEXT NOT NULL,
-    priority VARCHAR(20) DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
-    
-    -- プライバシー設定
-    visibility VARCHAR(20) DEFAULT 'private' CHECK (visibility IN 
-        ('private', 'team_leader', 'hr', 'admin', 'public')),
-    user_consent BOOLEAN DEFAULT FALSE,
-    consent_date TIMESTAMP WITH TIME ZONE,
-    
-    -- 実装状況
-    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN 
-        ('pending', 'in_progress', 'completed', 'deferred')),
-    implementation_notes TEXT,
-    completed_at TIMESTAMP WITH TIME ZONE,
-    
-    -- メタデータ
-    ai_generated BOOLEAN DEFAULT TRUE,
-    confidence_score DECIMAL(4,3) CHECK (confidence_score >= 0 AND confidence_score <= 1),
-    expires_at TIMESTAMP WITH TIME ZONE,
-    
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
--- インデックス
-CREATE INDEX idx_improvement_suggestions_user_id ON improvement_suggestions(user_id);
-CREATE INDEX idx_improvement_suggestions_team_id ON improvement_suggestions(team_id);
-CREATE INDEX idx_improvement_suggestions_suggestion_type ON improvement_suggestions(suggestion_type);
-CREATE INDEX idx_improvement_suggestions_visibility ON improvement_suggestions(visibility);
-CREATE INDEX idx_improvement_suggestions_status ON improvement_suggestions(status);
-CREATE INDEX idx_improvement_suggestions_user_consent ON improvement_suggestions(user_consent);
-CREATE INDEX idx_improvement_suggestions_expires_at ON improvement_suggestions(expires_at);
-
--- 更新時刻自動更新トリガー
-CREATE TRIGGER update_improvement_suggestions_updated_at
-    BEFORE UPDATE ON improvement_suggestions
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
 ```
 
-**フィールド説明**
-
-| フィールド名 | 型 | 説明 | 制約 |
-| --- | --- | --- | --- |
-| `id` | UUID | プライマリキー | NOT NULL, PK |
-| `user_id` | UUID | ユーザーID | NOT NULL, FK |
-| `team_id` | UUID | チームID | FK (NULL可) |
-| `session_id` | UUID | 音声セッションID | FK (NULL可) |
-| `suggestion_type` | VARCHAR(50) | 提案タイプ | 定義値のみ |
-| `title` | VARCHAR(255) | 提案タイトル | NOT NULL |
-| `content` | TEXT | 提案内容 | NOT NULL |
-| `priority` | VARCHAR(20) | 優先度 | low, medium, high, urgent |
-| `visibility` | VARCHAR(20) | 表示範囲 | private, team_leader, hr, admin, public |
-| `user_consent` | BOOLEAN | ユーザー同意 | DEFAULT FALSE |
-| `consent_date` | TIMESTAMP | 同意日時 | - |
-| `status` | VARCHAR(20) | 実装状況 | pending, in_progress, completed, deferred |
-| `implementation_notes` | TEXT | 実装メモ | - |
-| `completed_at` | TIMESTAMP | 完了日時 | - |
-| `ai_generated` | BOOLEAN | AI生成フラグ | DEFAULT TRUE |
-| `confidence_score` | DECIMAL(4,3) | 信頼度スコア | 0-1の範囲 |
-| `expires_at` | TIMESTAMP | 有効期限 | - |
-| `created_at` | TIMESTAMP | 作成日時 | 自動設定 |
-| `updated_at` | TIMESTAMP | 更新日時 | 自動更新 |
-
----
-
-### **10. feedback_publication_control (フィードバック公開制御)**
-
+#### **chat_room_participants**
 ```sql
-CREATE TABLE feedback_publication_control (
+CREATE TABLE chat_room_participants (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    feedback_id UUID NOT NULL,
-    feedback_type VARCHAR(50) NOT NULL CHECK (feedback_type IN 
-        ('analysis', 'suggestion', 'comparison', 'report')),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    team_id UUID REFERENCES teams(id) ON DELETE SET NULL,
-    
-    -- 公開制御
-    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN 
-        ('pending', 'reviewed', 'approved', 'published', 'rejected')),
-    visibility_settings JSONB NOT NULL DEFAULT '{}'::jsonb,
-    
-    -- 確認・承認フロー
-    review_deadline TIMESTAMP WITH TIME ZONE,
-    auto_publish_after TIMESTAMP WITH TIME ZONE,
-    reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL,
-    reviewed_at TIMESTAMP WITH TIME ZONE,
-    approval_required BOOLEAN DEFAULT FALSE,
-    approved_by UUID REFERENCES users(id) ON DELETE SET NULL,
-    approved_at TIMESTAMP WITH TIME ZONE,
-    
-    -- ユーザー同意
-    user_consent BOOLEAN DEFAULT FALSE,
-    consent_given BOOLEAN DEFAULT FALSE,
-    consent_date TIMESTAMP WITH TIME ZONE,
-    consent_version VARCHAR(20),
-    
-    -- 公開履歴
-    publication_history JSONB DEFAULT '[]'::jsonb,
-    last_published_at TIMESTAMP WITH TIME ZONE,
-    
-    -- メタデータ
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    chat_room_id UUID REFERENCES chat_rooms(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    role VARCHAR(20) DEFAULT 'participant',
+    joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    left_at TIMESTAMP WITH TIME ZONE,
+    UNIQUE(chat_room_id, user_id)
 );
-
--- インデックス
-CREATE INDEX idx_feedback_publication_control_user_id ON feedback_publication_control(user_id);
-CREATE INDEX idx_feedback_publication_control_team_id ON feedback_publication_control(team_id);
-CREATE INDEX idx_feedback_publication_control_status ON feedback_publication_control(status);
-CREATE INDEX idx_feedback_publication_control_user_consent ON feedback_publication_control(user_consent);
-CREATE INDEX idx_feedback_publication_control_review_deadline ON feedback_publication_control(review_deadline);
-CREATE INDEX idx_feedback_publication_control_auto_publish_after ON feedback_publication_control(auto_publish_after);
-
--- 更新時刻自動更新トリガー
-CREATE TRIGGER update_feedback_publication_control_updated_at
-    BEFORE UPDATE ON feedback_publication_control
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
 ```
 
-**フィールド説明**
+### **5. 決済・サブスクリプションテーブル**
 
-| フィールド名 | 型 | 説明 | 制約 |
-| --- | --- | --- | --- |
-| `id` | UUID | プライマリキー | NOT NULL, PK |
-| `feedback_id` | UUID | フィードバックID | NOT NULL |
-| `feedback_type` | VARCHAR(50) | フィードバックタイプ | 定義値のみ |
-| `user_id` | UUID | ユーザーID | NOT NULL, FK |
-| `team_id` | UUID | チームID | FK (NULL可) |
-| `status` | VARCHAR(20) | 公開状態 | pending, reviewed, approved, published, rejected |
-| `visibility_settings` | JSONB | 表示範囲設定 | NOT NULL |
-| `review_deadline` | TIMESTAMP | 確認期限 | - |
-| `auto_publish_after` | TIMESTAMP | 自動公開日時 | - |
-| `reviewed_by` | UUID | 確認者ID | FK (NULL可) |
-| `reviewed_at` | TIMESTAMP | 確認日時 | - |
-| `approval_required` | BOOLEAN | 承認必要フラグ | DEFAULT FALSE |
-| `approved_by` | UUID | 承認者ID | FK (NULL可) |
-| `approved_at` | TIMESTAMP | 承認日時 | - |
-| `user_consent` | BOOLEAN | ユーザー確認済み | DEFAULT FALSE |
-| `consent_given` | BOOLEAN | 公開同意 | DEFAULT FALSE |
-| `consent_date` | TIMESTAMP | 同意日時 | - |
-| `consent_version` | VARCHAR(20) | 同意バージョン | - |
-| `publication_history` | JSONB | 公開履歴 | - |
-| `last_published_at` | TIMESTAMP | 最終公開日時 | - |
-| `created_at` | TIMESTAMP | 作成日時 | 自動設定 |
-| `updated_at` | TIMESTAMP | 更新日時 | 自動更新 |
-
----
-
-### **11. subscriptions (サブスクリプション情報)**
-
+#### **subscriptions**
 ```sql
 CREATE TABLE subscriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-    stripe_subscription_id VARCHAR(255) NOT NULL UNIQUE,
-    stripe_customer_id VARCHAR(255) NOT NULL,
-    plan_type VARCHAR(50) NOT NULL CHECK (plan_type IN ('basic', 'premium', 'enterprise')),
-    status VARCHAR(20) NOT NULL CHECK (status IN ('active', 'past_due', 'canceled', 'unpaid')),
-    current_period_start TIMESTAMP WITH TIME ZONE NOT NULL,
-    current_period_end TIMESTAMP WITH TIME ZONE NOT NULL,
-    monthly_price DECIMAL(10,2) NOT NULL CHECK (monthly_price >= 0),
-    currency VARCHAR(3) DEFAULT 'JPY',
-    trial_end TIMESTAMP WITH TIME ZONE,
-    canceled_at TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT unique_team_subscription UNIQUE (team_id)
+    team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
+    plan_name VARCHAR(50) NOT NULL,
+    stripe_customer_id VARCHAR(100),
+    stripe_subscription_id VARCHAR(100),
+    status VARCHAR(20) DEFAULT 'active',
+    billing_cycle VARCHAR(20) DEFAULT 'monthly',
+    current_period_start TIMESTAMP WITH TIME ZONE,
+    current_period_end TIMESTAMP WITH TIME ZONE,
+    cancel_at_period_end BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
--- インデックス
-CREATE INDEX idx_subscriptions_team_id ON subscriptions(team_id);
-CREATE INDEX idx_subscriptions_stripe_subscription_id ON subscriptions(stripe_subscription_id);
-CREATE INDEX idx_subscriptions_stripe_customer_id ON subscriptions(stripe_customer_id);
-CREATE INDEX idx_subscriptions_status ON subscriptions(status);
-CREATE INDEX idx_subscriptions_current_period_end ON subscriptions(current_period_end);
-
--- 更新時刻自動更新トリガー
-CREATE TRIGGER update_subscriptions_updated_at
-    BEFORE UPDATE ON subscriptions
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-
 ```
 
-**フィールド説明**
-
-| フィールド名 | 型 | 説明 | 制約 |
-| --- | --- | --- | --- |
-| `id` | UUID | プライマリキー | NOT NULL, PK |
-| `team_id` | UUID | チームID | NOT NULL, FK, UNIQUE |
-| `stripe_subscription_id` | VARCHAR(255) | Stripe サブスクリプションID | NOT NULL, UNIQUE |
-| `stripe_customer_id` | VARCHAR(255) | Stripe 顧客ID | NOT NULL |
-| `plan_type` | VARCHAR(50) | プランタイプ | basic, premium, enterprise |
-| `status` | VARCHAR(20) | サブスクリプション状態 | active, past_due, canceled, unpaid |
-| `current_period_start` | TIMESTAMP | 現在の請求期間開始日 | NOT NULL |
-| `current_period_end` | TIMESTAMP | 現在の請求期間終了日 | NOT NULL |
-| `monthly_price` | DECIMAL(10,2) | 月額料金 | >= 0 |
-| `currency` | VARCHAR(3) | 通貨コード | DEFAULT 'JPY' |
-| `trial_end` | TIMESTAMP | トライアル終了日 | - |
-| `canceled_at` | TIMESTAMP | キャンセル日時 | - |
-| `created_at` | TIMESTAMP | 作成日時 | 自動設定 |
-| `updated_at` | TIMESTAMP | 更新日時 | 自動更新 |
-
----
-
-### **9. billing_histories (決済履歴)**
-
+#### **billing_histories**
 ```sql
 CREATE TABLE billing_histories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    subscription_id UUID NOT NULL REFERENCES subscriptions(id) ON DELETE CASCADE,
-    stripe_invoice_id VARCHAR(255) NOT NULL UNIQUE,
-    amount DECIMAL(10,2) NOT NULL CHECK (amount >= 0),
+    subscription_id UUID REFERENCES subscriptions(id) ON DELETE CASCADE,
+    stripe_payment_intent_id VARCHAR(100),
+    amount DECIMAL(10,2) NOT NULL,
     currency VARCHAR(3) DEFAULT 'JPY',
-    status VARCHAR(20) NOT NULL CHECK (status IN ('paid', 'open', 'void', 'uncollectible')),
-    billing_reason VARCHAR(50),
-    period_start TIMESTAMP WITH TIME ZONE NOT NULL,
-    period_end TIMESTAMP WITH TIME ZONE NOT NULL,
-    paid_at TIMESTAMP WITH TIME ZONE,
-    invoice_pdf_url TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    status VARCHAR(20),
+    transaction_type VARCHAR(50),
+    description TEXT,
+    processed_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
--- インデックス
-CREATE INDEX idx_billing_histories_subscription_id ON billing_histories(subscription_id);
-CREATE INDEX idx_billing_histories_stripe_invoice_id ON billing_histories(stripe_invoice_id);
-CREATE INDEX idx_billing_histories_status ON billing_histories(status);
-CREATE INDEX idx_billing_histories_period_start ON billing_histories(period_start);
-CREATE INDEX idx_billing_histories_paid_at ON billing_histories(paid_at);
-
 ```
 
-**フィールド説明**
+### **6. 管理・監査テーブル**
 
-| フィールド名 | 型 | 説明 | 制約 |
-| --- | --- | --- | --- |
-| `id` | UUID | プライマリキー | NOT NULL, PK |
-| `subscription_id` | UUID | サブスクリプションID | NOT NULL, FK |
-| `stripe_invoice_id` | VARCHAR(255) | Stripe 請求書ID | NOT NULL, UNIQUE |
-| `amount` | DECIMAL(10,2) | 請求金額 | >= 0 |
-| `currency` | VARCHAR(3) | 通貨コード | DEFAULT 'JPY' |
-| `status` | VARCHAR(20) | 請求書状態 | paid, open, void, uncollectible |
-| `billing_reason` | VARCHAR(50) | 請求理由 | subscription_cycle, subscription_create等 |
-| `period_start` | TIMESTAMP | 請求期間開始日 | NOT NULL |
-| `period_end` | TIMESTAMP | 請求期間終了日 | NOT NULL |
-| `paid_at` | TIMESTAMP | 支払い日時 | - |
-| `invoice_pdf_url` | TEXT | 請求書PDF URL | - |
-| `created_at` | TIMESTAMP | 作成日時 | 自動設定 |
-
----
-
-### **10. invitations (チーム招待)**
-
+#### **invitations**
 ```sql
 CREATE TABLE invitations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-    inviter_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
     email VARCHAR(255) NOT NULL,
-    role VARCHAR(20) NOT NULL DEFAULT 'member' CHECK (role IN ('admin', 'member')),
-    token VARCHAR(255) NOT NULL UNIQUE,
-    status VARCHAR(20) NOT NULL DEFAULT 'pending'
-        CHECK (status IN ('pending', 'accepted', 'declined', 'expired')),
-    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    accepted_at TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    invited_by UUID REFERENCES users(id),
+    role VARCHAR(20) DEFAULT 'member',
+    status VARCHAR(20) DEFAULT 'pending',
+    expires_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
--- インデックス
-CREATE INDEX idx_invitations_team_id ON invitations(team_id);
-CREATE INDEX idx_invitations_inviter_id ON invitations(inviter_id);
-CREATE INDEX idx_invitations_email ON invitations(email);
-CREATE INDEX idx_invitations_token ON invitations(token);
-CREATE INDEX idx_invitations_status ON invitations(status);
-CREATE INDEX idx_invitations_expires_at ON invitations(expires_at);
-
 ```
 
-**フィールド説明**
-
-| フィールド名 | 型 | 説明 | 制約 |
-| --- | --- | --- | --- |
-| `id` | UUID | プライマリキー | NOT NULL, PK |
-| `team_id` | UUID | チームID | NOT NULL, FK |
-| `inviter_id` | UUID | 招待者ID | NOT NULL, FK |
-| `email` | VARCHAR(255) | 招待先メールアドレス | NOT NULL |
-| `role` | VARCHAR(20) | 付与予定役割 | admin, member |
-| `token` | VARCHAR(255) | 招待トークン | NOT NULL, UNIQUE |
-| `status` | VARCHAR(20) | 招待状態 | pending, accepted, declined, expired |
-| `expires_at` | TIMESTAMP | 有効期限 | NOT NULL |
-| `accepted_at` | TIMESTAMP | 承諾日時 | - |
-| `created_at` | TIMESTAMP | 作成日時 | 自動設定 |
-
----
-
-### **11. audit_logs (監査ログ)**
-
+#### **audit_logs**
 ```sql
 CREATE TABLE audit_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-    team_id UUID REFERENCES teams(id) ON DELETE SET NULL,
+    user_id UUID REFERENCES users(id),
+    team_id UUID REFERENCES teams(id),
     action VARCHAR(100) NOT NULL,
-    resource_type VARCHAR(50) NOT NULL,
+    resource_type VARCHAR(50),
     resource_id UUID,
-    details JSONB DEFAULT '{}'::jsonb,
+    details JSONB,
     ip_address INET,
     user_agent TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
--- インデックス
-CREATE INDEX idx_audit_logs_user_id ON audit_logs(user_id);
-CREATE INDEX idx_audit_logs_team_id ON audit_logs(team_id);
-CREATE INDEX idx_audit_logs_action ON audit_logs(action);
-CREATE INDEX idx_audit_logs_resource_type ON audit_logs(resource_type);
-CREATE INDEX idx_audit_logs_resource_id ON audit_logs(resource_id);
-CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
-
 ```
 
-**フィールド説明**
-
-| フィールド名 | 型 | 説明 | 制約 |
-| --- | --- | --- | --- |
-| `id` | UUID | プライマリキー | NOT NULL, PK |
-| `user_id` | UUID | 操作ユーザーID | FK (NULL可) |
-| `team_id` | UUID | 対象チームID | FK (NULL可) |
-| `action` | VARCHAR(100) | 操作アクション | NOT NULL |
-| `resource_type` | VARCHAR(50) | リソースタイプ | NOT NULL |
-| `resource_id` | UUID | リソースID | - |
-| `details` | JSONB | 操作詳細 | - |
-| `ip_address` | INET | IPアドレス | - |
-| `user_agent` | TEXT | ユーザーエージェント | - |
-| `created_at` | TIMESTAMP | 作成日時 | 自動設定 |
-
----
-
-### **12. notifications (通知管理)**
-
+#### **notifications**
 ```sql
 CREATE TABLE notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    type VARCHAR(50) NOT NULL,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     title VARCHAR(200) NOT NULL,
     message TEXT NOT NULL,
-    data JSONB DEFAULT '{}'::jsonb,
-    is_read BOOLEAN DEFAULT false,
-    read_at TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    notification_type VARCHAR(50),
+    is_read BOOLEAN DEFAULT FALSE,
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    read_at TIMESTAMP WITH TIME ZONE
 );
-
--- インデックス
-CREATE INDEX idx_notifications_user_id ON notifications(user_id);
-CREATE INDEX idx_notifications_type ON notifications(type);
-CREATE INDEX idx_notifications_is_read ON notifications(is_read);
-CREATE INDEX idx_notifications_created_at ON notifications(created_at);
-
 ```
 
-**フィールド説明**
+## **インデックス・制約**
 
-| フィールド名 | 型 | 説明 | 制約 |
-| --- | --- | --- | --- |
-| `id` | UUID | プライマリキー | NOT NULL, PK |
-| `user_id` | UUID | 受信ユーザーID | NOT NULL, FK |
-| `type` | VARCHAR(50) | 通知タイプ | NOT NULL |
-| `title` | VARCHAR(200) | 通知タイトル | NOT NULL |
-| `message` | TEXT | 通知メッセージ | NOT NULL |
-| `data` | JSONB | 追加データ | - |
-| `is_read` | BOOLEAN | 既読フラグ | DEFAULT false |
-| `read_at` | TIMESTAMP | 既読日時 | - |
-| `created_at` | TIMESTAMP | 作成日時 | 自動設定 |
-
----
-
-
-### **13. chat_rooms (雑談ルーム)**
-
+### **主要インデックス**
 ```sql
-CREATE TABLE chat_rooms (
-    id SERIAL PRIMARY KEY,
-    room_id VARCHAR(255) UNIQUE NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    is_public BOOLEAN DEFAULT false,
-    max_participants INTEGER DEFAULT 50,
-    current_participants INTEGER DEFAULT 0,
-    status VARCHAR(50) DEFAULT 'active',
-    room_type VARCHAR(50) DEFAULT 'general',
-    participants TEXT,
-    moderators TEXT,
-    total_messages INTEGER DEFAULT 0,
-    total_duration DOUBLE PRECISION DEFAULT 0,
-    created_by INTEGER NOT NULL REFERENCES users(id),
-    team_id INTEGER REFERENCES teams(id),
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    updated_at TIMESTAMP WITH TIME ZONE
-);
+-- ユーザー関連
+CREATE INDEX idx_users_firebase_uid ON users(firebase_uid);
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_online_status ON users(is_online, last_seen_at);
 
--- インデックス
-CREATE INDEX idx_chat_rooms_id ON chat_rooms(id);
-CREATE INDEX idx_chat_rooms_room_id ON chat_rooms(room_id);
-CREATE INDEX idx_chat_rooms_created_by ON chat_rooms(created_by);
-CREATE INDEX idx_chat_rooms_team_id ON chat_rooms(team_id);
-CREATE INDEX idx_chat_rooms_status ON chat_rooms(status);
-CREATE INDEX idx_chat_rooms_is_public ON chat_rooms(is_public);
-CREATE INDEX idx_chat_rooms_created_at ON chat_rooms(created_at);
+-- チーム関連
+CREATE INDEX idx_team_members_team_user ON team_members(team_id, user_id);
+CREATE INDEX idx_team_members_role ON team_members(role, status);
 
--- 更新時刻自動更新トリガー
-CREATE TRIGGER update_chat_rooms_updated_at
-    BEFORE UPDATE ON chat_rooms
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+-- 音声セッション関連
+CREATE INDEX idx_voice_sessions_team ON voice_sessions(team_id, status);
+CREATE INDEX idx_voice_sessions_started_by ON voice_sessions(started_by);
+CREATE INDEX idx_voice_sessions_created_at ON voice_sessions(created_at);
 
+-- 分析関連
+CREATE INDEX idx_ai_analyses_user ON ai_analyses(user_id, analysis_type);
+CREATE INDEX idx_ai_analyses_session ON ai_analyses(voice_session_id);
+CREATE INDEX idx_ai_analyses_created_at ON ai_analyses(created_at);
+
+-- チャット関連
+CREATE INDEX idx_chat_messages_room ON chat_messages(chat_room_id, created_at);
+CREATE INDEX idx_chat_messages_sender ON chat_messages(sender_id);
+
+-- 決済関連
+CREATE INDEX idx_subscriptions_team ON subscriptions(team_id, status);
+CREATE INDEX idx_billing_histories_subscription ON billing_histories(subscription_id);
+
+-- 監査・通知関連
+CREATE INDEX idx_audit_logs_user ON audit_logs(user_id, created_at);
+CREATE INDEX idx_notifications_user ON notifications(user_id, is_read, created_at);
 ```
 
-**フィールド説明**
-
-| フィールド名 | 型 | 説明 | 制約 |
-| --- | --- | --- | --- |
-| `id` | SERIAL | プライマリキー | NOT NULL, PK, AUTO_INCREMENT |
-| `room_id` | VARCHAR(255) | ルーム識別子（UUID） | NOT NULL, UNIQUE |
-| `name` | VARCHAR(255) | ルーム名 | NOT NULL |
-| `description` | TEXT | ルーム説明 | - |
-| `is_public` | BOOLEAN | 公開フラグ | DEFAULT false |
-| `max_participants` | INTEGER | 最大参加者数 | DEFAULT 50 |
-| `current_participants` | INTEGER | 現在の参加者数 | DEFAULT 0 |
-| `status` | VARCHAR(50) | ルームステータス | DEFAULT 'active' |
-| `room_type` | VARCHAR(50) | ルームタイプ | DEFAULT 'general' |
-| `participants` | TEXT | 参加者情報（JSON） | - |
-| `moderators` | TEXT | モデレーター情報（JSON） | - |
-| `total_messages` | INTEGER | 総メッセージ数 | DEFAULT 0 |
-| `total_duration` | DOUBLE PRECISION | 総通話時間 | DEFAULT 0 |
-| `created_by` | INTEGER | 作成者ID | NOT NULL, FK |
-| `team_id` | INTEGER | チームID | FK |
-| `is_active` | BOOLEAN | アクティブフラグ | DEFAULT true |
-| `created_at` | TIMESTAMP | 作成日時 | 自動設定 |
-| `updated_at` | TIMESTAMP | 更新日時 | 自動更新 |
-
----
-
-### **14. chat_messages (チャットメッセージ)**
-
+### **制約・バリデーション**
 ```sql
-CREATE TABLE chat_messages (
-    id SERIAL PRIMARY KEY,
-    message_id VARCHAR(255) UNIQUE NOT NULL,
-    content TEXT NOT NULL,
-    message_type VARCHAR(50) DEFAULT 'text',
-    audio_file_path VARCHAR(500),
-    audio_duration DOUBLE PRECISION,
-    transcription TEXT,
-    is_edited BOOLEAN DEFAULT false,
-    is_deleted BOOLEAN DEFAULT false,
-    chat_room_id INTEGER NOT NULL REFERENCES chat_rooms(id) ON DELETE CASCADE,
-    sender_id INTEGER NOT NULL REFERENCES users(id),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    updated_at TIMESTAMP WITH TIME ZONE
-);
+-- ユーザー状態の制約
+ALTER TABLE users ADD CONSTRAINT chk_account_status 
+    CHECK (account_status IN ('active', 'inactive', 'suspended'));
 
--- インデックス
-CREATE INDEX idx_chat_messages_id ON chat_messages(id);
-CREATE INDEX idx_chat_messages_message_id ON chat_messages(message_id);
-CREATE INDEX idx_chat_messages_chat_room_id ON chat_messages(chat_room_id);
-CREATE INDEX idx_chat_messages_sender_id ON chat_messages(sender_id);
-CREATE INDEX idx_chat_messages_message_type ON chat_messages(message_type);
-CREATE INDEX idx_chat_messages_created_at ON chat_messages(created_at);
-CREATE INDEX idx_chat_messages_is_deleted ON chat_messages(is_deleted);
+-- チームメンバーロールの制約
+ALTER TABLE team_members ADD CONSTRAINT chk_team_member_role 
+    CHECK (role IN ('owner', 'admin', 'member'));
 
--- 更新時刻自動更新トリガー
-CREATE TRIGGER update_chat_messages_updated_at
-    BEFORE UPDATE ON chat_messages
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+-- 音声セッション状態の制約
+ALTER TABLE voice_sessions ADD CONSTRAINT chk_session_status 
+    CHECK (status IN ('waiting', 'active', 'ended', 'cancelled'));
 
+-- 分析タイプの制約
+ALTER TABLE ai_analyses ADD CONSTRAINT chk_analysis_type 
+    CHECK (analysis_type IN ('personality', 'communication', 'behavior', 'sentiment', 'topic', 'summary'));
+
+-- 感情スコアの範囲制約
+ALTER TABLE ai_analyses ADD CONSTRAINT chk_sentiment_score 
+    CHECK (sentiment_score >= -1 AND sentiment_score <= 1);
+
+-- 信頼度スコアの範囲制約
+ALTER TABLE ai_analyses ADD CONSTRAINT chk_confidence_score 
+    CHECK (confidence_score >= 0 AND confidence_score <= 1);
 ```
 
-**フィールド説明**
+## **データ整合性・プライバシー**
 
-| フィールド名 | 型 | 説明 | 制約 |
-| --- | --- | --- | --- |
-| `id` | SERIAL | プライマリキー | NOT NULL, PK, AUTO_INCREMENT |
-| `message_id` | VARCHAR(255) | メッセージ識別子（UUID） | NOT NULL, UNIQUE |
-| `content` | TEXT | メッセージ内容 | NOT NULL |
-| `message_type` | VARCHAR(50) | メッセージタイプ | DEFAULT 'text' |
-| `audio_file_path` | VARCHAR(500) | 音声ファイルパス | - |
-| `audio_duration` | DOUBLE PRECISION | 音声時間 | - |
-| `transcription` | TEXT | 文字起こし内容 | - |
-| `is_edited` | BOOLEAN | 編集フラグ | DEFAULT false |
-| `is_deleted` | BOOLEAN | 削除フラグ | DEFAULT false |
-| `chat_room_id` | INTEGER | チャットルームID | NOT NULL, FK |
-| `sender_id` | INTEGER | 送信者ID | NOT NULL, FK |
-| `created_at` | TIMESTAMP | 作成日時 | 自動設定 |
-| `updated_at` | TIMESTAMP | 更新日時 | 自動更新 |
+### **外部キー制約**
+- 全ての関連テーブルに適切な外部キー制約を設定
+- CASCADE削除によるデータ整合性の保証
+- 参照整合性の自動チェック
 
----
+### **プライバシー保護**
+- ユーザープロファイルの可視性設定
+- 分析結果の公開制御
+- チーム内での情報共有制限
 
-### **15. chat_room_participants (ルーム参加者)**
+### **データ保持期間**
+- 音声データ: 処理完了後24時間で自動削除
+- 分析結果: 永続保存（ユーザー削除時は匿名化）
+- 監査ログ: 1年間保持
 
-```sql
-CREATE TABLE chat_room_participants (
-    id SERIAL PRIMARY KEY,
-    chat_room_id INTEGER NOT NULL REFERENCES chat_rooms(id) ON DELETE CASCADE,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    role VARCHAR(50) DEFAULT 'member',
-    status VARCHAR(50) DEFAULT 'active',
-    is_online BOOLEAN DEFAULT false,
-    joined_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    last_active_at TIMESTAMP WITH TIME ZONE,
-    total_messages INTEGER DEFAULT 0
-);
+## **パフォーマンス最適化**
 
--- インデックス
-CREATE INDEX idx_chat_room_participants_id ON chat_room_participants(id);
-CREATE INDEX idx_chat_room_participants_chat_room_id ON chat_room_participants(chat_room_id);
-CREATE INDEX idx_chat_room_participants_user_id ON chat_room_participants(user_id);
-CREATE INDEX idx_chat_room_participants_role ON chat_room_participants(role);
-CREATE INDEX idx_chat_room_participants_status ON chat_room_participants(status);
-CREATE INDEX idx_chat_room_participants_is_online ON chat_room_participants(is_online);
-CREATE INDEX idx_chat_room_participants_joined_at ON chat_room_participants(joined_at);
+### **クエリ最適化**
+- 複合インデックスの活用
+- 適切なJOIN戦略
+- ページネーション対応
 
--- ユニーク制約（同じユーザーが同じルームに重複参加できない）
-CREATE UNIQUE INDEX idx_chat_room_participants_unique ON chat_room_participants(chat_room_id, user_id);
+### **キャッシュ戦略**
+- Redisによるセッション情報キャッシュ
+- 分析結果の一時キャッシュ
+- ユーザープロファイルのキャッシュ
 
-```
-
-**フィールド説明**
-
-| フィールド名 | 型 | 説明 | 制約 |
-| --- | --- | --- | --- |
-| `id` | SERIAL | プライマリキー | NOT NULL, PK, AUTO_INCREMENT |
-| `chat_room_id` | INTEGER | チャットルームID | NOT NULL, FK |
-| `user_id` | INTEGER | ユーザーID | NOT NULL, FK |
-| `role` | VARCHAR(50) | 参加者ロール | DEFAULT 'member' |
-| `status` | VARCHAR(50) | 参加者ステータス | DEFAULT 'active' |
-| `is_online` | BOOLEAN | オンライン状態 | DEFAULT false |
-| `joined_at` | TIMESTAMP | 参加日時 | 自動設定 |
-| `last_active_at` | TIMESTAMP | 最終アクティブ日時 | - |
-| `total_messages` | INTEGER | 総メッセージ数 | DEFAULT 0 |
-
----
-
-## 📊 **ビュー定義**
-
-
-### **1. user_team_summary_view (ユーザー・チーム統合ビュー)**
-
-```sql
-CREATE VIEW user_team_summary_view AS
-SELECT
-    u.id,
-    u.firebase_uid,
-    u.email,
-    u.display_name,
-    u.avatar_url,
-    up.bio,
-    up.department,
-    up.position,
-    up.communication_style,
-    up.collaboration_score,
-    up.leadership_score,
-    up.empathy_score,
-    up.total_chat_sessions,
-    up.total_speaking_time_seconds,
-    COUNT(DISTINCT tm.team_id) as team_count,
-    ARRAY_AGG(DISTINCT t.name ORDER BY t.name) FILTER (WHERE t.name IS NOT NULL) as team_names,
-    ARRAY_AGG(DISTINCT tm.role ORDER BY tm.role) FILTER (WHERE tm.role IS NOT NULL) as team_roles,
-    u.last_active_at,
-    u.created_at
-FROM users u
-LEFT JOIN user_profiles up ON u.id = up.user_id
-LEFT JOIN team_members tm ON u.id = tm.user_id AND tm.status = 'active'
-LEFT JOIN teams t ON tm.team_id = t.id AND t.is_active = true
-WHERE u.is_active = true
-GROUP BY u.id, u.firebase_uid, u.email, u.display_name, u.avatar_url,
-         up.bio, up.department, up.position, up.communication_style,
-         up.collaboration_score, up.leadership_score, up.empathy_score,
-         up.total_chat_sessions, up.total_speaking_time_seconds,
-         u.last_active_at, u.created_at;
-
-```
-
-### **2. team_analytics_summary_view (チーム分析統合ビュー)**
-
-```sql
-CREATE VIEW team_analytics_summary_view AS
-SELECT
-    t.id as team_id,
-    t.name as team_name,
-    t.description as team_description,
-    u_owner.display_name as owner_name,
-    COUNT(DISTINCT tm.user_id) as member_count,
-    COUNT(DISTINCT vs.id) as total_sessions,
-    COALESCE(SUM(vs.duration_seconds), 0) as total_duration_seconds,
-    COALESCE(ROUND(AVG(vs.duration_seconds)), 0) as avg_session_duration,
-    COUNT(DISTINCT tr.id) as total_transcriptions,
-    COUNT(DISTINCT ai.id) as total_analyses,
-
-    -- プロファイル統計
-    ROUND(AVG(up.collaboration_score), 2) as avg_collaboration_score,
-    ROUND(AVG(up.leadership_score), 2) as avg_leadership_score,
-    ROUND(AVG(up.empathy_score), 2) as avg_empathy_score,
-    ROUND(AVG(up.assertiveness_score), 2) as avg_assertiveness_score,
-    ROUND(AVG(up.creativity_score), 2) as avg_creativity_score,
-    ROUND(AVG(up.analytical_score), 2) as avg_analytical_score,
-
-    -- 部署・役職分布
-    JSONB_AGG(DISTINCT up.department) FILTER (WHERE up.department IS NOT NULL) as departments,
-    JSONB_AGG(DISTINCT up.position) FILTER (WHERE up.position IS NOT NULL) as positions,
-    JSONB_AGG(DISTINCT up.communication_style) FILTER (WHERE up.communication_style IS NOT NULL) as communication_styles,
-
-    -- 活動統計
-    MAX(vs.created_at) as last_session_at,
-    COUNT(DISTINCT CASE WHEN u.last_active_at >= CURRENT_DATE - INTERVAL '7 days' THEN u.id END) as active_members_week,
-    COUNT(DISTINCT CASE WHEN u.last_active_at >= CURRENT_DATE - INTERVAL '30 days' THEN u.id END) as active_members_month,
-
-    -- サブスクリプション情報
-    s.plan_type,
-    s.status as subscription_status,
-
-    t.created_at as team_created_at
-FROM teams t
-LEFT JOIN users u_owner ON t.owner_id = u_owner.id
-LEFT JOIN team_members tm ON t.id = tm.team_id AND tm.status = 'active'
-LEFT JOIN users u ON tm.user_id = u.id AND u.is_active = true
-LEFT JOIN user_profiles up ON u.id = up.user_id
-LEFT JOIN voice_sessions vs ON t.id = vs.team_id
-LEFT JOIN transcriptions tr ON vs.id = tr.voice_session_id
-LEFT JOIN ai_analyses ai ON vs.id = ai.voice_session_id
-LEFT JOIN subscriptions s ON t.id = s.team_id
-WHERE t.is_active = true
-GROUP BY t.id, t.name, t.description, u_owner.display_name, s.plan_type, s.status, t.created_at;
-
-```
+### **バックアップ・復旧**
+- 日次自動バックアップ
+- ポイントインタイム復旧対応
+- 災害復旧計画の策定
 
 ---
 

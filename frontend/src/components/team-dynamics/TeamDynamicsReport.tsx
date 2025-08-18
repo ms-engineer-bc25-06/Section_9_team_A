@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -17,7 +18,8 @@ import {
   Activity,
   Lightbulb,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
+  ArrowLeft
 } from 'lucide-react';
 
 interface TeamDynamicsReportProps {
@@ -66,6 +68,16 @@ export default function TeamDynamicsReport({
 
   return (
     <div className="space-y-6">
+      {/* ダッシュボードに戻るリンク */}
+      <div className="flex justify-start">
+        <Link href="/dashboard">
+          <Button variant="ghost" size="sm">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            ダッシュボードへ戻る
+          </Button>
+        </Link>
+      </div>
+
       {/* ヘッダー */}
       <div className="flex items-center justify-between">
         <div>

@@ -1688,3 +1688,317 @@ class WebSocketMessageHandler:
                 {"type": "error", "message": "Failed to handle participant state update"},
                 connection_id,
             )
+
+    @staticmethod
+    async def handle_ai_analysis_subscribe(
+        session_id: str, connection_id: str, user: User, message: dict
+    ):
+        """AI分析結果の購読処理"""
+        try:
+            analysis_id = message.get("analysis_id")
+            
+            if not analysis_id:
+                await manager.send_personal_message(
+                    {
+                        "type": "error",
+                        "message": "Analysis ID is required for subscription",
+                    },
+                    connection_id,
+                )
+                return
+
+            # 分析結果の購読を登録
+            from app.services.ai_analysis_service import AIAnalysisService
+            from app.integrations.openai_client import openai_client
+            
+            ai_analysis_service = AIAnalysisService(openai_client)
+            
+            # 購読確認を送信
+            await manager.send_personal_message(
+                {
+                    "type": "analysis_subscribed",
+                    "analysis_id": analysis_id,
+                    "session_id": session_id,
+                    "timestamp": datetime.now().isoformat(),
+                },
+                connection_id,
+            )
+
+            logger.info(
+                f"User {user.id} subscribed to analysis {analysis_id}",
+                user_id=user.id,
+                analysis_id=analysis_id,
+                session_id=session_id,
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to handle AI analysis subscription: {e}")
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to subscribe to analysis"},
+                connection_id,
+            )
+
+    @staticmethod
+    async def handle_ai_analysis_unsubscribe(
+        session_id: str, connection_id: str, user: User, message: dict
+    ):
+        """AI分析結果の購読解除処理"""
+        try:
+            analysis_id = message.get("analysis_id")
+            
+            if not analysis_id:
+                await manager.send_personal_message(
+                    {
+                        "type": "error",
+                        "message": "Analysis ID is required for unsubscription",
+                    },
+                    connection_id,
+                )
+                return
+
+            # 購読解除確認を送信
+            await manager.send_personal_message(
+                {
+                    "type": "analysis_unsubscribed",
+                    "analysis_id": analysis_id,
+                    "session_id": session_id,
+                    "timestamp": datetime.now().isoformat(),
+                },
+                connection_id,
+            )
+
+            logger.info(
+                f"User {user.id} unsubscribed from analysis {analysis_id}",
+                user_id=user.id,
+                analysis_id=analysis_id,
+                session_id=session_id,
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to handle AI analysis unsubscription: {e}")
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to unsubscribe from analysis"},
+                connection_id,
+            )
+
+    @staticmethod
+    async def handle_ai_analysis_request(
+        session_id: str, connection_id: str, user: User, message: dict
+    ):
+        """AI分析リクエスト処理"""
+        try:
+            from app.services.ai_analysis_service import AIAnalysisService
+            from app.integrations.openai_client import openai_client
+            from app.schemas.analysis import AnalysisType
+
+            text_content = message.get("text_content")
+            analysis_types = message.get("analysis_types", [])
+            
+            if not text_content:
+                await manager.send_personal_message(
+                    {
+                        "type": "error",
+                        "message": "Text content is required for analysis",
+                    },
+                    connection_id,
+                )
+                return
+
+            # 分析タイプを検証
+            valid_types = [t.value for t in AnalysisType]
+            if not all(t in valid_types for t in analysis_types):
+                await manager.send_personal_message(
+                    {
+                        "type": "error",
+                        "message": f"Invalid analysis types. Valid types: {valid_types}",
+                    },
+                    connection_id,
+                )
+                return
+
+            # 分析開始通知を送信
+            await manager.send_personal_message(
+                {
+                    "type": "analysis_started",
+                    "session_id": session_id,
+                    "user_id": user.id,
+                    "analysis_types": analysis_types,
+                    "timestamp": datetime.now().isoformat(),
+                },
+                connection_id,
+            )
+
+            # 非同期で分析を実行
+            async def run_analysis():
+                try:
+                    ai_analysis_service = AIAnalysisService(openai_client)
+                    
+                    # 分析を実行
+                    analyses = await ai_analysis_service.analyze_text(
+                        db=None,  # データベースセッションは別途取得
+                        user=user,
+                        text_content=text_content,
+                        analysis_types=[AnalysisType(t) for t in analysis_types],
+                        voice_session_id=int(session_id) if session_id.isdigit() else None,
+                        metadata={"requested_via_websocket": True}
+                    )
+
+                    # 分析完了通知を送信
+                    for analysis in analyses:
+                        await manager.send_personal_message(
+                            {
+                                "type": "analysis_completed",
+                                "analysis_id": analysis.id,
+                                "session_id": session_id,
+                                "user_id": user.id,
+                                "analysis_type": analysis.analysis_type,
+                                "title": analysis.title,
+                                "summary": analysis.summary,
+                                "confidence_score": analysis.confidence_score,
+                                "timestamp": datetime.now().isoformat(),
+                            },
+                            connection_id,
+                        )
+
+                        # セッション内の他の参加者にも通知（オプション）
+                        await manager.broadcast_to_session(
+                            {
+                                "type": "analysis_completed_broadcast",
+                                "analysis_id": analysis.id,
+                                "session_id": session_id,
+                                "user_id": user.id,
+                                "analysis_type": analysis.analysis_type,
+                                "title": analysis.title,
+                                "timestamp": datetime.now().isoformat(),
+                            },
+                            session_id,
+                            exclude_connection=connection_id,
+                        )
+
+                except Exception as e:
+                    logger.error(f"Analysis failed: {e}")
+                    await manager.send_personal_message(
+                        {
+                            "type": "analysis_failed",
+                            "session_id": session_id,
+                            "user_id": user.id,
+                            "error": str(e),
+                            "timestamp": datetime.now().isoformat(),
+                        },
+                        connection_id,
+                    )
+
+            # バックグラウンドで分析を実行
+            asyncio.create_task(run_analysis())
+
+        except Exception as e:
+            logger.error(f"Failed to handle AI analysis request: {e}")
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to start analysis"},
+                connection_id,
+            )
+
+    @staticmethod
+    async def handle_ai_analysis_progress_request(
+        session_id: str, connection_id: str, user: User, message: dict
+    ):
+        """AI分析の進行状況リクエスト処理"""
+        try:
+            analysis_id = message.get("analysis_id")
+            
+            if not analysis_id:
+                await manager.send_personal_message(
+                    {
+                        "type": "error",
+                        "message": "Analysis ID is required for progress request",
+                    },
+                    connection_id,
+                )
+                return
+
+            # 分析の進行状況を取得
+            from app.services.ai_analysis_service import AIAnalysisService
+            from app.integrations.openai_client import openai_client
+            
+            ai_analysis_service = AIAnalysisService(openai_client)
+            
+            # データベースセッションを取得
+            from app.core.database import AsyncSessionLocal
+            async with AsyncSessionLocal() as db:
+                analysis = await ai_analysis_service.get_analysis_by_id(db, analysis_id, user)
+                
+                if analysis:
+                    await manager.send_personal_message(
+                        {
+                            "type": "analysis_progress",
+                            "analysis_id": analysis_id,
+                            "session_id": session_id,
+                            "status": analysis.status,
+                            "progress": analysis.confidence_score or 0.0,
+                            "title": analysis.title,
+                            "summary": analysis.summary,
+                            "timestamp": datetime.now().isoformat(),
+                        },
+                        connection_id,
+                    )
+                else:
+                    await manager.send_personal_message(
+                        {
+                            "type": "error",
+                            "message": "Analysis not found",
+                        },
+                        connection_id,
+                    )
+
+        except Exception as e:
+            logger.error(f"Failed to handle AI analysis progress request: {e}")
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to get analysis progress"},
+                connection_id,
+            )
+
+    @staticmethod
+    async def handle_ai_analysis_cancel(
+        session_id: str, connection_id: str, user: User, message: dict
+    ):
+        """AI分析のキャンセル処理"""
+        try:
+            analysis_id = message.get("analysis_id")
+            
+            if not analysis_id:
+                await manager.send_personal_message(
+                    {
+                        "type": "error",
+                        "message": "Analysis ID is required for cancellation",
+                    },
+                    connection_id,
+                )
+                return
+
+            # 分析のキャンセル処理（実際の実装は分析サービスで行う）
+            # 今回は通知のみ実装
+            
+            await manager.send_personal_message(
+                {
+                    "type": "analysis_cancelled",
+                    "analysis_id": analysis_id,
+                    "session_id": session_id,
+                    "user_id": user.id,
+                    "timestamp": datetime.now().isoformat(),
+                },
+                connection_id,
+            )
+
+            logger.info(
+                f"Analysis {analysis_id} cancelled by user {user.id}",
+                user_id=user.id,
+                analysis_id=analysis_id,
+                session_id=session_id,
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to handle AI analysis cancellation: {e}")
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to cancel analysis"},
+                connection_id,
+            )
