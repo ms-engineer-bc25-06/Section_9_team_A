@@ -106,6 +106,77 @@ class TeamComparisonResult(BaseModel):
     contribution_areas: List[str] = Field(..., description="貢献できる領域")
 
 
+class TeamToTeamComparison(BaseModel):
+    """チーム間比較用スキーマ"""
+    comparison_id: str = Field(..., description="比較分析ID")
+    source_team_id: str = Field(..., description="比較元チームID")
+    target_team_id: str = Field(..., description="比較対象チームID")
+    
+    # チーム間の相対的な比較（順位は含まない）
+    relative_performance: Dict[str, str] = Field(..., description="相対的なパフォーマンス（数値は含まない）")
+    shared_strengths: List[str] = Field(..., description="両チームの共通の強み")
+    complementary_areas: List[str] = Field(..., description="補完し合える領域")
+    
+    # 学習機会
+    learning_opportunities: List[str] = Field(..., description="相互学習の機会")
+    collaboration_potential: List[str] = Field(..., description="協働の可能性")
+
+
+class IndustryBenchmarkComparison(BaseModel):
+    """業界平均比較用スキーマ"""
+    comparison_id: str = Field(..., description="比較分析ID")
+    industry: str = Field(..., description="業界名")
+    company_size: str = Field(..., description="企業規模")
+    
+    # 業界平均との比較
+    industry_average: Dict[str, float] = Field(..., description="業界平均値")
+    relative_position: Dict[str, str] = Field(..., description="業界内での相対的位置（数値は含まない）")
+    
+    # 業界のベストプラクティス
+    industry_best_practices: List[str] = Field(..., description="業界のベストプラクティス")
+    improvement_opportunities: List[str] = Field(..., description="業界水準に向けた改善機会")
+    
+    # データの信頼性
+    data_source: str = Field(..., description="データソース")
+    last_updated: datetime = Field(..., description="最終更新日時")
+    confidence_level: float = Field(..., description="データの信頼度")
+
+
+class ComparisonReport(BaseModel):
+    """比較分析レポート用スキーマ"""
+    report_id: str = Field(..., description="レポートID")
+    comparison_id: str = Field(..., description="比較分析ID")
+    generated_at: datetime = Field(..., description="生成日時")
+    
+    # レポートの概要
+    title: str = Field(..., description="レポートタイトル")
+    summary: str = Field(..., description="レポート概要")
+    key_findings: List[str] = Field(..., description="主要な発見")
+    
+    # 詳細分析
+    detailed_analysis: Dict[str, Any] = Field(..., description="詳細分析結果")
+    visualizations: List[Dict[str, Any]] = Field(..., description="可視化データ")
+    
+    # アクションプラン
+    action_items: List[str] = Field(..., description="アクション項目")
+    next_steps: List[str] = Field(..., description="次のステップ")
+    
+    # レポート設定
+    report_format: str = Field("pdf", description="レポート形式（pdf, html, json）")
+    include_charts: bool = Field(True, description="チャートを含めるか")
+    include_recommendations: bool = Field(True, description="推奨事項を含めるか")
+
+
+class ReportGenerationRequest(BaseModel):
+    """レポート生成リクエスト用スキーマ"""
+    comparison_id: str = Field(..., description="比較分析ID")
+    report_format: str = Field("pdf", description="レポート形式")
+    include_charts: bool = Field(True, description="チャートを含めるか")
+    include_recommendations: bool = Field(True, description="推奨事項を含めるか")
+    custom_sections: List[str] = Field(default_factory=list, description="カスタムセクション")
+    language: str = Field("ja", description="レポート言語")
+
+
 class ComparisonFilters(BaseModel):
     """比較分析フィルター用スキーマ"""
     department: Optional[str] = Field(None, description="部署フィルター")

@@ -8,7 +8,8 @@ from app.core.auth import get_current_active_user
 from app.models.user import User
 from app.schemas.comparison_analysis import (
     ComparisonRequest, ComparisonResult, ComparisonAnalytics,
-    ComparisonPrivacySettings, ComparisonFilters, ComparisonType, ComparisonScope
+    ComparisonPrivacySettings, ComparisonFilters, ComparisonType, ComparisonScope,
+    TeamToTeamComparison, IndustryBenchmarkComparison, ComparisonReport
 )
 from app.services.comparison_analysis_service import comparison_analysis_service
 from app.core.exceptions import (
@@ -414,7 +415,7 @@ async def get_safety_guidelines():
     
     このエンドポイントは、比較分析における心理的安全性を保つための
     ガイドラインを提供します。ユーザーが安心して比較分析を利用できる
-    よう、安全な使用方法を説明しています。
+     よう、安全な使用方法を説明しています。
     """
     guidelines = {
         "心理的安全性の保証": [
@@ -444,6 +445,195 @@ async def get_safety_guidelines():
     }
     
     return guidelines
+
+
+@router.post("/team-to-team", response_model=TeamToTeamComparison)
+async def perform_team_to_team_comparison(
+    source_team_id: int = Query(..., description="比較元チームID"),
+    target_team_id: int = Query(..., description="比較対象チームID"),
+    scope: ComparisonScope = Query(ComparisonScope.OVERALL_PERFORMANCE, description="比較対象の範囲"),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    チーム間比較分析を実行
+    
+    このエンドポイントは、2つのチーム間の比較分析を提供します。
+    個人の特定を避け、チーム全体の相対的な強み・補完領域・協働機会に
+     焦点を当てています。
+    
+    注意: 両チームのメンバーである必要があります。
+    """
+    try:
+        # チーム間比較分析の実行
+        result = await comparison_analysis_service.perform_team_to_team_comparison(
+            db, current_user, source_team_id, target_team_id, scope
+        )
+
+        logger.info(
+            "チーム間比較分析を実行",
+            user_id=current_user.id,
+            source_team_id=source_team_id,
+            target_team_id=target_team_id,
+            scope=scope
+        )
+
+        return result
+
+    except PermissionException as e:
+        logger.warning(f"チーム間比較分析で権限エラー: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"チーム間比較分析の実行でエラー: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="チーム間比較分析の実行に失敗しました"
+        )
+
+
+@router.post("/industry-benchmark", response_model=IndustryBenchmarkComparison)
+async def perform_industry_benchmark_comparison(
+    industry: str = Query(..., description="業界名（IT, Finance等）"),
+    company_size: str = Query(..., description="企業規模（startup, medium, large等）"),
+    scope: ComparisonScope = Query(ComparisonScope.OVERALL_PERFORMANCE, description="比較対象の範囲"),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    業界平均比較分析を実行
+    
+    このエンドポイントは、業界のベンチマークデータとの比較分析を提供します。
+    業界平均との相対的な位置づけ、業界のベストプラクティス、
+     改善機会を特定します。
+    
+    利用可能な業界: IT, Finance
+    利用可能な企業規模: startup, medium, large
+    """
+    try:
+        # 業界平均比較分析の実行
+        result = await comparison_analysis_service.perform_industry_benchmark_comparison(
+            db, current_user, industry, company_size, scope
+        )
+
+        logger.info(
+            "業界平均比較分析を実行",
+            user_id=current_user.id,
+            industry=industry,
+            company_size=company_size,
+            scope=scope
+        )
+
+        return result
+
+    except Exception as e:
+        logger.error(f"業界平均比較分析の実行でエラー: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="業界平均比較分析の実行に失敗しました"
+        )
+
+
+@router.post("/generate-report", response_model=ComparisonReport)
+async def generate_comparison_report(
+    comparison_id: str = Query(..., description="比較分析ID"),
+    report_format: str = Query("pdf", description="レポート形式（pdf, html, json）"),
+    include_charts: bool = Query(True, description="チャートを含めるか"),
+    include_recommendations: bool = Query(True, description="推奨事項を含めるか"),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    比較分析レポートを生成
+    
+    このエンドポイントは、比較分析結果を基にした詳細なレポートを生成します。
+    レポートには、主要な発見、詳細分析、可視化データ、アクションプランが
+     含まれます。
+    
+    利用可能なレポート形式: pdf, html, json
+    """
+    try:
+        # レポート生成の実行
+        result = await comparison_analysis_service.generate_comparison_report(
+            db, current_user, comparison_id, report_format, include_charts, include_recommendations
+        )
+
+        logger.info(
+            "比較分析レポートを生成",
+            user_id=current_user.id,
+            comparison_id=comparison_id,
+            report_format=report_format
+        )
+
+        return result
+
+    except NotFoundException as e:
+        logger.warning(f"レポート生成で比較分析結果が見つからない: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"レポート生成でエラー: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="レポート生成に失敗しました"
+        )
+
+
+@router.get("/available-industries", response_model=List[str])
+async def get_available_industries():
+    """
+    利用可能な業界を取得
+    
+    このエンドポイントは、業界平均比較分析で利用可能な業界の一覧を提供します。
+    各業界の説明も含まれています。
+    """
+    industries = [
+        "IT - 情報技術業界（ソフトウェア開発、ITサービス等）",
+        "Finance - 金融業界（銀行、保険、投資等）",
+        "Healthcare - ヘルスケア業界（医療、製薬、バイオテック等）",
+        "Manufacturing - 製造業界（自動車、電子機器、食品等）",
+        "Retail - 小売業界（EC、実店舗、流通等）"
+    ]
+    
+    return industries
+
+
+@router.get("/available-company-sizes", response_model=List[str])
+async def get_available_company_sizes():
+    """
+    利用可能な企業規模を取得
+    
+    このエンドポイントは、業界平均比較分析で利用可能な企業規模の一覧を提供します。
+    各規模の定義も含まれています。
+    """
+    company_sizes = [
+        "startup - スタートアップ（従業員50名未満、設立5年未満）",
+        "medium - 中堅企業（従業員50-1000名、設立5-20年）",
+        "large - 大企業（従業員1000名以上、設立20年以上）"
+    ]
+    
+    return company_sizes
+
+
+@router.get("/report-formats", response_model=List[str])
+async def get_available_report_formats():
+    """
+    利用可能なレポート形式を取得
+    
+    このエンドポイントは、レポート生成で利用可能な形式の一覧を提供します。
+    各形式の特徴も含まれています。
+    """
+    formats = [
+        "pdf - PDF形式（印刷・共有に最適、高品質なレイアウト）",
+        "html - HTML形式（Web表示に最適、インタラクティブな要素）",
+        "json - JSON形式（データ処理・API連携に最適、構造化データ）"
+    ]
+    
+    return formats
 
 
 # プライベート関数（心理的安全性を保つための実装）
