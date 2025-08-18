@@ -8,6 +8,8 @@ import { Alert, AlertDescription } from "@/components/ui/Alert"
 import { Badge } from "@/components/ui/Badge"
 import { CreditCard, Plus, AlertTriangle, CheckCircle } from "lucide-react"
 import { AdminStripeCheckout } from "./AdminStripeCheckout"
+import { AdminMockCheckout } from "./AdminMockCheckout"
+import { useToast } from "@/hooks/use-toast"
 
 interface AdminBillingActionsProps {
   userCount: number
@@ -25,6 +27,8 @@ export function AdminBillingActions({
   const [showCheckout, setShowCheckout] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [paymentSuccess, setPaymentSuccess] = useState(false)
+  const [useMockPayment, setUseMockPayment] = useState(true) // 開発環境ではモック決済をデフォルトに
+  const { toast } = useToast()
 
   const handlePaymentClick = () => {
     if (additionalUsers > 0) {
@@ -37,6 +41,13 @@ export function AdminBillingActions({
     setShowCheckout(false)
     setIsProcessing(false)
     
+    // トースト通知を表示
+    toast({
+      title: "決済完了",
+      description: "決済が正常に完了しました。ユーザーが追加されます。",
+      variant: "success",
+    })
+    
     // 成功メッセージを一定時間後に非表示
     setTimeout(() => {
       setPaymentSuccess(false)
@@ -44,6 +55,19 @@ export function AdminBillingActions({
     
     // データを再取得
     onRefresh()
+    
+    // モック決済の場合は成功ページにリダイレクト
+    if (useMockPayment) {
+      setTimeout(() => {
+        const params = new URLSearchParams({
+          session_id: paymentIntentId,
+          amount: additionalCost.toString(),
+          additional_users: additionalUsers.toString(),
+          organization_id: '1'
+        })
+        window.location.href = `/admin/billing/success?${params.toString()}`
+      }, 2000)
+    }
   }
 
   const handlePaymentError = (errorMessage: string) => {
@@ -116,23 +140,39 @@ export function AdminBillingActions({
                   </div>
                 </div>
                 
-                <Button 
-                  onClick={handlePaymentClick}
-                  disabled={isProcessing}
-                  className="w-full bg-blue-600 hover:bg-blue-700"
-                >
-                  {isProcessing ? (
-                    <div className="flex items-center space-x-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      <span>処理中...</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center space-x-2">
-                      <CreditCard className="h-4 w-4" />
-                      <span>決済を実行する</span>
-                    </div>
-                  )}
-                </Button>
+                <div className="space-y-3">
+                  <Button 
+                    onClick={handlePaymentClick}
+                    disabled={isProcessing}
+                    className="w-full bg-blue-600 hover:bg-blue-700"
+                  >
+                    {isProcessing ? (
+                      <div className="flex items-center space-x-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        <span>処理中...</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center space-x-2">
+                        <CreditCard className="h-4 w-4" />
+                        <span>決済を実行する</span>
+                      </div>
+                    )}
+                  </Button>
+                  
+                  {/* 開発環境用のモック決済切り替え */}
+                  <div className="flex items-center space-x-2 text-xs text-gray-500">
+                    <input
+                      type="checkbox"
+                      id="mock-payment"
+                      checked={useMockPayment}
+                      onChange={(e) => setUseMockPayment(e.target.checked)}
+                      className="rounded border-gray-300"
+                    />
+                    <label htmlFor="mock-payment">
+                      モック決済を使用（開発環境用）
+                    </label>
+                  </div>
+                </div>
               </>
             ) : (
               <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
@@ -147,7 +187,7 @@ export function AdminBillingActions({
         </Card>
 
         {/* ユーザー管理アクション */}
-        <Card>
+        {/* <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <Plus className="h-5 w-5 text-green-600" />
@@ -190,13 +230,23 @@ export function AdminBillingActions({
               >
                 情報を更新
               </Button>
-            </div>
-          </CardContent>
-        </Card>
+            </div> */}
+          {/* </CardContent>
+        </Card> */}
       </div>
 
-      {/* Stripe決済フォーム */}
-      {showCheckout && (
+      {/* 決済フォーム */}
+      {showCheckout && useMockPayment && (
+        <AdminMockCheckout
+          amount={additionalCost}
+          additionalUsers={additionalUsers}
+          onSuccess={handlePaymentSuccess}
+          onError={handlePaymentError}
+          onCancel={handlePaymentCancel}
+        />
+      )}
+      
+      {showCheckout && !useMockPayment && (
         <AdminStripeCheckout
           amount={additionalCost}
           additionalUsers={additionalUsers}
