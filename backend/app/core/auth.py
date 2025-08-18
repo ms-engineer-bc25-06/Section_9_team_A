@@ -8,7 +8,7 @@ import firebase_admin
 from firebase_admin import auth, credentials
 import structlog
 
-from app.config import settings
+from app.core.config import settings
 from app.models.user import User
 from app.core.database import get_db, AsyncSessionLocal
 from sqlalchemy.ext.asyncio import AsyncSession

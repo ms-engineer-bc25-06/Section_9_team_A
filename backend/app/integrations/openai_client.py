@@ -7,7 +7,7 @@ import numpy as np
 from typing import Optional, Dict, Any, List
 import structlog
 from openai import AsyncOpenAI
-from app.config import settings
+from app.core.config import settings
 
 logger = structlog.get_logger()
 

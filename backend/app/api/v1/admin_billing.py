@@ -2,6 +2,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select
+import stripe
 
 from app.api.deps import get_current_admin_user, get_db
 from app.models.user import User
@@ -233,38 +234,66 @@ async def create_checkout_session(
                 detail="金額が正しくありません"
             )
         
-        # Stripe Checkout Session作成（実際の実装ではStripe APIを使用）
-        # 現在はモック実装
-        import uuid
-        session_id = f"cs_{uuid.uuid4().hex[:8]}"
-        checkout_url = f"https://checkout.stripe.com/pay/{session_id}"
+        # Stripe Checkout Session作成
+        import stripe
+        stripe.api_key = settings.STRIPE_SECRET_KEY
         
-        # 決済レコードを作成
-        payment = Payment(
-            organization_id=request.organization_id,
-            stripe_payment_intent_id=f"pi_{uuid.uuid4().hex[:8]}",
-            stripe_checkout_session_id=session_id,
-            amount=request.amount,
-            currency=request.currency,
-            status="pending",
-            description=f"{request.additional_users}人分の追加料金",
-            payment_metadata={
-                "additional_users": request.additional_users,
-                "organization_id": request.organization_id
-            }
-        )
-        
-        db.add(payment)
-        db.commit()
-        
-        return CheckoutSessionResponse(
-            session_id=session_id,
-            checkout_url=checkout_url,
-            amount=request.amount,
-            currency=request.currency,
-            organization_id=request.organization_id,
-            additional_users=request.additional_users
-        )
+        try:
+            # Checkout Session作成
+            checkout_session = stripe.checkout.Session.create(
+                payment_method_types=['card'],
+                line_items=[{
+                    'price_data': {
+                        'currency': request.currency.lower(),
+                        'product_data': {
+                            'name': f'{request.additional_users}人分の追加ユーザー料金',
+                            'description': f'{organization.name}の追加ユーザー{request.additional_users}人分',
+                        },
+                        'unit_amount': request.amount,  # セント単位
+                    },
+                    'quantity': 1,
+                }],
+                mode='payment',
+                success_url=f"{settings.FRONTEND_URL}/admin/billing/success?session_id={{CHECKOUT_SESSION_ID}}&amount={request.amount}&additional_users={request.additional_users}&organization_id={request.organization_id}",
+                cancel_url=f"{settings.FRONTEND_URL}/admin/users/add?canceled=true",
+                metadata={
+                    'additional_users': request.additional_users,
+                    'organization_id': request.organization_id
+                }
+            )
+            
+            # 決済レコードを作成
+            payment = Payment(
+                organization_id=request.organization_id,
+                stripe_payment_intent_id=checkout_session.payment_intent,
+                stripe_checkout_session_id=checkout_session.id,
+                amount=request.amount,
+                currency=request.currency,
+                status="pending",
+                description=f"{request.additional_users}人分の追加料金",
+                payment_metadata={
+                    "additional_users": request.additional_users,
+                    "organization_id": request.organization_id
+                }
+            )
+            
+            db.add(payment)
+            await db.commit()
+            
+            return CheckoutSessionResponse(
+                session_id=checkout_session.id,
+                checkout_url=checkout_session.url,
+                amount=request.amount,
+                currency=request.currency,
+                organization_id=request.organization_id,
+                additional_users=request.additional_users
+            )
+            
+        except stripe.error.StripeError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Stripeエラー: {str(e)}"
+            )
         
     except HTTPException:
         raise

@@ -17,6 +17,7 @@ from app.api.v1 import (
     participant_management,
     topic_generation,
     team_dynamics,
+    admin_billing,
 )
 
 api_router = APIRouter()
@@ -69,6 +70,9 @@ api_router.include_router(
 
 # 管理者のルートを登録
 api_router.include_router(admin_role.router, prefix="/admin-role", tags=["管理者"])
+
+# 管理者用決済・課金管理
+api_router.include_router(admin_billing.router, prefix="/admin", tags=["管理者決済"])
 
 # 参加者管理
 api_router.include_router(
