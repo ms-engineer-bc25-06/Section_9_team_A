@@ -3,13 +3,14 @@
 // プロフィール編集ページ
 import { ProfileEditForm } from "@/components/profile/ProfileEditForm"
 import { FeedbackApprovalManager } from "@/components/profile/FeedbackApprovalManager"
+import { PersonalAnalysisPrivacyManager } from "@/components/profile/PersonalAnalysisPrivacyManager"
 import { Button } from "@/components/ui/Button"
-import { ArrowLeft, User, FileText } from "lucide-react"
+import { ArrowLeft, User, FileText, BarChart3 } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 
 export default function ProfileEditPage() {
-  const [activeTab, setActiveTab] = useState<'profile' | 'feedback'>('profile')
+  const [activeTab, setActiveTab] = useState<'profile' | 'feedback' | 'analysis-privacy'>('profile')
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -54,6 +55,17 @@ export default function ProfileEditPage() {
                 <FileText className="h-4 w-4 inline mr-2" />
                 フィードバック承認管理
               </button>
+              <button
+                onClick={() => setActiveTab('analysis-privacy')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'analysis-privacy'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <BarChart3 className="h-4 w-4 inline mr-2" />
+                個人分析公開設定
+              </button>
             </nav>
           </div>
         </div>
@@ -61,6 +73,7 @@ export default function ProfileEditPage() {
         {/* タブコンテンツ */}
         {activeTab === 'profile' && <ProfileEditForm />}
         {activeTab === 'feedback' && <FeedbackApprovalManager />}
+        {activeTab === 'analysis-privacy' && <PersonalAnalysisPrivacyManager />}
       </main>
     </div>
   )
