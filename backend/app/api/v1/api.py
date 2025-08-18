@@ -15,6 +15,7 @@ from app.api.v1 import (
     billing,
     audit_logs,
     feedback_approvals,
+    comparison_analysis,
 )
 
 api_router = APIRouter()
@@ -81,4 +82,9 @@ api_router.include_router(
 # フィードバック承認
 api_router.include_router(
     feedback_approvals.router, prefix="/feedback-approvals", tags=["フィードバック承認"]
+)
+
+# 比較分析
+api_router.include_router(
+    comparison_analysis.router, prefix="/comparison-analysis", tags=["比較分析"]
 )
