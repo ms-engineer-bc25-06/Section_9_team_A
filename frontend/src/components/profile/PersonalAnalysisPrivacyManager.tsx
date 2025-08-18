@@ -72,13 +72,13 @@ export function PersonalAnalysisPrivacyManager() {
     }) : null)
   }
 
-  const handleStagedPublicationChange = (key: keyof typeof localStagedPublication, value: any) => {
+  const handleStagedPublicationChange = (key: keyof NonNullable<typeof localStagedPublication>, value: any) => {
     if (!localStagedPublication) return
     
-    setLocalStagedPublication(prev => ({
-      ...prev!,
+    setLocalStagedPublication(prev => prev ? ({
+      ...prev,
       [key]: value
-    }))
+    }) : null)
   }
 
   const handleStageChange = (stage: keyof NonNullable<typeof localStagedPublication>['stages'], value: boolean) => {

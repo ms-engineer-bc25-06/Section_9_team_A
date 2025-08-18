@@ -5,6 +5,7 @@ export type VisibilityLevel = 'public' | 'team' | 'private' | 'confidential'
 
 // 分析項目別の可視性設定
 export interface AnalysisPrivacySettings {
+  // 分析項目の可視性
   communication_style: VisibilityLevel
   collaboration_score: VisibilityLevel
   leadership_score: VisibilityLevel
@@ -15,6 +16,13 @@ export interface AnalysisPrivacySettings {
   improvement_areas: VisibilityLevel
   growth_suggestions: VisibilityLevel
   personal_insights: VisibilityLevel
+  
+  // プロフィール・目標・進捗の可視性
+  profile_visibility: VisibilityLevel
+  goals_visibility: VisibilityLevel
+  progress_visibility: VisibilityLevel
+  communication_visibility: VisibilityLevel
+  analysis_visibility: VisibilityLevel
 }
 
 // 段階的公開設定
@@ -30,6 +38,15 @@ export interface StagedPublicationSettings {
     org_to_public: number
   }
   auto_approval: boolean
+  
+  // アクセス制御設定
+  allow_team_access: boolean
+  allow_manager_access: boolean
+  allow_hr_access: boolean
+  
+  // データ保持ポリシー
+  auto_delete_enabled: boolean
+  data_retention_days: number
 }
 
 // 分析結果の公開状態

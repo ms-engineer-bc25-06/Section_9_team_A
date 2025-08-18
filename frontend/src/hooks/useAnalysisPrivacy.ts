@@ -224,7 +224,12 @@ export const VISIBILITY_PRESETS = {
     analytical_score: 'public' as const,
     improvement_areas: 'public' as const,
     growth_suggestions: 'public' as const,
-    personal_insights: 'public' as const
+    personal_insights: 'public' as const,
+    profile_visibility: 'public' as const,
+    goals_visibility: 'public' as const,
+    progress_visibility: 'public' as const,
+    communication_visibility: 'public' as const,
+    analysis_visibility: 'public' as const
   },
   TEAM_ONLY: {
     communication_style: 'team' as const,
@@ -236,7 +241,12 @@ export const VISIBILITY_PRESETS = {
     analytical_score: 'team' as const,
     improvement_areas: 'team' as const,
     growth_suggestions: 'team' as const,
-    personal_insights: 'team' as const
+    personal_insights: 'team' as const,
+    profile_visibility: 'team' as const,
+    goals_visibility: 'team' as const,
+    progress_visibility: 'team' as const,
+    communication_visibility: 'team' as const,
+    analysis_visibility: 'team' as const
   },
   MOSTLY_PRIVATE: {
     communication_style: 'private' as const,
@@ -248,7 +258,12 @@ export const VISIBILITY_PRESETS = {
     analytical_score: 'private' as const,
     improvement_areas: 'private' as const,
     growth_suggestions: 'private' as const,
-    personal_insights: 'private' as const
+    personal_insights: 'private' as const,
+    profile_visibility: 'private' as const,
+    goals_visibility: 'private' as const,
+    progress_visibility: 'private' as const,
+    communication_visibility: 'private' as const,
+    analysis_visibility: 'private' as const
   },
   SELECTIVE_SHARING: {
     communication_style: 'team' as const,
@@ -260,7 +275,12 @@ export const VISIBILITY_PRESETS = {
     analytical_score: 'team' as const,
     improvement_areas: 'private' as const,
     growth_suggestions: 'private' as const,
-    personal_insights: 'private' as const
+    personal_insights: 'private' as const,
+    profile_visibility: 'team' as const,
+    goals_visibility: 'private' as const,
+    progress_visibility: 'team' as const,
+    communication_visibility: 'team' as const,
+    analysis_visibility: 'private' as const
   }
 }
 
@@ -277,7 +297,12 @@ export const STAGED_PUBLICATION_PRESETS = {
       team_to_org: 7,
       org_to_public: 30
     },
-    auto_approval: false
+    auto_approval: false,
+    allow_team_access: true,
+    allow_manager_access: false,
+    allow_hr_access: false,
+    auto_delete_enabled: false,
+    data_retention_days: 365
   },
   SLOW_PUBLIC_RELEASE: {
     enabled: true,
@@ -290,7 +315,12 @@ export const STAGED_PUBLICATION_PRESETS = {
       team_to_org: 14,
       org_to_public: 60
     },
-    auto_approval: true
+    auto_approval: true,
+    allow_team_access: true,
+    allow_manager_access: true,
+    allow_hr_access: false,
+    auto_delete_enabled: true,
+    data_retention_days: 730
   },
   QUICK_TEAM_SHARING: {
     enabled: true,
@@ -303,6 +333,11 @@ export const STAGED_PUBLICATION_PRESETS = {
       team_to_org: 3,
       org_to_public: 30
     },
-    auto_approval: true
+    auto_approval: true,
+    allow_team_access: true,
+    allow_manager_access: false,
+    allow_hr_access: false,
+    auto_delete_enabled: false,
+    data_retention_days: 365
   }
 }
