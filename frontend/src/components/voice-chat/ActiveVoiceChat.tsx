@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar"
 import { Badge } from "@/components/ui/Badge"
 import { Mic, MicOff, Volume2, VolumeX, Phone, Users, MessageCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useVoiceChat } from "@/hooks/useVoiceChat"
+import { useWebRTCVoiceChat } from "@/hooks/useWebRTCVoiceChat"
 import { AudioCapture } from "./AudioCapture"
 import { ParticipantsList } from "./ParticipantsList"
 
@@ -60,14 +60,27 @@ const TALK_TOPICS = [
 ]
 
 export function ActiveVoiceChat({ roomId }: Props) {
-  const [isMuted, setIsMuted] = useState(false)
-  const [isSpeakerOn, setIsSpeakerOn] = useState(true)
   const [duration, setDuration] = useState(0)
-  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error'>('connecting')
   const [currentTopic, setCurrentTopic] = useState<{ text: string; category: string; description: string }>({ text: '', category: '', description: '' })
   const router = useRouter()
-  const sessionId = useMemo(() => roomId, [roomId])
-  const { isConnected, participants, join, leave, muteParticipant, changeParticipantRole, removeParticipant } = useVoiceChat(sessionId)
+  
+  // WebRTC音声チャットフック
+  const {
+    isConnected,
+    isInitialized,
+    connectionState,
+    isMuted,
+    isSpeakerOn,
+    toggleMute,
+    toggleSpeaker,
+    localStream,
+    remoteStreams,
+    participants,
+    joinRoom,
+    leaveRoom,
+    error,
+    connectionStats,
+  } = useWebRTCVoiceChat(roomId)
 
   // 現在のユーザー情報（実際の実装では認証から取得）
   const currentUser = {
@@ -79,24 +92,22 @@ export function ActiveVoiceChat({ roomId }: Props) {
 
   // 参加者データを新しい形式に変換
   const formattedParticipants = useMemo(() => {
-    return participants.map(p => ({
-      id: parseInt(p.id),
-      name: p.display_name || p.username || "Unknown",
-      email: p.email || `${p.username}@example.com`,
-      role: (p.role === 'ホスト' ? 'HOST' : 
-             p.role === 'モデレーター' ? 'MODERATOR' : 
-             p.role === 'オブザーバー' ? 'OBSERVER' : 'PARTICIPANT') as 'HOST' | 'MODERATOR' | 'PARTICIPANT' | 'OBSERVER',
-      status: (p.status === 'online' ? 'CONNECTED' : 'DISCONNECTED') as 'CONNECTED' | 'DISCONNECTED' | 'MUTED' | 'BANNED',
-      isActive: p.is_active || false,
-      isMuted: p.is_muted || false,
-      isSpeaking: p.is_active || false,
-      audioLevel: p.audioLevel || 0.0,
-      joinedAt: p.joinedAt || new Date().toISOString(),
-      lastActivity: p.lastActivity || new Date().toISOString(),
-      speakTimeTotal: p.speakTimeTotal || 0,
-      speakTimeSession: p.speakTimeSession || 0,
-      messagesSent: p.messagesSent || 0,
-      permissions: p.permissions || []
+    return participants.map(peerId => ({
+      id: parseInt(peerId),
+      name: `参加者 ${peerId}`,
+      email: `${peerId}@example.com`,
+      role: 'PARTICIPANT' as const,
+      status: 'CONNECTED' as const,
+      isActive: true,
+      isMuted: false,
+      isSpeaking: false,
+      audioLevel: 0.0,
+      joinedAt: new Date().toISOString(),
+      lastActivity: new Date().toISOString(),
+      speakTimeTotal: 0,
+      speakTimeSession: 0,
+      messagesSent: 0,
+      permissions: []
     }))
   }, [participants])
 
@@ -116,9 +127,8 @@ export function ActiveVoiceChat({ roomId }: Props) {
   // 参加者管理のハンドラー
   const handleMuteParticipant = async (participantId: number, muted: boolean) => {
     try {
-      // WebSocketを通じて参加者をミュート/ミュート解除
-      muteParticipant(participantId.toString(), muted);
       console.log(`参加者 ${participantId} を${muted ? 'ミュート' : 'ミュート解除'}`);
+      // TODO: WebRTC経由で参加者をミュート/ミュート解除
     } catch (error) {
       console.error('参加者のミュート状態変更に失敗:', error);
     }
@@ -126,9 +136,8 @@ export function ActiveVoiceChat({ roomId }: Props) {
 
   const handleChangeRole = async (participantId: number, newRole: string) => {
     try {
-      // WebSocketを通じて参加者の役割を変更
-      changeParticipantRole(participantId.toString(), newRole);
       console.log(`参加者 ${participantId} の役割を ${newRole} に変更`);
+      // TODO: WebRTC経由で参加者の役割を変更
     } catch (error) {
       console.error('参加者の役割変更に失敗:', error);
     }
@@ -136,9 +145,8 @@ export function ActiveVoiceChat({ roomId }: Props) {
 
   const handleRemoveParticipant = async (participantId: number) => {
     try {
-      // WebSocketを通じて参加者を削除
-      removeParticipant(participantId.toString());
       console.log(`参加者 ${participantId} を削除`);
+      // TODO: WebRTC経由で参加者を削除
     } catch (error) {
       console.error('参加者の削除に失敗:', error);
     }
@@ -146,163 +154,143 @@ export function ActiveVoiceChat({ roomId }: Props) {
 
   // 接続状態の管理
   useEffect(() => {
-    if (isConnected) {
-      setConnectionStatus('connected')
-      join()
-    } else {
-      setConnectionStatus('connecting')
+    if (isInitialized && !isConnected) {
+      joinRoom(roomId)
     }
-  }, [isConnected, join])
+  }, [isInitialized, isConnected, joinRoom, roomId])
 
-  // 接続タイムアウト処理
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (connectionStatus === 'connecting') {
-        setConnectionStatus('error')
-      }
-    }, 10000) // 10秒でタイムアウト
-
-    return () => clearTimeout(timeout)
-  }, [connectionStatus])
-
-  // トークテーマのランダム選択
-  useEffect(() => {
-    const randomTopic = TALK_TOPICS[Math.floor(Math.random() * TALK_TOPICS.length)]
-    setCurrentTopic(randomTopic)
-  }, [])
-
-  // 新しいトークテーマを選択
-  const selectNewTopic = () => {
-    const currentIndex = TALK_TOPICS.findIndex(topic => topic.text === currentTopic.text)
-    let newIndex
-    do {
-      newIndex = Math.floor(Math.random() * TALK_TOPICS.length)
-    } while (newIndex === currentIndex && TALK_TOPICS.length > 1)
-    
-    setCurrentTopic(TALK_TOPICS[newIndex])
-  }
-
-  useEffect(() => {
-    const timer = setInterval(() => setDuration((prev) => prev + 1), 1000)
-    return () => clearInterval(timer)
-  }, [])
-
-  const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
-  }
-
-  const handleEndCall = () => {
-    try {
-      leave()
-    } finally {
-      router.push("/voice-chat")
-    }
-  }
-
-  // 接続状態に応じたステータス表示
-  const renderConnectionStatus = () => {
-    switch (connectionStatus) {
+  // 接続状態に基づく表示
+  const getConnectionStatusText = () => {
+    switch (connectionState) {
+      case 'new':
+        return '初期化中...'
       case 'connecting':
-        return (
-          <div className="text-center mb-8">
-            <div className="text-4xl font-bold mb-2">{formatDuration(duration)}</div>
-            <Badge variant="secondary" className="text-lg px-4 py-2 animate-pulse">
-              接続中... - Room {roomId}
-            </Badge>
-          </div>
-        )
+        return '接続中...'
       case 'connected':
-        return (
-          <div className="text-center mb-8">
-            <div className="text-4xl font-bold mb-2">{formatDuration(duration)}</div>
-            <Badge variant="default" className="text-lg px-4 py-2 bg-green-600">
-              接続完了 - Room {roomId}
-            </Badge>
-          </div>
-        )
-      case 'error':
-        return (
-          <div className="text-center mb-8">
-            <div className="text-4xl font-bold mb-2">{formatDuration(duration)}</div>
-            <Badge variant="destructive" className="text-lg px-4 py-2">
-              接続エラー - Room {roomId}
-            </Badge>
-          </div>
-        )
+        return '接続済み'
+      case 'disconnected':
+        return '切断中...'
+      case 'failed':
+        return '接続失敗'
+      case 'closed':
+        return '切断済み'
+      default:
+        return '不明'
     }
+  }
+
+  // 接続状態に基づく色
+  const getConnectionStatusColor = () => {
+    switch (connectionState) {
+      case 'connected':
+        return 'text-green-600'
+      case 'connecting':
+        return 'text-yellow-600'
+      case 'failed':
+      case 'disconnected':
+        return 'text-red-600'
+      default:
+        return 'text-gray-600'
+    }
+  }
+
+  // エラー表示
+  if (error) {
+    return (
+      <div className="text-center py-8">
+        <div className="text-red-600 text-lg font-semibold mb-4">エラーが発生しました</div>
+        <div className="text-gray-600 mb-4">{error}</div>
+        <Button onClick={() => joinRoom(roomId)} variant="outline">
+          再接続を試す
+        </Button>
+      </div>
+    )
   }
 
   return (
-    <div className="max-w-6xl mx-auto">
-      {renderConnectionStatus()}
-
-      {/* トークテーマ表示 */}
-      {connectionStatus === 'connected' && currentTopic && (
-        <Card className="bg-gradient-to-r from-blue-900 to-purple-900 border-blue-700 mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between text-white">
-              <div className="flex items-center space-x-2">
-                <MessageCircle className="h-5 w-5 text-blue-300" />
-                <span>今日のトークテーマ</span>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={selectNewTopic}
-                className="border-blue-300 text-blue-300 hover:bg-blue-800"
-              >
-                別のテーマ
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center">
-              <div className="mb-3">
-                <Badge variant="outline" className="border-blue-300 text-blue-300 mb-2">
-                  {currentTopic.category}
-                </Badge>
-              </div>
-              <p className="text-2xl font-bold text-blue-100 mb-3">
-                「{currentTopic.text}」
-              </p>
-              <p className="text-sm text-blue-300 mb-4">
-                {currentTopic.description}
-              </p>
-              <div className="flex justify-center space-x-4 text-xs text-blue-400">
-                <span>💡 話しやすい話題</span>
-                <span>🎯 共通の興味を見つけよう</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* 参加者リスト */}
-      <Card className="bg-gray-800 border-gray-700 mb-8">
+    <div className="space-y-6">
+      {/* 接続状態表示 */}
+      <Card>
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2 text-white">
-            <Users className="h-5 w-5" />
-            <span>参加中のメンバー</span>
+          <CardTitle className="flex items-center justify-between">
+            <span>接続状態</span>
+            <Badge 
+              variant={connectionState === 'connected' ? 'default' : 'secondary'}
+              className={getConnectionStatusColor()}
+            >
+              {getConnectionStatusText()}
+            </Badge>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ParticipantsList
-            participants={formattedParticipants}
-            currentUserId={currentUser.id}
-            currentUserRole={currentUser.role}
-            onMuteParticipant={handleMuteParticipant}
-            onChangeRole={handleChangeRole}
-            onRemoveParticipant={handleRemoveParticipant}
-          />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div>
+              <span className="text-gray-600">総参加者数:</span>
+              <span className="ml-2 font-semibold">{connectionStats.totalPeers}</span>
+            </div>
+            <div>
+              <span className="text-gray-600">接続済み:</span>
+              <span className="ml-2 font-semibold text-green-600">{connectionStats.connectedPeers}</span>
+            </div>
+            <div>
+              <span className="text-gray-600">接続失敗:</span>
+              <span className="ml-2 font-semibold text-red-600">{connectionStats.failedConnections}</span>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      {/* 音声キャプチャ機能 */}
-      <Card className="bg-gray-800 border-gray-700 mb-8">
+      {/* 音声コントロール */}
+      <Card>
         <CardHeader>
-          <CardTitle className="text-white">音声キャプチャ</CardTitle>
+          <CardTitle>音声コントロール</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-4">
+            <Button
+              onClick={toggleMute}
+              variant={isMuted ? "destructive" : "default"}
+              size="lg"
+            >
+              {isMuted ? <MicOff className="h-5 w-5 mr-2" /> : <Mic className="h-5 w-5 mr-2" />}
+              {isMuted ? "ミュート解除" : "ミュート"}
+            </Button>
+
+            <Button
+              onClick={toggleSpeaker}
+              variant={isSpeakerOn ? "default" : "outline"}
+              size="lg"
+            >
+              {isSpeakerOn ? <Volume2 className="h-5 w-5 mr-2" /> : <VolumeX className="h-5 w-5 mr-2" />}
+              {isSpeakerOn ? "スピーカーON" : "スピーカーOFF"}
+            </Button>
+
+            <Button
+              onClick={leaveRoom}
+              variant="outline"
+              size="lg"
+              className="text-red-600 hover:text-red-700"
+            >
+              <Phone className="h-5 w-5 mr-2" />
+              通話終了
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 参加者リスト */}
+      <ParticipantsList
+        participants={formattedParticipants}
+        currentUser={currentUser}
+        onMuteParticipant={handleMuteParticipant}
+        onChangeRole={handleChangeRole}
+        onRemoveParticipant={handleRemoveParticipant}
+      />
+
+      {/* 音声キャプチャ（開発用） */}
+      <Card>
+        <CardHeader>
+          <CardTitle>音声キャプチャ（開発用）</CardTitle>
         </CardHeader>
         <CardContent>
           <AudioCapture
@@ -312,38 +300,36 @@ export function ActiveVoiceChat({ roomId }: Props) {
         </CardContent>
       </Card>
 
-      {/* 音声コントロール */}
-      <div className="flex justify-center space-x-4">
-        <Button
-          variant={isMuted ? "destructive" : "secondary"}
-          size="lg"
-          className="rounded-full w-16 h-16"
-          onClick={() => setIsMuted(!isMuted)}
-          type="button"
-        >
-          {isMuted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
-        </Button>
-
-        <Button
-          variant={isSpeakerOn ? "secondary" : "outline"}
-          size="lg"
-          className="rounded-full w-16 h-16"
-          onClick={() => setIsSpeakerOn(!isSpeakerOn)}
-          type="button"
-        >
-          {isSpeakerOn ? <Volume2 className="h-6 w-6" /> : <VolumeX className="h-6 w-6" />}
-        </Button>
-
-        <Button
-          variant="destructive"
-          size="lg"
-          className="rounded-full w-16 h-16"
-          onClick={handleEndCall}
-          type="button"
-        >
-          <Phone className="h-6 w-6" />
-        </Button>
-      </div>
+      {/* リモートストリーム表示 */}
+      {remoteStreams.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>リモート参加者</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {remoteStreams.map(({ peerId, stream, isActive }) => (
+                <div key={peerId} className="border rounded-lg p-4">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <div className={`w-3 h-3 rounded-full ${isActive ? 'bg-green-500' : 'bg-gray-400'}`} />
+                    <span className="font-medium">参加者 {peerId}</span>
+                  </div>
+                  <audio
+                    ref={(audio) => {
+                      if (audio && stream) {
+                        audio.srcObject = stream
+                      }
+                    }}
+                    autoPlay
+                    controls
+                    className="w-full"
+                  />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
