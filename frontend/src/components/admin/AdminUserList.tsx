@@ -7,9 +7,11 @@ import { Input } from "@/components/ui/Input"
 import { Badge } from "@/components/ui/Badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table"
-import { Search, Users, UserCheck, UserX, MoreHorizontal } from "lucide-react"
-import { useState } from "react"
+import { Search, Users, UserCheck, MoreHorizontal } from "lucide-react"
+import { useState, useEffect } from "react"
+import Link from "next/link"
 
+// モックデータ（開発環境用）
 const mockUsers = [
   {
     id: 1,
@@ -18,7 +20,6 @@ const mockUsers = [
     department: "開発部",
     joinDate: "2023-04-01",
     lastLogin: "2024-01-15 14:30",
-    status: "active",
     role: "member",
   },
   {
@@ -28,7 +29,6 @@ const mockUsers = [
     department: "デザイン部",
     joinDate: "2023-03-15",
     lastLogin: "2024-01-15 10:15",
-    status: "active",
     role: "member",
   },
   {
@@ -38,7 +38,6 @@ const mockUsers = [
     department: "営業部",
     joinDate: "2023-02-01",
     lastLogin: "2024-01-14 16:45",
-    status: "inactive",
     role: "member",
   },
   {
@@ -48,37 +47,46 @@ const mockUsers = [
     department: "マーケティング部",
     joinDate: "2023-01-10",
     lastLogin: "2024-01-15 09:20",
-    status: "active",
     role: "admin",
   },
 ]
 
 export function AdminUserList() {
   const [searchTerm, setSearchTerm] = useState("")
+  const [users, setUsers] = useState(mockUsers)
 
-  const filteredUsers = mockUsers.filter(
+  // 決済完了後の新しいユーザーを取得
+  useEffect(() => {
+    const pendingUsers = sessionStorage.getItem('pendingUsers')
+    if (pendingUsers) {
+      try {
+        const newUsers = JSON.parse(pendingUsers)
+        const currentDate = new Date().toISOString().split('T')[0]
+        
+        // 新しいユーザーを既存のユーザーリストに追加
+        const usersWithIds = newUsers.map((user: any, index: number) => ({
+          ...user,
+          id: users.length + index + 1,
+          joinDate: currentDate,
+          lastLogin: "未ログイン"
+        }))
+        
+        setUsers(prevUsers => [...prevUsers, ...usersWithIds])
+        
+        // セッションストレージをクリア
+        sessionStorage.removeItem('pendingUsers')
+      } catch (error) {
+        console.error('Error parsing pending users:', error)
+      }
+    }
+  }, [])
+
+  const filteredUsers = users.filter(
     (user) =>
       user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.department.toLowerCase().includes(searchTerm.toLowerCase()),
   )
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "active":
-        return (
-          <Badge variant="default" className="bg-green-500">
-            アクティブ
-          </Badge>
-        )
-      case "inactive":
-        return <Badge variant="secondary">非アクティブ</Badge>
-      case "suspended":
-        return <Badge variant="destructive">停止中</Badge>
-      default:
-        return <Badge variant="secondary">不明</Badge>
-    }
-  }
 
   const getRoleBadge = (role: string) => {
     switch (role) {
@@ -95,63 +103,31 @@ export function AdminUserList() {
     }
   }
 
-  const activeUsers = mockUsers.filter((user) => user.status === "active").length
-  const totalUsers = mockUsers.length
+  const totalUsers = users.length
 
   return (
     <div className="space-y-6">
-      {/* 統計情報 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center space-x-2">
-              <Users className="h-5 w-5 text-blue-500" />
-              <span>総ユーザー数</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-blue-600">{totalUsers}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center space-x-2">
-              <UserCheck className="h-5 w-5 text-green-500" />
-              <span>アクティブユーザー</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-green-600">{activeUsers}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center space-x-2">
-              <UserX className="h-5 w-5 text-gray-500" />
-              <span>非アクティブユーザー</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-gray-600">{totalUsers - activeUsers}</div>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* ユーザー一覧 */}
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle>ユーザー一覧</CardTitle>
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="ユーザーを検索..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+            <div className="flex items-center space-x-4">
+              <div className="relative w-64">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="ユーザーを検索..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Link href="/admin/billing/add-users">
+                <Button className="bg-blue-600 hover:bg-blue-700">
+                  <Users className="h-4 w-4 mr-2" />
+                  ユーザー追加
+                </Button>
+              </Link>
             </div>
           </div>
         </CardHeader>
@@ -161,9 +137,7 @@ export function AdminUserList() {
               <TableRow>
                 <TableHead>ユーザー</TableHead>
                 <TableHead>部署</TableHead>
-                <TableHead>入社日</TableHead>
-                <TableHead>最終ログイン</TableHead>
-                <TableHead>ステータス</TableHead>
+
                 <TableHead>権限</TableHead>
                 <TableHead>操作</TableHead>
               </TableRow>
@@ -184,9 +158,6 @@ export function AdminUserList() {
                     </div>
                   </TableCell>
                   <TableCell>{user.department}</TableCell>
-                  <TableCell>{user.joinDate}</TableCell>
-                  <TableCell className="text-sm">{user.lastLogin}</TableCell>
-                  <TableCell>{getStatusBadge(user.status)}</TableCell>
                   <TableCell>{getRoleBadge(user.role)}</TableCell>
                   <TableCell>
                     <Button variant="ghost" size="sm">
@@ -199,6 +170,33 @@ export function AdminUserList() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* 統計情報 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center space-x-2">
+              <Users className="h-5 w-5 text-blue-500" />
+              <span>総ユーザー数</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-blue-600">{totalUsers}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center space-x-2">
+              <UserCheck className="h-5 w-5 text-green-500" />
+              <span>管理者数</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-green-600">{users.filter((user) => user.role === "admin").length}</div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

@@ -1,59 +1,69 @@
-from pydantic_settings import BaseSettings
-from typing import List, Optional
 import os
+from typing import List, Optional
+from pydantic_settings import BaseSettings
+
 
 class Settings(BaseSettings):
+    """アプリケーション設定"""
+    
+    # 基本設定
+    ENVIRONMENT: str = "development"
+    DEBUG: bool = True
+    API_V1_STR: str = "/api/v1"
+    LOG_LEVEL: str = "INFO"
+    
     # データベース設定
     DATABASE_URL: str = "postgresql+asyncpg://bridge_user:bridge_password@postgres:5432/bridge_line_db"
-    TEST_DATABASE_URL: str = "postgresql+asyncpg://bridge_user:bridge_password@postgres:5432/bridge_line_test_db"
-    
-    # Redis設定
-    REDIS_URL: str = "redis://redis:6379"
+    TEST_DATABASE_URL: Optional[str] = None
     
     # セキュリティ設定
-    SECRET_KEY: str = "your-secret-key-here-change-in-production"
+    SECRET_KEY: str = "your-secret-key-here"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
-    # API設定
-    API_V1_STR: str = "/api/v1"
-    PROJECT_NAME: str = "Bridge Line API"
-    
     # CORS設定
-    BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:3001"]
+    ALLOWED_HOSTS: List[str] = ["*"]
     
-    # 環境設定
-    DEBUG: bool = True
-    ENVIRONMENT: str = "development"
-    LOG_LEVEL: str = "INFO"
+    # Firebase設定
+    FIREBASE_PROJECT_ID: Optional[str] = None
+    FIREBASE_PRIVATE_KEY_ID: Optional[str] = None
+    FIREBASE_PRIVATE_KEY: Optional[str] = None
+    FIREBASE_CLIENT_EMAIL: Optional[str] = None
+    FIREBASE_CLIENT_ID: Optional[str] = None
+    FIREBASE_AUTH_URI: str = "https://accounts.google.com/o/oauth2/auth"
+    FIREBASE_TOKEN_URI: str = "https://oauth2.googleapis.com/token"
+    FIREBASE_AUTH_PROVIDER_X509_CERT_URL: str = "https://www.googleapis.com/oauth2/v1/certs"
+    FIREBASE_CLIENT_X509_CERT_URL: Optional[str] = None
+    
+    # OpenAI設定
+    OPENAI_API_KEY: Optional[str] = None
+    
+    # Stripe設定
+    STRIPE_SECRET_KEY: Optional[str] = None
+    STRIPE_WEBHOOK_SECRET: Optional[str] = None
+    
+    # SMTP設定
+    SMTP_HOST: Optional[str] = None
+    SMTP_PORT: Optional[int] = None
+    SMTP_USERNAME: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
     
     # WebSocket設定
     WEBSOCKET_URL: str = "ws://localhost:8000/ws"
     
-    # Firebase設定（オプション）
-    FIREBASE_CREDENTIALS_PATH: Optional[str] = None
+    # フロントエンド設定
+    FRONTEND_URL: str = "http://localhost:3000"
     
-    # Stripe設定
-    STRIPE_SECRET_KEY: str = "your-stripe-secret-key"
-    STRIPE_WEBHOOK_SECRET: str = "your-stripe-webhook-secret"
-    STRIPE_PRICE_ID: str = "your-stripe-price-id"
-    
-    # SMTP設定
-    SMTP_HOST: str = "smtp.gmail.com"
-    SMTP_PORT: int = 587
-    SMTP_USER: str = "your-email@gmail.com"
-    SMTP_PASSWORD: str = "your-app-password"
-    
-    # OpenAI設定
-    OPENAI_API_KEY: str = "your-openai-api-key"
-    
-    # ストレージ設定
-    STORAGE_BUCKET_NAME: str = "your-storage-bucket-name"
-    STORAGE_PROJECT_ID: str = "your-storage-project-id"
+    # 初期管理者設定
+    INITIAL_ADMIN_FIREBASE_UID: Optional[str] = None
+    INITIAL_ADMIN_EMAIL: Optional[str] = None
+    INITIAL_ADMIN_DISPLAY_NAME: Optional[str] = None
     
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"  # 追加の環境変数を無視
 
-# グローバル設定インスタンス
+
+# 設定インスタンスを作成
 settings = Settings()

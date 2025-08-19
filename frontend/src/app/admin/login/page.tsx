@@ -59,7 +59,7 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-md bg-white rounded-lg shadow-md p-6">
         <div className="text-center mb-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">管理者ログイン</h1>
-          <p className="text-gray-600">Bridge Line 管理者専用ページ</p>
+          <p className="text-gray-600">Bridge LINE 管理者専用ページ</p>
         </div>
 
         <form onSubmit={handleAdminLogin} className="space-y-4">

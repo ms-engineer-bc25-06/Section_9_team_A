@@ -59,10 +59,23 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     last_login_at = Column(DateTime(timezone=True), nullable=True)
 
-    # リレーションシップ（基本的な認証機能のみ）
-    teams = relationship("TeamMember", back_populates="user", uselist=True)
-    owned_teams = relationship("Team", back_populates="owner", uselist=True)
-    voice_sessions = relationship("VoiceSession", back_populates="host", uselist=True)
+    # リレーションシップ
+    teams = relationship("TeamMember", back_populates="user")
+    owned_teams = relationship("Team", back_populates="owner")
+    voice_sessions = relationship("VoiceSession", back_populates="host")
+    transcriptions = relationship("Transcription", back_populates="user")
+    analyses = relationship("Analysis", back_populates="user")
+    subscriptions = relationship("Subscription", back_populates="user")
+    billing_records = relationship("Billing", back_populates="user")
+    created_chat_rooms = relationship("ChatRoom", back_populates="creator")
+    chat_messages = relationship("ChatMessage", back_populates="sender")
+    chat_room_participations = relationship("ChatRoomParticipant", back_populates="user")
+    
+    # チームダイナミクス分析関連
+    team_profiles = relationship("TeamMemberProfile", back_populates="user")
+    
+    # 組織メンバーシップ関連
+    organization_memberships = relationship("OrganizationMember", back_populates="user")
 
     def __repr__(self):
         return f"<User(id={self.id}, email='{self.email}', username='{self.username}')>"

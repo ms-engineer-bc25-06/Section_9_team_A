@@ -1,0 +1,31 @@
+// 管理者用ユーザー数取得API
+import { NextRequest, NextResponse } from 'next/server'
+
+export async function GET(request: NextRequest) {
+  try {
+    // 認証チェック（実際の実装では適切な認証処理を行う）
+    const authHeader = request.headers.get('authorization')
+    if (!authHeader) {
+      return NextResponse.json(
+        { error: '認証が必要です' },
+        { status: 401 }
+      )
+    }
+
+    // 実際の実装では、データベースからユーザー数を取得
+    // 現在はモックデータを返す
+    const mockUserCount = 15 // 仮の値
+
+    return NextResponse.json({
+      userCount: mockUserCount,
+      timestamp: new Date().toISOString()
+    })
+
+  } catch (error) {
+    console.error('ユーザー数取得エラー:', error)
+    return NextResponse.json(
+      { error: 'ユーザー数の取得に失敗しました' },
+      { status: 500 }
+    )
+  }
+}

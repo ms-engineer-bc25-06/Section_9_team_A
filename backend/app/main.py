@@ -4,9 +4,11 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from contextlib import asynccontextmanager
 import structlog
 
-from app.config import settings
+from app.core.config import settings
 from app.api.v1.api import api_router
-
+from app.api.v1.health import router as health_router  
+from app.api.v1 import websocket as websocket_v1
+from app.core.message_handlers import initialize_message_handlers
 from app.core.exceptions import BridgeLineException
 from app.api.deps import handle_bridge_line_exceptions
 

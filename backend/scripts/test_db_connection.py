@@ -12,7 +12,7 @@ from sqlalchemy import text
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from app.core.database import test_database_connection, get_database_url
-from app.config import settings
+from app.core.config import settings
 import structlog
 
 logger = structlog.get_logger()
