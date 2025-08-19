@@ -10,70 +10,54 @@ from sqlalchemy import (
 )
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from datetime import datetime
 
-from app.core.database import Base
+from app.models.base import Base
 
 
 class VoiceSession(Base):
-    """音声セッションモデル"""
+    """音声セッションモデル（基本的な機能のみ）"""
 
     __tablename__ = "voice_sessions"
 
+    # 基本情報
     id = Column(Integer, primary_key=True, index=True)
-
-    # セッション情報
-    session_id = Column(String(255), unique=True, index=True, nullable=False)
+    session_id = Column(String(255), unique=True, nullable=False)
     title = Column(String(255), nullable=True)
     description = Column(Text, nullable=True)
 
-    # 音声関連
+    # 音声ファイル情報
     audio_file_path = Column(String(500), nullable=True)
-    audio_duration = Column(Float, nullable=True)  # 秒単位
-    audio_format = Column(String(50), nullable=True)  # mp3, wav, etc.
-    file_size = Column(Integer, nullable=True)  # バイト単位
+    audio_duration = Column(Float, nullable=True)
+    audio_format = Column(String(50), nullable=True)
+    file_size = Column(Integer, nullable=True)
 
-    # セッション状態
-    status = Column(String(50), default="active")  # active, completed, archived
-    is_public = Column(Boolean, default=False)
-    is_analyzed = Column(Boolean, default=False)
+    # ステータス/可視性
+    status = Column(String(50), nullable=True)
+    is_public = Column(Boolean, nullable=True)
+    is_analyzed = Column(Boolean, nullable=True)
 
-    # 参加者情報
-    participant_count = Column(Integer, default=1)
-    participants = Column(Text, nullable=True)  # JSON形式で参加者情報を保存
+    # 参加者関連
+    participant_count = Column(Integer, nullable=True)
+    participants = Column(Text, nullable=True)
 
-    # 分析結果
+    # 分析関連
     analysis_summary = Column(Text, nullable=True)
     sentiment_score = Column(Float, nullable=True)
-    key_topics = Column(Text, nullable=True)  # JSON形式でトピックを保存
+    key_topics = Column(Text, nullable=True)
 
-    # 外部キー
+    # 所有者/チーム
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
 
     # タイムスタンプ
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=True)
     started_at = Column(DateTime(timezone=True), nullable=True)
     ended_at = Column(DateTime(timezone=True), nullable=True)
 
-    # リレーションシップ
-    user = relationship("User", back_populates="voice_sessions")
+    # リレーションシップ（基本的な機能のみ）
+    host = relationship("User", back_populates="voice_sessions", foreign_keys=[user_id])
     team = relationship("Team", back_populates="voice_sessions")
-    transcriptions = relationship("Transcription", back_populates="voice_session")
-    analyses = relationship("Analysis", back_populates="voice_session")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<VoiceSession(id={self.id}, session_id='{self.session_id}', title='{self.title}')>"
-
-    @property
-    def duration(self) -> float:
-        """セッションの継続時間を計算"""
-        if self.started_at and self.ended_at:
-            return (self.ended_at - self.started_at).total_seconds()
-        return 0.0
-
-    @property
-    def is_completed(self) -> bool:
-        """セッションが完了しているかどうか"""
-        return self.status == "completed" and self.ended_at is not None

@@ -29,7 +29,7 @@ export default function VoiceChatRoomPage({ params }: Props) {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-4">
         <ActiveVoiceChat roomId={params.roomId} />
       </main>
     </div>

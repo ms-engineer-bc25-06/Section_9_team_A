@@ -12,7 +12,7 @@ from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
-from app.core.database import Base
+from app.models.base import Base
 
 
 class ChatRoom(Base):
@@ -55,15 +55,44 @@ class ChatRoom(Base):
     started_at = Column(DateTime(timezone=True), nullable=True)
     ended_at = Column(DateTime(timezone=True), nullable=True)
 
-    # リレーションシップ
-    creator = relationship("User", back_populates="created_chat_rooms")
-    team = relationship("Team", back_populates="chat_rooms")
+    # リレーションシップ（循環参照を避けるため、back_populatesは使用しない）
     messages = relationship(
         "ChatMessage", back_populates="chat_room", cascade="all, delete-orphan"
     )
+    participants_rel = relationship("ChatRoomParticipant", back_populates="chat_room")
 
     def __repr__(self):
         return f"<ChatRoom(id={self.id}, name='{self.name}', room_id='{self.room_id}')>"
+
+    @property
+    def is_active_room(self) -> bool:
+        """ルームがアクティブかどうか"""
+        return self.status == "active" and self.is_active
+
+    @property
+    def is_full(self) -> bool:
+        """ルームが満員かどうか"""
+        return self.current_participants >= self.max_participants
+
+    def start_room(self):
+        """ルームを開始"""
+        self.status = "active"
+        self.started_at = datetime.utcnow()
+
+    def end_room(self):
+        """ルームを終了"""
+        self.status = "ended"
+        self.ended_at = datetime.utcnow()
+
+    def add_participant(self):
+        """参加者を追加"""
+        if not self.is_full:
+            self.current_participants += 1
+
+    def remove_participant(self):
+        """参加者を削除"""
+        if self.current_participants > 0:
+            self.current_participants -= 1
 
 
 class ChatMessage(Base):
@@ -95,12 +124,31 @@ class ChatMessage(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    # リレーションシップ
+    # リレーションシップ（循環参照を避けるため、back_populatesは使用しない）
     chat_room = relationship("ChatRoom", back_populates="messages")
-    sender = relationship("User", back_populates="chat_messages")
 
     def __repr__(self):
         return f"<ChatMessage(id={self.id}, content='{self.content[:50]}...')>"
+
+    @property
+    def is_audio_message(self) -> bool:
+        """音声メッセージかどうか"""
+        return self.message_type == "audio" and self.audio_file_path is not None
+
+    @property
+    def is_system_message(self) -> bool:
+        """システムメッセージかどうか"""
+        return self.message_type == "system"
+
+    def mark_as_edited(self):
+        """編集済みとしてマーク"""
+        self.is_edited = True
+        self.updated_at = datetime.utcnow()
+
+    def mark_as_deleted(self):
+        """削除済みとしてマーク"""
+        self.is_deleted = True
+        self.updated_at = datetime.utcnow()
 
 
 class ChatRoomParticipant(Base):
@@ -124,9 +172,46 @@ class ChatRoomParticipant(Base):
     last_active_at = Column(DateTime(timezone=True), nullable=True)
     total_messages = Column(Integer, default=0)
 
-    # リレーションシップ
-    chat_room = relationship("ChatRoom")
-    user = relationship("User", back_populates="chat_room_participations")
+    # リレーションシップ（循環参照を避けるため、back_populatesは使用しない）
+    chat_room = relationship("ChatRoom", back_populates="participants_rel")
 
     def __repr__(self):
         return f"<ChatRoomParticipant(room_id={self.chat_room_id}, user_id={self.user_id})>"
+
+    @property
+    def is_moderator(self) -> bool:
+        """モデレーターかどうか"""
+        return self.role in ["moderator", "admin"]
+
+    @property
+    def is_admin(self) -> bool:
+        """管理者かどうか"""
+        return self.role == "admin"
+
+    @property
+    def is_muted(self) -> bool:
+        """ミュートされているかどうか"""
+        return self.status == "muted"
+
+    @property
+    def is_banned(self) -> bool:
+        """BANされているかどうか"""
+        return self.status == "banned"
+
+    def update_last_active(self):
+        """最終アクティブ時間を更新"""
+        self.last_active_at = datetime.utcnow()
+
+    def increment_message_count(self):
+        """メッセージ数を増加"""
+        self.total_messages += 1
+
+    def set_role(self, new_role: str):
+        """役割を設定"""
+        if new_role in ["participant", "moderator", "admin"]:
+            self.role = new_role
+
+    def set_status(self, new_status: str):
+        """ステータスを設定"""
+        if new_status in ["active", "muted", "banned"]:
+            self.status = new_status

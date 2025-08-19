@@ -1,13 +1,13 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, Date
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
-from app.core.database import Base
+from app.models.base import Base
 
 
 class User(Base):
-    """ユーザーモデル"""
+    """ユーザーモデル（基本的な認証機能のみ）"""
 
     __tablename__ = "users"
 
@@ -19,6 +19,24 @@ class User(Base):
     avatar_url = Column(String(500), nullable=True)
     bio = Column(Text, nullable=True)
 
+    # プロフィール項目
+    nickname = Column(String(100), nullable=True)
+    department = Column(String(100), nullable=True)
+    join_date = Column(Date, nullable=True)
+    birth_date = Column(Date, nullable=True)
+    hometown = Column(String(200), nullable=True)
+    residence = Column(String(200), nullable=True)
+    hobbies = Column(Text, nullable=True)
+    student_activities = Column(Text, nullable=True)
+    holiday_activities = Column(Text, nullable=True)
+    favorite_food = Column(Text, nullable=True)
+    favorite_media = Column(Text, nullable=True)
+    favorite_music = Column(Text, nullable=True)
+    pets_oshi = Column(Text, nullable=True)
+    respected_person = Column(Text, nullable=True)
+    motto = Column(Text, nullable=True)
+    future_goals = Column(Text, nullable=True)
+
     # Firebase認証関連
     firebase_uid = Column(String(128), unique=True, index=True, nullable=True)
 
@@ -26,10 +44,11 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
     is_premium = Column(Boolean, default=False)
+    is_admin = Column(Boolean, default=False)
 
     # サブスクリプション関連
-    subscription_status = Column(String(50), default="free")  # free, basic, premium
-    subscription_end_date = Column(DateTime, nullable=True)
+    subscription_status = Column(String(50), default="free")
+    subscription_end_date = Column(DateTime(timezone=True), nullable=True)
 
     # 使用量制限
     monthly_voice_minutes = Column(Integer, default=0)
@@ -42,9 +61,21 @@ class User(Base):
 
     # リレーションシップ
     teams = relationship("TeamMember", back_populates="user")
-    voice_sessions = relationship("VoiceSession", back_populates="user")
+    owned_teams = relationship("Team", back_populates="owner")
+    voice_sessions = relationship("VoiceSession", back_populates="host")
     transcriptions = relationship("Transcription", back_populates="user")
     analyses = relationship("Analysis", back_populates="user")
+    subscriptions = relationship("Subscription", back_populates="user")
+    billing_records = relationship("Billing", back_populates="user")
+    created_chat_rooms = relationship("ChatRoom", back_populates="creator")
+    chat_messages = relationship("ChatMessage", back_populates="sender")
+    chat_room_participations = relationship("ChatRoomParticipant", back_populates="user")
+    
+    # チームダイナミクス分析関連
+    team_profiles = relationship("TeamMemberProfile", back_populates="user")
+    
+    # 組織メンバーシップ関連
+    organization_memberships = relationship("OrganizationMember", back_populates="user")
 
     def __repr__(self):
         return f"<User(id={self.id}, email='{self.email}', username='{self.username}')>"

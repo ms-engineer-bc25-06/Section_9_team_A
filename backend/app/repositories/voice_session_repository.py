@@ -326,3 +326,7 @@ class VoiceSessionRepository(
                 f"Error checking session existence by session_id {session_id}: {e}"
             )
             raise
+
+
+# グローバルインスタンス
+voice_session_repository = VoiceSessionRepository()

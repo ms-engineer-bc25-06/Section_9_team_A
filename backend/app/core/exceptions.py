@@ -70,3 +70,24 @@ class ConfigurationException(BridgeLineException):
 
     def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
         super().__init__(message, "CONFIGURATION_ERROR", details)
+
+
+class AnalysisError(BridgeLineException):
+    """AI分析処理例外"""
+
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+        super().__init__(message, "ANALYSIS_ERROR", details)
+
+
+class PrivacyError(BridgeLineException):
+    """プライバシー制御例外"""
+
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+        super().__init__(message, "PRIVACY_ERROR", details)
+
+
+class AccessDeniedError(BridgeLineException):
+    """データアクセス拒否例外"""
+
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+        super().__init__(message, "ACCESS_DENIED", details)

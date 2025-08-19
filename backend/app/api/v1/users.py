@@ -1,136 +1,74 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
-import structlog
+from sqlalchemy import select
+from sqlalchemy.orm import aliased
+from typing import Optional, Dict, Any
 
-from app.core.database import get_db
-from app.core.auth import get_current_active_user
+from app.api.deps import get_session, get_current_user
+from app.schemas.team import UserOut
 from app.models.user import User
-from app.schemas.auth import UserResponse, UserUpdate
-from app.services.auth_service import AuthService
+from app.models.team_member import TeamMember  
 
-router = APIRouter()
-logger = structlog.get_logger()
+router = APIRouter()  # prefix は api.py 側で付与
 
+def _val(profile: Optional[Dict[str, Any]], key: str) -> Optional[str]:
+    if isinstance(profile, dict):
+        v = profile.get(key)
+        if v is None:
+            return None
+        s = str(v).strip()
+        return s if s else None
+    return None
 
-@router.get("/me", response_model=UserResponse)
-async def get_current_user_info(current_user: User = Depends(get_current_active_user)):
-    """現在のユーザー情報を取得"""
-    return current_user
-
-
-@router.put("/me", response_model=UserResponse)
-async def update_current_user(
-    user_update: UserUpdate,
-    current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db),
+@router.get("/{user_id}", response_model=UserOut)
+async def get_user_detail(
+    user_id: str,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
-    """現在のユーザー情報を更新"""
-    try:
-        auth_service = AuthService(db)
+    # 同じチーム所属の確認（自己結合）
+    A = aliased(TeamMember)
+    B = aliased(TeamMember)
+    same_team_stmt = (
+        select(A.team_id)
+        .join(B, A.team_id == B.team_id)
+        .where(A.user_id == current_user.id, B.user_id == user_id)
+        .limit(1)
+    )
+    if not (await db.execute(same_team_stmt)).first():
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="TEAM_ACCESS_DENIED")
 
-        # 更新データを辞書に変換
-        update_data = user_update.dict(exclude_unset=True)
+    u = await db.get(User, user_id)
+    if not u:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="USER_NOT_FOUND")
 
-        updated_user = await auth_service.update_user(
-            user_id=current_user.id, update_data=update_data
-        )
+    prof: Optional[Dict[str, Any]] = getattr(u, "profile", None)
 
-        if not updated_user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to update user"
-            )
-
-        return updated_user
-
-    except Exception as e:
-        logger.error(f"User update failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error",
-        )
-
-
-@router.delete("/me")
-async def delete_current_user(
-    current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """現在のユーザーアカウントを削除"""
-    try:
-        auth_service = AuthService(db)
-
-        success = await auth_service.delete_user(user_id=current_user.id)
-
-        if not success:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to delete user"
-            )
-
-        return {"message": "User account deleted successfully"}
-
-    except Exception as e:
-        logger.error(f"User deletion failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error",
-        )
-
-
-@router.get("/{user_id}", response_model=UserResponse)
-async def get_user_by_id(
-    user_id: int,
-    current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """指定されたIDのユーザー情報を取得"""
-    try:
-        auth_service = AuthService(db)
-        user = await auth_service.get_user_by_id(user_id)
-
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-            )
-
-        return user
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to get user by ID {user_id}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error",
-        )
-
-
-@router.get("/profile/{username}", response_model=UserResponse)
-async def get_user_by_username(
-    username: str,
-    current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """指定されたユーザー名のユーザー情報を取得"""
-    try:
-        # ユーザー名でユーザーを検索
-        result = await db.execute(
-            "SELECT * FROM users WHERE username = :username", {"username": username}
-        )
-        user = result.fetchone()
-
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-            )
-
-        return user
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to get user by username {username}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error",
-        )
+    return UserOut(
+        id=str(u.id),
+        display_name=u.display_name or "",
+        avatar_url=getattr(u, "avatar_url", None),
+        profile=None
+        if prof is None
+        else {
+            "department": _val(prof, "department"),
+            "position": _val(prof, "position"),
+            "nickname": _val(prof, "nickname"),
+            "join_date": _val(prof, "join_date"),
+            "birth_date": _val(prof, "birth_date"),
+            "hometown": _val(prof, "hometown"),
+            "residence": _val(prof, "residence"),
+            "hobbies": _val(prof, "hobbies"),
+            "student_activities": _val(prof, "student_activities"),
+            "holiday_activities": _val(prof, "holiday_activities"),
+            "favorite_food": _val(prof, "favorite_food"),
+            "favorite_media": _val(prof, "favorite_media"),
+            "favorite_music": _val(prof, "favorite_music"),
+            "pets_oshi": _val(prof, "pets_oshi"),
+            "respected_person": _val(prof, "respected_person"),
+            "motto": _val(prof, "motto"),
+            "future_goals": _val(prof, "future_goals"),
+            "feedback": prof.get("feedback"),
+            "ai_analysis": prof.get("ai_analysis"),
+        },
+    )

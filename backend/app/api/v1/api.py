@@ -6,12 +6,20 @@ from app.api.v1 import (
     teams,
     voice_sessions,
     transcriptions,
-    analytics,
-    billing,
+    analyses,
+    chat_rooms,
+    team_dynamics,
+    privacy,
     subscriptions,
     invitations,
     webhooks,
-    chat_rooms,
+    admin_role,
+    audio_enhancement,
+    participant_management,
+    topic_generation,
+    admin_billing,
+    audit_logs,
+    billing,  
 )
 
 api_router = APIRouter()
@@ -26,33 +34,40 @@ api_router.include_router(users.router, prefix="/users", tags=["ユーザー"])
 api_router.include_router(teams.router, prefix="/teams", tags=["チーム"])
 
 # 音声セッション
-api_router.include_router(
-    voice_sessions.router, prefix="/voice-sessions", tags=["音声セッション"]
-)
-
-# チャットルーム
-api_router.include_router(
-    chat_rooms.router, prefix="/chat-rooms", tags=["チャットルーム"]
-)
+api_router.include_router(voice_sessions.router, prefix="/voice-sessions", tags=["音声セッション"])
 
 # 文字起こし
-api_router.include_router(
-    transcriptions.router, prefix="/transcriptions", tags=["文字起こし"]
-)
+api_router.include_router(transcriptions.router, prefix="/transcriptions", tags=["文字起こし"])
 
 # AI分析
-api_router.include_router(analytics.router, prefix="/analytics", tags=["AI分析"])
+api_router.include_router(analyses.router, prefix="/analyses", tags=["AI分析"])
 
-# 決済管理
-api_router.include_router(billing.router, prefix="/billing", tags=["決済"])
+# チャットルーム
+api_router.include_router(chat_rooms.router, prefix="/chat-rooms", tags=["チャットルーム"])
 
-# サブスクリプション
-api_router.include_router(
-    subscriptions.router, prefix="/subscriptions", tags=["サブスクリプション"]
-)
+# チームダイナミクス
+api_router.include_router(team_dynamics.router, prefix="/team-dynamics", tags=["チームダイナミクス"])
+
+# プライバシー制御
+api_router.include_router(privacy.router, prefix="/privacy", tags=["プライバシー制御"])
+
+# サブスクリプション管理
+api_router.include_router(subscriptions.router, prefix="/subscriptions", tags=["サブスクリプション"])
 
 # 招待管理
-api_router.include_router(invitations.router, prefix="/invitations", tags=["招待"])
+api_router.include_router(invitations.router, prefix="/invitations", tags=["招待管理"])
 
-# Webhook
-api_router.include_router(webhooks.router, prefix="/webhooks", tags=["Webhook"])
+# Webhooks
+api_router.include_router(webhooks.router, prefix="/webhooks", tags=["Webhooks"])
+
+# 管理者のルート
+api_router.include_router(admin_role.router, prefix="/admin-role", tags=["管理者"])
+
+# 管理者用決済・課金管理
+api_router.include_router(admin_billing.router, prefix="/admin", tags=["管理者決済"])
+
+# 請求管理（一般）
+api_router.include_router(billing.router, prefix="/billing", tags=["請求管理"])
+
+# 監査ログ
+api_router.include_router(audit_logs.router, prefix="/audit-logs", tags=["監査ログ"])

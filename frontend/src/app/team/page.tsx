@@ -9,18 +9,22 @@ export default function TeamPage() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center space-x-4">
+          {/* 戻るボタンを左寄せに配置 */}
+          <div className="flex justify-start mb-4">
             <Link href="/dashboard">
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 ダッシュボードへ戻る
               </Button>
             </Link>
-            <h1 className="text-2xl font-bold text-gray-900">チームメンバー一覧</h1>
+            </div>
+            {/* タイトルを中央に配置 */}
+            <div className="flex justify-center">
+            <h1 className="text-2xl font-bold text-gray-900">チームメンバー 一覧</h1>
           </div>
         </div>
       </header>
-
+      
       <main className="container mx-auto px-4 py-8">
         <TeamMemberList />
       </main>

@@ -5,7 +5,7 @@ from sqlalchemy.orm import selectinload
 from pydantic import BaseModel
 import structlog
 
-from app.core.database import Base
+from app.models.base import Base
 
 logger = structlog.get_logger()
 

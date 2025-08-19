@@ -1,18 +1,87 @@
-# Bridge Line - AI音声チャットアプリケーション
+# Bridge LINE - AI音声チャットアプリケーション
 
-## クイックスタート（チーム開発用）
+## 🧩 プロダクト概要
+
+ハイブリッドワーク環境におけるチームコミュニケーションの質を高め、メンバーの隠れた特性を可視化するインテリジェント・コミュニケーションプラットフォームです。  
+雑談からチームの深いつながりを生み出し、従業員エンゲージメント向上、離職率低下、生産性改善を実現します。
+
+### 🧭 コンセプト
+
+> **離れていても、つながる力を。**  
+> 雑談からチームの深いつながりを生み出し、チーム全体の生産性とエンゲージメントを向上させます。
+
+---
+
+## 🌟 主な特徴
+
+- 雑談ルームを通じて自然な会話を促進
+- AIによる会話解析と個人プロファイル自動更新
+- チームプロフィール共有機能
+- Stripeによる決済機能
+- 管理者ダッシュボード（決済管理・ユーザー数追加）
+
+---
+
+## 🍄 コア機能
+
+| 機能名         | 説明 |
+|----------------|------|
+| ユーザー認証    | Firebase Authentication によるメール/パスワード認証 |
+| 雑談ルーム     | テーマボタン、ログイン中メンバー表示、音声通話（Agora.io SDK使用） |
+| 会話分析       | OpenAI Whisper + scikit-learn で解析し、プロフィール更新 |
+| マイプロフィール| 編集可能、公開/非公開設定、分析による特性自動追加 |
+| チームメンバー一覧 | 公開設定に応じたプロフィール閲覧 |
+| 決済           | Stripe APIを利用 |
+
+---
+
+## 🛠️ 技術スタック
+
+| 区分           | 使用技術 |
+|----------------|----------|
+| フロントエンド | Next.js, TypeScript, Tailwind CSS, MUI |
+| バックエンド   | FastAPI（Python）, SQLAlchemy, Alembic |
+| DB             | PostgreSQL, Redis |
+| AI・分析       | OpenAI Whisper, scikit-learn |
+| 外部API        | Agora.io SDK, OpenAI API |
+| 認証           | Firebase Authentication |
+| テスト         | Vitest（FE）, Pytest（BE） |
+| Linter         | ESLint（FE）, PyLint（BE） |
+| Formatter      | Prettier（FE）, Black（BE） |
+| インフラ       | Docker, Docker Compose |
+| デザイン       | Figma, v0 |
+
+---
+
+## 🤝 チーム情報
+- るい（リーダー）
+- しづか
+- あっすー
+
+---
+
+## 🚀 クイックスタート（開発環境）
 
 ### 前提条件
-- Docker Desktop がインストールされていること
-- Git がインストールされていること
+
+- Node.js 18+
+- Python 3.11+
+- Docker & Docker Compose（DB・Redis・バックエンド用）
+- Git
+
+---
 
 ### 1. リポジトリのクローン
+
 ```bash
 git clone <repository-url>
 cd bridge-line
-```
 
 ### 2. 環境構築（全OS共通）
+以下の場所に .env ファイルを配置
+（内容はNotion共有、または .env.example を参照）
+- frontend/.env.local
+- backend/.env
 
 #### 自動セットアップ（推奨）
 ```bash
@@ -87,7 +156,7 @@ bridge-line/
 ├── frontend/         # Next.jsフロントエンド
 ├── scripts/          # データベース初期化スクリプト
 ├── docs/            # ドキュメント
-├── docker-compose.yml # Docker環境設定
+├── compose.yaml # Docker環境設定
 └── README.md        # このファイル
 ```
 
@@ -191,7 +260,7 @@ chore: その他の変更
 2. ポートが競合していないか
 3. 環境変数が正しく設定されているか
 
-それでも解決しない場合は、チームリーダーに相談してください。
+それでも解決しない場合は、チームリーダーに相談。
 
 ## 各OSでの使用方法
 
@@ -292,3 +361,18 @@ make deps-check
 # 環境変数の確認
 make env-check
 ```
+
+## 📝 プロジェクトドキュメント
+
+このリポジトリの詳細資料・進め方・設計・技術選定などは、  
+下記ドキュメントにまとめています。必要に応じてご参照ください。
+
+- [要件定義書](docs/要件定義書.md)
+- [API設計書](docs/API設計書.md)
+- [DB設計書](docs/DB設計書.md)
+- [ER図](docs/ER図.md)
+- [アーキテクチャ図](docs/アーキテクチャ図.md)
+- [デザイン設計書](docs/デザイン設計書.md)
+- [テスト仕様書](docs/テスト仕様書.md)
+- [テスト設計書](docs/テスト設計書.md)
+- [開発ルール](docs/開発ルール.md)

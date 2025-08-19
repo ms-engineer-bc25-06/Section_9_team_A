@@ -11,12 +11,14 @@ const HomePage: React.FC = () => {
   const { user, isLoading } = useAuth()
   const router = useRouter()
 
+  // ログイン済みのユーザーがいたら dashboard にリダイレクト
   useEffect(() => {
-    if (user && !isLoading) {
+    if (!isLoading && user) {
       router.push("/dashboard")
     }
   }, [user, isLoading, router])
 
+  // ローディング中（Firebaseなどの認証確認中）
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -25,19 +27,12 @@ const HomePage: React.FC = () => {
     )
   }
 
-  if (user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    )
-  }
-
+  // 未ログインユーザーにはログイン画面を表示
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Bridge Line</CardTitle>
+          <CardTitle className="text-2xl font-bold">Bridge LINE</CardTitle>
           <CardDescription>チームの絆を深めるコミュニケーションプラットフォーム</CardDescription>
         </CardHeader>
         <CardContent>

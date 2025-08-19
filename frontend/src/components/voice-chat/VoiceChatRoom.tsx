@@ -6,8 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar"
 import { Badge } from "@/components/ui/Badge"
-import { Play, Users, Lightbulb } from "lucide-react"
+import { Play, Users, Lightbulb, Mic, Settings } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { AudioEnhancement } from "./AudioEnhancement"
 
 const mockParticipants = [
   { id: 1, name: "田中太郎", status: "online" },
@@ -25,6 +26,7 @@ const suggestedTopics = [
 
 export function VoiceChatRoom() {
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null)
+  const [showAudioEnhancement, setShowAudioEnhancement] = useState(false)
   const router = useRouter()
 
   const startVoiceChat = () => {
@@ -34,6 +36,11 @@ export function VoiceChatRoom() {
     } catch (error) {
       console.error("Navigation error:", error)
     }
+  }
+
+  const handleEnhancedAudio = (audioBlob: Blob) => {
+    console.log("Enhanced audio received:", audioBlob)
+    // ここで音声チャットに処理済み音声を送信する処理を追加
   }
 
   return (
@@ -70,10 +77,22 @@ export function VoiceChatRoom() {
             ))}
           </div>
 
-          <Button onClick={startVoiceChat} className="w-full mt-6" size="lg" type="button">
-            <Play className="h-5 w-5 mr-2" />
-            開始する
-          </Button>
+          <div className="space-y-3 mt-6">
+            <Button onClick={startVoiceChat} className="w-full" size="lg" type="button">
+              <Play className="h-5 w-5 mr-2" />
+              開始する
+            </Button>
+            
+            <Button 
+              onClick={() => setShowAudioEnhancement(!showAudioEnhancement)} 
+              variant="outline" 
+              className="w-full" 
+              type="button"
+            >
+              <Settings className="h-5 w-5 mr-2" />
+              {showAudioEnhancement ? '音声品質向上を隠す' : '音声品質向上を表示'}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
@@ -108,6 +127,16 @@ export function VoiceChatRoom() {
           )}
         </CardContent>
       </Card>
+
+      {/* 音声品質向上セクション */}
+      {showAudioEnhancement && (
+        <div className="lg:col-span-2">
+          <AudioEnhancement 
+            onEnhancedAudio={handleEnhancedAudio}
+            className="mt-6"
+          />
+        </div>
+      )}
     </div>
   )
 }
