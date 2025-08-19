@@ -8,9 +8,6 @@ from app.models.audit_log import AuditLog
 from app.repositories.audit_log_repository import audit_log_repository
 from app.schemas.audit_log import (
     AuditLogFilter,
-    AuditLogStats,
-    SystemAuditLogCreate,
-    UserAuditLogCreate,
 )
 
 logger = structlog.get_logger()
@@ -64,7 +61,7 @@ class AuditLogService:
             raise
 
     async def create_system_log(
-        self, db: AsyncSession, audit_log_data: SystemAuditLogCreate
+        self, db: AsyncSession, audit_log_data: Dict[str, Any]
     ) -> AuditLog:
         """システム監査ログを作成"""
         try:
@@ -83,7 +80,7 @@ class AuditLogService:
             raise
 
     async def create_user_log(
-        self, db: AsyncSession, audit_log_data: UserAuditLogCreate
+        self, db: AsyncSession, audit_log_data: Dict[str, Any]
     ) -> AuditLog:
         """ユーザー監査ログを作成"""
         try:
@@ -112,7 +109,7 @@ class AuditLogService:
 
     async def get_audit_log_stats(
         self, db: AsyncSession, current_user: Any
-    ) -> AuditLogStats:
+    ) -> Dict[str, Any]:
         """監査ログ統計を取得"""
         try:
             # 管理者でない場合は自分のログのみ
@@ -143,15 +140,15 @@ class AuditLogService:
             # ユーザー別アクションカウント
             user_action_counts = await audit_log_repository.get_user_action_counts(db, user_filter)
             
-            return AuditLogStats(
-                total_logs=total_logs,
-                logs_today=logs_today,
-                logs_this_week=logs_this_week,
-                logs_this_month=logs_this_month,
-                action_counts=action_counts,
-                resource_type_counts=resource_type_counts,
-                user_action_counts=user_action_counts
-            )
+            return {
+                "total_logs": total_logs,
+                "logs_today": logs_today,
+                "logs_this_week": logs_this_week,
+                "logs_this_month": logs_this_month,
+                "action_counts": action_counts,
+                "resource_type_counts": resource_type_counts,
+                "user_action_counts": user_action_counts
+            }
         except Exception as e:
             logger.error(f"Failed to get audit log stats: {str(e)}")
             raise

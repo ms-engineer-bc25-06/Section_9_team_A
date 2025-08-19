@@ -1,19 +1,21 @@
-// 認証状態を監視
-import { useEffect, useState } from "react";
-import { onAuthStateChanged, User } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+"use client";
 
-export function useAuth() {
+import { useState, useEffect } from "react";
+import { User } from "firebase/auth";
+import { auth, onAuthStateChange } from "@/lib/auth";
+
+export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser);
+    const unsubscribe = onAuthStateChange((user) => {
+      setUser(user);
       setLoading(false);
     });
+
     return () => unsubscribe();
   }, []);
 
   return { user, loading };
-}
+};

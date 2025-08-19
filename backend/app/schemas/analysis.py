@@ -13,6 +13,9 @@ class AnalysisType(str, Enum):
     SPEAKER = "speaker"          # 話者分析
     COMPREHENSION = "comprehension"  # 理解度分析
     ENGAGEMENT = "engagement"    # 参加度分析
+    PERSONALITY = "personality"  # 個性分析
+    COMMUNICATION = "communication"  # コミュニケーションパターン
+    BEHAVIOR = "behavior"        # 行動特性
 
 
 class AnalysisStatus(str, Enum):
@@ -28,6 +31,46 @@ class SentimentLabel(str, Enum):
     NEGATIVE = "negative"
     NEUTRAL = "neutral"
     MIXED = "mixed"
+
+
+class PersonalityTrait(BaseModel):
+    """個性特性"""
+    trait_name: str = Field(..., description="特性名")
+    score: float = Field(..., ge=0.0, le=100.0, description="スコア")
+    level: str = Field(..., description="レベル")
+    description: str = Field(..., description="説明")
+
+
+class CommunicationPattern(BaseModel):
+    """コミュニケーションパターン"""
+    pattern_type: str = Field(..., description="パターンタイプ")
+    frequency: float = Field(..., ge=0.0, le=1.0, description="頻度")
+    effectiveness: float = Field(..., ge=0.0, le=1.0, description="効果性")
+    examples: List[str] = Field(..., description="具体例")
+
+
+class BehaviorScore(BaseModel):
+    """行動スコア"""
+    category: str = Field(..., description="カテゴリ名")
+    score: float = Field(..., ge=0.0, le=100.0, description="スコア")
+    level: str = Field(..., description="レベル")
+    improvement_suggestions: List[str] = Field(..., description="改善提案")
+
+
+class AnalysisResult(BaseModel):
+    """分析結果"""
+    analysis_type: AnalysisType = Field(..., description="分析タイプ")
+    title: str = Field(..., description="分析タイトル")
+    summary: str = Field(..., description="分析結果の要約")
+    keywords: List[str] = Field(..., description="キーワード")
+    topics: List[str] = Field(..., description="トピック")
+    personality_traits: Optional[List[PersonalityTrait]] = Field(None, description="個性特性")
+    communication_patterns: Optional[List[CommunicationPattern]] = Field(None, description="コミュニケーションパターン")
+    behavior_scores: Optional[List[BehaviorScore]] = Field(None, description="行動スコア")
+    word_count: Optional[int] = Field(None, description="単語数")
+    sentence_count: Optional[int] = Field(None, description="文数")
+    confidence_score: float = Field(..., ge=0.0, le=1.0, description="信頼度スコア")
+    processing_time: Optional[float] = Field(None, description="処理時間（秒）")
 
 
 class AnalysisBase(BaseModel):

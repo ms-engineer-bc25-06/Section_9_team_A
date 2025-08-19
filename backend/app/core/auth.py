@@ -177,6 +177,18 @@ async def get_current_active_user(
     return current_user
 
 
+async def get_current_admin_user(
+    current_user: User = Depends(get_current_active_user),
+) -> User:
+    """現在の管理者ユーザー取得"""
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="管理者権限が必要です"
+        )
+    return current_user
+
+
 def authenticate_user(email: str, password: str, db: AsyncSession) -> Optional[User]:
     """ユーザー認証"""
     # この関数は後でAuthServiceで実装

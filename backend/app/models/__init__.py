@@ -51,9 +51,6 @@ from .payment import Payment
 # 招待関連
 from .invitation import Invitation
 
-# 請求関連
-from .billing import Billing
-
 # 監査ログ関連
 from .audit_log import AuditLog
 
@@ -74,11 +71,9 @@ __all__ = [
     "TeamCompatibility",
     "TeamCohesion",
     "TeamMemberProfile",
-<<<<<<< HEAD
     "Organization",
     "OrganizationMember",
     "Payment",
-=======
     "PrivacyLevel",
     "DataCategory",
     "EncryptedData",
@@ -90,5 +85,4 @@ __all__ = [
     "Invitation",
     "Billing",
     "AuditLog",
->>>>>>> origin/develop
 ]
