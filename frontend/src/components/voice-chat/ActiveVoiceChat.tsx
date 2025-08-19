@@ -5,15 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar"
 import { Badge } from "@/components/ui/Badge"
-import { Mic, MicOff, Volume2, VolumeX, Phone, Users, MessageCircle } from "lucide-react"
+import { Mic, MicOff, Volume2, VolumeX, Phone, Users, MessageCircle, AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useWebRTCVoiceChat } from "@/hooks/useWebRTCVoiceChat"
-import { useAudioStreaming } from "@/hooks/useAudioStreaming"
+import { useAdvancedAudioOptimization } from "@/hooks/useAdvancedAudioOptimization"
 import { useRealTimeTranscription } from "@/hooks/useRealTimeTranscription"
 import { AudioCapture } from "./AudioCapture"
 import { ParticipantsList } from "./ParticipantsList"
-import { AudioQualityMonitor } from "./AudioQualityMonitor"
-import { AudioQualitySettings } from "./AudioQualitySettings"
+import { AdvancedAudioQualityMonitor } from "./AdvancedAudioQualityMonitor"
+import { AdvancedAudioQualitySettings } from "./AdvancedAudioQualitySettings"
 import { RealTimeTranscription } from "./RealTimeTranscription"
 import { TranscriptionSettings } from "./TranscriptionSettings"
 
@@ -74,36 +74,32 @@ export function ActiveVoiceChat({ roomId }: Props) {
   
   // WebRTC音声チャットフック
   const {
-    isConnected,
-    isInitialized,
+    localStream,
+    remoteStreams,
+    participants,
     connectionState,
+    joinRoom,
+    leaveRoom,
     isMuted,
     isSpeakerOn,
     toggleMute,
     toggleSpeaker,
-    localStream,
-    remoteStreams,
-    participants,
-    joinRoom,
-    leaveRoom,
-    error,
-    connectionStats,
   } = useWebRTCVoiceChat(roomId)
 
-  // 音声ストリーミングフック
+  // 高度な音声品質最適化フック
   const {
-    config: audioConfig,
-    updateConfig: updateAudioConfig,
-    qualityMetrics,
-    startStreaming,
-    stopStreaming,
-    isStreaming,
-    enableEchoCancellation,
-    disableEchoCancellation,
-    enableNoiseSuppression,
-    disableNoiseSuppression,
-    error: streamingError,
-  } = useAudioStreaming()
+    isEnabled: isOptimizationEnabled,
+    isProcessing: isOptimizationProcessing,
+    config: optimizationConfig,
+    updateConfig: updateOptimizationConfig,
+    enableOptimization,
+    disableOptimization,
+    resetOptimization,
+    processAudio,
+    stats: optimizationStats,
+    error: optimizationError,
+    clearError: clearOptimizationError,
+  } = useAdvancedAudioOptimization(localStream?.getAudioTracks()[0]?.enabled ? new AudioContext() : null)
 
   // リアルタイム文字起こしフック
   const {
@@ -197,17 +193,27 @@ export function ActiveVoiceChat({ roomId }: Props) {
 
   // 接続状態の管理
   useEffect(() => {
-    if (isInitialized && !isConnected) {
-      joinRoom(roomId)
+    if (localStream) {
+      // MediaStreamから音声データを取得して処理
+      const audioContext = new AudioContext()
+      const source = audioContext.createMediaStreamSource(localStream)
+      const processor = audioContext.createScriptProcessor(4096, 1, 1)
+      
+      processor.onaudioprocess = (event) => {
+        const inputData = event.inputBuffer.getChannelData(0)
+        processAudio(inputData)
+      }
+      
+      source.connect(processor)
+      processor.connect(audioContext.destination)
+      
+      return () => {
+        source.disconnect()
+        processor.disconnect()
+        audioContext.close()
+      }
     }
-  }, [isInitialized, isConnected, joinRoom, roomId])
-
-  // ローカルストリームが利用可能になったら音声ストリーミング開始
-  useEffect(() => {
-    if (localStream && !isStreaming) {
-      startStreaming(localStream)
-    }
-  }, [localStream, isStreaming, startStreaming])
+  }, [localStream, processAudio])
 
   // 接続状態に基づく表示
   const getConnectionStatusText = () => {
@@ -245,13 +251,13 @@ export function ActiveVoiceChat({ roomId }: Props) {
   }
 
   // エラー表示
-  if (error || streamingError) {
+  if (optimizationError) {
     return (
       <div className="text-center py-8">
         <div className="text-red-600 text-lg font-semibold mb-4">エラーが発生しました</div>
-        <div className="text-gray-600 mb-4">{error || streamingError}</div>
-        <Button onClick={() => joinRoom(roomId)} variant="outline">
-          再接続を試す
+        <div className="text-gray-600 mb-4">{optimizationError}</div>
+        <Button onClick={clearOptimizationError} variant="outline">
+          エラーをクリア
         </Button>
       </div>
     )
@@ -273,18 +279,18 @@ export function ActiveVoiceChat({ roomId }: Props) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <span className="text-gray-600">総参加者数:</span>
-              <span className="ml-2 font-semibold">{connectionStats.totalPeers}</span>
+              <span className="text-gray-600">全体的な品質:</span>
+              <span className="ml-2 font-semibold">{(optimizationStats.overallQuality * 100).toFixed(1)}%</span>
             </div>
             <div>
-              <span className="text-gray-600">接続済み:</span>
-              <span className="ml-2 font-semibold text-green-600">{connectionStats.connectedPeers}</span>
+              <span className="text-gray-600">処理遅延:</span>
+              <span className="ml-2 font-semibold text-green-600">{optimizationStats.processingLatency.toFixed(1)}ms</span>
             </div>
             <div>
-              <span className="text-gray-600">接続失敗:</span>
-              <span className="ml-2 font-semibold text-red-600">{connectionStats.failedConnections}</span>
+              <span className="text-gray-600">CPU使用率:</span>
+              <span className="ml-2 font-semibold text-red-600">{(optimizationStats.cpuUsage * 100).toFixed(1)}%</span>
             </div>
           </div>
         </CardContent>
@@ -337,21 +343,54 @@ export function ActiveVoiceChat({ roomId }: Props) {
         </CardContent>
       </Card>
 
-      {/* 音声品質設定 */}
-      {showAudioSettings && (
-        <AudioQualitySettings
-          config={audioConfig}
-          onConfigChange={updateAudioConfig}
-          isStreaming={isStreaming}
-        />
-      )}
+      {/* 音声品質最適化 */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold">音声品質最適化</h2>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAudioSettings(!showAudioSettings)}
+          >
+            {showAudioSettings ? "設定を隠す" : "設定を表示"}
+          </Button>
+        </div>
 
-      {/* 音声品質監視 */}
-      <AudioQualityMonitor
-        metrics={qualityMetrics}
-        isStreaming={isStreaming}
-        error={streamingError}
-      />
+        {showAudioSettings && (
+          <AdvancedAudioQualitySettings
+            config={optimizationConfig}
+            onConfigChange={updateOptimizationConfig}
+            isEnabled={isOptimizationEnabled}
+            onToggle={(enabled) => enabled ? enableOptimization() : disableOptimization()}
+            onReset={resetOptimization}
+            isProcessing={isOptimizationProcessing}
+          />
+        )}
+
+        <AdvancedAudioQualityMonitor
+          stats={optimizationStats}
+          isEnabled={isOptimizationEnabled}
+          isProcessing={isOptimizationProcessing}
+        />
+
+        {optimizationError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center gap-2 text-red-800">
+              <AlertCircle className="h-4 w-4" />
+              <span className="font-medium">音声最適化エラー</span>
+            </div>
+            <p className="text-red-700 mt-1">{optimizationError}</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={clearOptimizationError}
+              className="mt-2"
+            >
+              エラーをクリア
+            </Button>
+          </div>
+        )}
+      </div>
 
       {/* リアルタイム文字起こし */}
       <RealTimeTranscription
