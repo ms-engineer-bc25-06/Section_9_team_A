@@ -270,13 +270,12 @@ export class AdvancedNoiseReduction {
     // 履歴の更新
     this.updateVADHistory(energy, spectralCentroid)
     
-    // 閾値判定
-    const energyThreshold = this.config.voiceActivityDetection.threshold
-    const isVoice = energy > energyThreshold
+    let isVoice = false
     
-    // ハンゴーバー処理
-    if (isVoice) {
-      this.vadState.hangoverCounter = Math.ceil(
+    // エネルギー閾値による判定
+    if (energy > this.config.voiceActivityDetection.threshold) {
+      isVoice = true
+      this.vadState.hangoverCounter = Math.floor(
         this.config.voiceActivityDetection.hangoverTime * this.sampleRate / 1000
       )
     } else if (this.vadState.hangoverCounter > 0) {

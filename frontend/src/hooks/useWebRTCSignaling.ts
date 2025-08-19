@@ -18,6 +18,15 @@ interface UseWebRTCSignalingReturn {
   sendAnswer: (to: string, answer: RTCSessionDescriptionInit) => void
   sendIceCandidate: (to: string, candidate: RTCIceCandidateInit) => void
   
+  // メッセージハンドラーの更新
+  updateMessageHandlers: (handlers: Partial<{
+    onOffer?: (from: string, offer: RTCSessionDescriptionInit) => void
+    onAnswer?: (from: string, answer: RTCSessionDescriptionInit) => void
+    onIceCandidate?: (from: string, candidate: RTCIceCandidateInit) => void
+    onPeerJoined?: (peerId: string) => void
+    onPeerLeft?: (peerId: string) => void
+  }>) => void
+  
   // 接続状態
   isConnected: boolean
   
