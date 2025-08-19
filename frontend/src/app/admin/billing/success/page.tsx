@@ -251,7 +251,14 @@ export default function PaymentSuccessPage() {
           </Link>
           
           <Link href="/admin/users">
-            <Button size="lg" className="bg-blue-600 hover:bg-blue-700">
+            <Button 
+              size="lg" 
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={() => {
+                // 決済完了フラグを設定
+                sessionStorage.setItem('paymentCompleted', 'true')
+              }}
+            >
               ユーザー管理を確認
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>

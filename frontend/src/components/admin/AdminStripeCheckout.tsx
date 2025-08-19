@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button"
 import { Alert, AlertDescription } from "@/components/ui/Alert"
 import { Badge } from "@/components/ui/Badge"
 import { CreditCard, X, AlertTriangle, Loader2 } from "lucide-react"
+import { loadStripe } from "@stripe/stripe-js"
 
 interface AdminStripeCheckoutProps {
   amount: number
@@ -25,16 +26,22 @@ export function AdminStripeCheckout({
 }: AdminStripeCheckoutProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [cardNumber, setCardNumber] = useState("")
-  const [expiryDate, setExpiryDate] = useState("")
-  const [cvv, setCvv] = useState("")
-  const [cardholderName, setCardholderName] = useState("")
+  const [stripe, setStripe] = useState<any>(null)
+
+  useEffect(() => {
+    // Stripe.jsを初期化
+    const initStripe = async () => {
+      const stripeInstance = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
+      setStripe(stripeInstance)
+    }
+    initStripe()
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!cardNumber || !expiryDate || !cvv || !cardholderName) {
-      setError("すべての項目を入力してください")
+    if (!stripe) {
+      setError("Stripeが初期化されていません")
       return
     }
 
@@ -42,13 +49,28 @@ export function AdminStripeCheckout({
     setError(null)
 
     try {
-      // 実際のStripe決済処理をここに実装
-      // 現在はモック処理として成功をシミュレート
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      // バックエンドでCheckout Sessionを作成
+      const response = await fetch('/api/v1/admin/billing/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: amount * 100, // セント単位に変換
+          additional_users: additionalUsers,
+          organization_id: 1, // TODO: 実際の組織IDを取得
+          currency: 'jpy'
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Checkout Sessionの作成に失敗しました')
+      }
+
+      const { checkout_url } = await response.json()
       
-      // 成功時の処理
-      const mockPaymentIntentId = `pi_${Math.random().toString(36).substr(2, 9)}`
-      onSuccess(mockPaymentIntentId)
+      // Stripe Checkoutページにリダイレクト
+      window.location.href = checkout_url
       
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "決済処理中にエラーが発生しました"
@@ -59,30 +81,7 @@ export function AdminStripeCheckout({
     }
   }
 
-  const formatCardNumber = (value: string) => {
-    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '')
-    const matches = v.match(/\d{4,16}/g)
-    const match = matches && matches[0] || ''
-    const parts = []
-    
-    for (let i = 0, len = match.length; i < len; i += 4) {
-      parts.push(match.substring(i, i + 4))
-    }
-    
-    if (parts.length) {
-      return parts.join(' ')
-    } else {
-      return v
-    }
-  }
 
-  const formatExpiryDate = (value: string) => {
-    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '')
-    if (v.length >= 2) {
-      return v.substring(0, 2) + '/' + v.substring(2, 4)
-    }
-    return v
-  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -132,69 +131,8 @@ export function AdminStripeCheckout({
               </Alert>
             )}
 
-            {/* 決済フォーム */}
+            {/* 決済ボタン */}
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  カード番号
-                </label>
-                <input
-                  type="text"
-                  value={cardNumber}
-                  onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
-                  placeholder="1234 5678 9012 3456"
-                  maxLength={19}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  disabled={isLoading}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    有効期限
-                  </label>
-                  <input
-                    type="text"
-                    value={expiryDate}
-                    onChange={(e) => setExpiryDate(formatExpiryDate(e.target.value))}
-                    placeholder="MM/YY"
-                    maxLength={5}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    disabled={isLoading}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    CVV
-                  </label>
-                  <input
-                    type="text"
-                    value={cvv}
-                    onChange={(e) => setCvv(e.target.value.replace(/\D/g, ''))}
-                    placeholder="123"
-                    maxLength={4}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    disabled={isLoading}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  カード名義人
-                </label>
-                <input
-                  type="text"
-                  value={cardholderName}
-                  onChange={(e) => setCardholderName(e.target.value)}
-                  placeholder="TARO YAMADA"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  disabled={isLoading}
-                />
-              </div>
-
-              {/* 決済ボタン */}
               <Button
                 type="submit"
                 disabled={isLoading}
