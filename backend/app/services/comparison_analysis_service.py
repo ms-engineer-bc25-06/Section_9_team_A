@@ -915,47 +915,75 @@ class ComparisonAnalysisService:
         self, db: AsyncSession, industry: str, company_size: str, scope: ComparisonScope
     ) -> Dict[str, Any]:
         """業界ベンチマークデータを取得"""
-        # TODO: 実際の業界データベースから取得
-        # 現在はサンプルデータを返す
-        
-        industry_benchmarks = {
-            "IT": {
-                "metrics": {
-                    "communication_skills": 0.78,
-                    "leadership": 0.72,
-                    "collaboration": 0.81,
-                    "problem_solving": 0.76,
-                    "emotional_intelligence": 0.74
-                },
-                "best_practices": [
-                    "アジャイル開発手法の活用",
-                    "継続的インテグレーション",
-                    "デザイン思考の導入"
-                ],
-                "data_source": "業界調査レポート2024",
-                "last_updated": datetime.utcnow(),
-                "confidence_level": 0.85
-            },
-            "Finance": {
+        try:
+            # 業界管理サービスから業界データを取得
+            from app.services.industry_management_service import industry_management_service
+            from app.schemas.industry_management import IndustryBenchmarkFilter
+            
+            # フィルターを構築
+            filters = IndustryBenchmarkFilter(
+                industry_name=industry,
+                company_size=company_size,
+                is_active=True,
+                is_public=True
+            )
+            
+            # 業界ベンチマークを取得
+            benchmarks, _ = await industry_management_service.get_industry_benchmarks(
+                db, None, filters, 0, 1
+            )
+            
+            if benchmarks:
+                benchmark = benchmarks[0]
+                return {
+                    "metrics": {
+                        "communication_skills": benchmark.communication_skills_avg,
+                        "leadership": benchmark.leadership_avg,
+                        "collaboration": benchmark.collaboration_avg,
+                        "problem_solving": benchmark.problem_solving_avg,
+                        "emotional_intelligence": benchmark.emotional_intelligence_avg,
+                        "overall_performance": benchmark.overall_performance_avg
+                    },
+                    "best_practices": benchmark.best_practices,
+                    "data_source": benchmark.data_source,
+                    "last_updated": benchmark.last_updated,
+                    "confidence_level": benchmark.confidence_level
+                }
+            
+            # データが見つからない場合はデフォルト値を返す
+            logger.warning(f"業界ベンチマークデータが見つかりません: {industry}, {company_size}")
+            return {
                 "metrics": {
                     "communication_skills": 0.75,
-                    "leadership": 0.78,
-                    "collaboration": 0.73,
-                    "problem_solving": 0.79,
-                    "emotional_intelligence": 0.76
+                    "leadership": 0.75,
+                    "collaboration": 0.75,
+                    "problem_solving": 0.75,
+                    "emotional_intelligence": 0.75,
+                    "overall_performance": 0.75
                 },
-                "best_practices": [
-                    "リスク管理の徹底",
-                    "コンプライアンス重視の文化",
-                    "顧客中心のサービス設計"
-                ],
-                "data_source": "金融業界分析レポート2024",
+                "best_practices": ["業界標準のベストプラクティス"],
+                "data_source": "デフォルト値",
                 "last_updated": datetime.utcnow(),
-                "confidence_level": 0.82
+                "confidence_level": 0.5
             }
-        }
-        
-        return industry_benchmarks.get(industry, industry_benchmarks["IT"])
+            
+        except Exception as e:
+            logger.error(f"業界ベンチマークデータ取得でエラー: {e}")
+            # エラー時はデフォルト値を返す
+            return {
+                "metrics": {
+                    "communication_skills": 0.75,
+                    "leadership": 0.75,
+                    "collaboration": 0.75,
+                    "problem_solving": 0.75,
+                    "emotional_intelligence": 0.75,
+                    "overall_performance": 0.75
+                },
+                "best_practices": ["業界標準のベストプラクティス"],
+                "data_source": "デフォルト値",
+                "last_updated": datetime.utcnow(),
+                "confidence_level": 0.5
+            }
 
     def _compare_with_industry_benchmark(
         self, user_analyses: List[Analysis], industry_data: Dict[str, Any], scope: ComparisonScope

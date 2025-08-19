@@ -16,6 +16,7 @@ from app.api.v1 import (
     audit_logs,
     feedback_approvals,
     comparison_analysis,
+    industry_management,
 )
 
 api_router = APIRouter()
@@ -87,4 +88,9 @@ api_router.include_router(
 # 比較分析
 api_router.include_router(
     comparison_analysis.router, prefix="/comparison-analysis", tags=["比較分析"]
+)
+
+# 業界管理
+api_router.include_router(
+    industry_management.router, prefix="/industry-management", tags=["業界管理"]
 )
