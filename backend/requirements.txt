@@ -41,6 +41,8 @@ websocket-client==1.7.0
 numpy==1.24.3
 scipy==1.11.1
 librosa==0.10.1
+pydub==0.25.1
+soundfile==0.12.1
 
 # File Upload
 aiofiles==23.2.1

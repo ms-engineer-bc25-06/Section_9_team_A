@@ -12,7 +12,7 @@ from app.core.auth import get_current_active_user
 from app.models.user import User
 from app.schemas.analysis import (
     AnalysisCreate, AnalysisUpdate, AnalysisResponse, AnalysisListResponse,
-    AnalysisRequest, AnalysisType
+    AnalysisType
 )
 from app.schemas.comparison_analysis import (
     ComparisonRequest, ComparisonResult, ComparisonAnalytics
@@ -73,7 +73,7 @@ async def get_analyses(
 
 @router.post("/", response_model=List[AnalysisResponse])
 async def create_analysis(
-    analysis_request: AnalysisRequest,
+    analysis_request: AnalysisCreate,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):

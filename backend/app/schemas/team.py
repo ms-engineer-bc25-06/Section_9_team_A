@@ -106,6 +106,34 @@ class TeamMemberOut(BaseModel):
     if _V2:
         model_config = ConfigDict(from_attributes=True)
 
+
+class TeamMemberCreate(BaseModel):
+    """チームメンバー作成用スキーマ"""
+    user_id: str
+    role: Optional[str] = None
+    status: Optional[str] = "active"
+
+
+class TeamMemberUpdate(BaseModel):
+    """チームメンバー更新用スキーマ"""
+    role: Optional[str] = None
+    status: Optional[str] = None
+
+
+class TeamMemberResponse(BaseModel):
+    """チームメンバー応答用スキーマ"""
+    id: str
+    user_id: str
+    team_id: str
+    role: Optional[str] = None
+    status: Optional[str] = None
+    joined_at: Optional[str] = None
+    user: Optional[UserOut] = None
+
+    if _V2:
+        model_config = ConfigDict(from_attributes=True)
+
+
 class TeamDetailOut(BaseModel):
     id: str
     name: str

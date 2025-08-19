@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     
     # CORS設定
     ALLOWED_HOSTS: List[str] = ["*"]
+    BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
     
     # Firebase設定
     FIREBASE_PROJECT_ID: Optional[str] = None
