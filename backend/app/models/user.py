@@ -7,7 +7,7 @@ from app.models.base import Base
 
 
 class User(Base):
-    """ユーザーモデル"""
+    """ユーザーモデル（基本的な認証機能のみ）"""
 
     __tablename__ = "users"
 
@@ -20,22 +20,22 @@ class User(Base):
     bio = Column(Text, nullable=True)
 
     # プロフィール項目
-    nickname = Column(String(100), nullable=True)  # ニックネーム
-    department = Column(String(100), nullable=True)  # 部署
-    join_date = Column(Date, nullable=True)  # 入社年月
-    birth_date = Column(Date, nullable=True)  # 生年月日
-    hometown = Column(String(200), nullable=True)  # 出身地
-    residence = Column(String(200), nullable=True)  # 居住地
-    hobbies = Column(Text, nullable=True)  # 趣味・特技
-    student_activities = Column(Text, nullable=True)  # 学生時代の部活・サークル・力を入れていたこと
-    holiday_activities = Column(Text, nullable=True)  # 休日の過ごし方
-    favorite_food = Column(Text, nullable=True)  # 好きな食べ物
-    favorite_media = Column(Text, nullable=True)  # 好きな本・漫画・映画・ドラマ
-    favorite_music = Column(Text, nullable=True)  # 好きな音楽・カラオケの18番
-    pets_oshi = Column(Text, nullable=True)  # ペット・推し
-    respected_person = Column(Text, nullable=True)  # 尊敬する人
-    motto = Column(Text, nullable=True)  # 座右の銘
-    future_goals = Column(Text, nullable=True)  # 将来の目標・生きてるうちにやってみたいこと
+    nickname = Column(String(100), nullable=True)
+    department = Column(String(100), nullable=True)
+    join_date = Column(Date, nullable=True)
+    birth_date = Column(Date, nullable=True)
+    hometown = Column(String(200), nullable=True)
+    residence = Column(String(200), nullable=True)
+    hobbies = Column(Text, nullable=True)
+    student_activities = Column(Text, nullable=True)
+    holiday_activities = Column(Text, nullable=True)
+    favorite_food = Column(Text, nullable=True)
+    favorite_media = Column(Text, nullable=True)
+    favorite_music = Column(Text, nullable=True)
+    pets_oshi = Column(Text, nullable=True)
+    respected_person = Column(Text, nullable=True)
+    motto = Column(Text, nullable=True)
+    future_goals = Column(Text, nullable=True)
 
     # Firebase認証関連
     firebase_uid = Column(String(128), unique=True, index=True, nullable=True)
@@ -47,8 +47,8 @@ class User(Base):
     is_admin = Column(Boolean, default=False)
 
     # サブスクリプション関連
-    subscription_status = Column(String(50), default="free")  # free, basic, premium
-    subscription_end_date = Column(DateTime, nullable=True)
+    subscription_status = Column(String(50), default="free")
+    subscription_end_date = Column(DateTime(timezone=True), nullable=True)
 
     # 使用量制限
     monthly_voice_minutes = Column(Integer, default=0)
@@ -76,7 +76,6 @@ class User(Base):
     
     # 組織メンバーシップ関連
     organization_memberships = relationship("OrganizationMember", back_populates="user")
-
 
     def __repr__(self):
         return f"<User(id={self.id}, email='{self.email}', username='{self.username}')>"

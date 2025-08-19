@@ -8,6 +8,7 @@ class Subscription(Base):
     __tablename__ = "subscriptions"
 
     id = Column(Integer, primary_key=True, index=True)
+ # サブスクリプション情報
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
     stripe_subscription_id = Column(String(255), nullable=False, unique=True)
@@ -29,4 +30,3 @@ class Subscription(Base):
 
     def __repr__(self):
         return f"<Subscription(id={self.id}, org_id={self.organization_id}, status='{self.status}', quantity={self.quantity})>"
-

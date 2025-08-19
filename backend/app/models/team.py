@@ -5,7 +5,7 @@ from datetime import datetime
 from app.models.base import Base
 
 class Team(Base):
-    """チームモデル"""
+    """チームモデル（基本的な機能のみ）"""
 
     __tablename__ = "teams"
 
@@ -26,18 +26,10 @@ class Team(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
-    # リレーションシップ
-
-    owner = relationship("User", foreign_keys=[owner_id])
-    members = relationship("TeamMember", back_populates="team")
-    voice_sessions = relationship("VoiceSession", back_populates="team")
-    chat_rooms = relationship("ChatRoom", back_populates="team")
-    
-    # チームダイナミクス分析関連
-    interactions = relationship("TeamInteraction", back_populates="team")
-    compatibilities = relationship("TeamCompatibility", back_populates="team")
-    cohesions = relationship("TeamCohesion", back_populates="team")
-    member_profiles = relationship("TeamMemberProfile", back_populates="team")
+    # リレーションシップ（基本的な機能のみ）
+    owner = relationship("User", foreign_keys=[owner_id], back_populates="owned_teams")
+    members = relationship("TeamMember", back_populates="team", uselist=True)
+    voice_sessions = relationship("VoiceSession", back_populates="team", uselist=True)
 
     def __repr__(self):
         return f"<Team(id={self.id}, name='{self.name}', owner_id={self.owner_id})>"

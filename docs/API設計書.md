@@ -279,20 +279,21 @@ Firebase認証後のユーザー登録・ログイン処理
       "member_count": 8,
       "role": "owner",
       "status": "active",
-      "owner": {
+      "created_by": {
         "id": "550e8400-e29b-41d4-a716-446655440000",
         "display_name": "田中太郎",
         "avatar_url": "https://example.com/avatar.jpg"
       },
       "subscription": {
-        "plan_type": "premium",
+        "plan_name": "premium",
         "status": "active"
       },
       "created_at": "2024-01-01T00:00:00Z"
     }
   ],
   "total": 1,
-  "has_more": false}
+  "has_more": false
+```
 ```
 
 ### **POST /teams**

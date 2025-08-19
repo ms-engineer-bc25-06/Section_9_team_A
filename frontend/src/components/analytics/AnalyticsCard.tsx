@@ -18,48 +18,11 @@ import {
   Trash2,
   ExternalLink
 } from "lucide-react"
-
-// AI分析結果の型定義（既存のuseAIAnalysisと整合性を保つ）
-interface PersonalityTrait {
-  trait: string
-  score: number
-  description: string
-}
-
-interface CommunicationPattern {
-  pattern: string
-  frequency: number
-  strength: string
-  improvement: string
-}
-
-interface BehaviorScore {
-  category: string
-  score: number
-  maxScore: number
-  trend: "up" | "down" | "stable"
-}
-
-interface AnalysisResult {
-  id: string
-  analysisType: "personality" | "communication" | "behavior" | "sentiment" | "topic" | "summary"
-  title: string
-  content: string
-  summary: string
-  keywords: string[]
-  topics: string[]
-  sentimentScore: number
-  sentimentLabel: string
-  confidenceScore: number
-  createdAt: string
-  personalityTraits?: PersonalityTrait[]
-  communicationPatterns?: CommunicationPattern[]
-  behaviorScores?: BehaviorScore[]
-}
+import { AnalysisResponse } from "@/lib/api/analytics"
 
 interface AnalyticsCardProps {
-  analysis: AnalysisResult
-  onViewDetails?: (analysis: AnalysisResult) => void
+  analysis: AnalysisResponse
+  onViewDetails?: (analysis: AnalysisResponse) => void
   onDelete?: (analysisId: string) => void
   showActions?: boolean
 }
@@ -147,16 +110,16 @@ export function AnalyticsCard({
   }
 
   const renderAnalysisContent = () => {
-    switch (analysis.analysisType) {
+    switch (analysis.analysis_type) {
       case "personality":
         return (
           <div className="space-y-3">
             <p className="text-gray-600 text-sm">{analysis.summary}</p>
-            {analysis.personalityTraits && (
+            {analysis.personality_traits && (
               <div className="space-y-2">
                 <h5 className="font-medium text-sm text-gray-700">性格特性</h5>
                 <div className="grid grid-cols-1 gap-2">
-                  {analysis.personalityTraits.slice(0, 3).map((trait, index) => (
+                  {analysis.personality_traits.slice(0, 3).map((trait, index) => (
                     <div key={index} className="flex items-center justify-between text-xs">
                       <span className="text-gray-600">{trait.trait}</span>
                       <Badge variant="outline" className="text-xs">
@@ -174,11 +137,11 @@ export function AnalyticsCard({
         return (
           <div className="space-y-3">
             <p className="text-gray-600 text-sm">{analysis.summary}</p>
-            {analysis.communicationPatterns && (
+            {analysis.communication_patterns && (
               <div className="space-y-2">
                 <h5 className="font-medium text-sm text-gray-700">パターン</h5>
                 <div className="space-y-1">
-                  {analysis.communicationPatterns.slice(0, 2).map((pattern, index) => (
+                  {analysis.communication_patterns.slice(0, 2).map((pattern, index) => (
                     <div key={index} className="flex items-center justify-between text-xs">
                       <span className="text-gray-600">{pattern.pattern}</span>
                       <Badge variant="outline" className="text-xs">
@@ -196,17 +159,17 @@ export function AnalyticsCard({
         return (
           <div className="space-y-3">
             <p className="text-gray-600 text-sm">{analysis.summary}</p>
-            {analysis.behaviorScores && (
+            {analysis.behavior_scores && (
               <div className="space-y-2">
                 <h5 className="font-medium text-sm text-gray-700">スコア</h5>
                 <div className="space-y-1">
-                  {analysis.behaviorScores.slice(0, 2).map((score, index) => (
+                  {analysis.behavior_scores.slice(0, 2).map((score, index) => (
                     <div key={index} className="flex items-center justify-between text-xs">
                       <span className="text-gray-600">{score.category}</span>
                       <div className="flex items-center space-x-1">
                         {getTrendIcon(score.trend)}
                         <span className={`font-medium ${getTrendColor(score.trend)}`}>
-                          {score.score}/{score.maxScore}
+                          {score.score}/{score.max_score}
                         </span>
                       </div>
                     </div>
@@ -240,17 +203,17 @@ export function AnalyticsCard({
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center space-x-2">
-            {getAnalysisTypeIcon(analysis.analysisType)}
+            {getAnalysisTypeIcon(analysis.analysis_type)}
             <div>
               <CardTitle className="text-base font-medium line-clamp-2">
                 {analysis.title}
               </CardTitle>
               <div className="flex items-center space-x-2 mt-1">
-                <Badge className={getAnalysisTypeColor(analysis.analysisType)}>
-                  {getAnalysisTypeLabel(analysis.analysisType)}
+                <Badge className={getAnalysisTypeColor(analysis.analysis_type)}>
+                  {getAnalysisTypeLabel(analysis.analysis_type)}
                 </Badge>
                 <Badge variant="outline" className="text-xs">
-                  {Math.round(analysis.confidenceScore * 100)}%
+                  {Math.round(analysis.confidence_score * 100)}%
                 </Badge>
               </div>
             </div>
@@ -274,11 +237,11 @@ export function AnalyticsCard({
           {renderAnalysisContent()}
           
           {/* 感情分析スコア */}
-          {analysis.sentimentScore !== undefined && (
+          {analysis.sentiment_score !== undefined && (
             <div className="flex items-center justify-between text-xs">
               <span className="text-gray-500">感情傾向:</span>
-              <Badge className={getSentimentColor(analysis.sentimentScore)}>
-                {getSentimentLabel(analysis.sentimentScore)}
+              <Badge className={getSentimentColor(analysis.sentiment_score)}>
+                {getSentimentLabel(analysis.sentiment_score)}
               </Badge>
             </div>
           )}
@@ -286,7 +249,7 @@ export function AnalyticsCard({
           {/* 作成日時 */}
           <div className="flex items-center space-x-2 text-xs text-gray-500">
             <Calendar className="h-3 w-3" />
-            <span>{formatDate(analysis.createdAt)}</span>
+            <span>{formatDate(analysis.created_at)}</span>
           </div>
         </div>
 
@@ -323,11 +286,11 @@ export function AnalyticsCard({
               )}
 
               {/* 詳細な分析結果 */}
-              {analysis.analysisType === "personality" && analysis.personalityTraits && (
+              {analysis.analysis_type === "personality" && analysis.personality_traits && (
                 <div>
                   <h6 className="font-medium text-sm text-gray-700 mb-2">詳細な性格特性</h6>
                   <div className="space-y-2">
-                    {analysis.personalityTraits.map((trait, index) => (
+                    {analysis.personality_traits.map((trait, index) => (
                       <div key={index} className="bg-gray-50 p-2 rounded text-xs">
                         <div className="flex items-center justify-between mb-1">
                           <span className="font-medium">{trait.trait}</span>
@@ -340,11 +303,11 @@ export function AnalyticsCard({
                 </div>
               )}
 
-              {analysis.analysisType === "communication" && analysis.communicationPatterns && (
+              {analysis.analysis_type === "communication" && analysis.communication_patterns && (
                 <div>
                   <h6 className="font-medium text-sm text-gray-700 mb-2">詳細なパターン</h6>
                   <div className="space-y-2">
-                    {analysis.communicationPatterns.map((pattern, index) => (
+                    {analysis.communication_patterns.map((pattern, index) => (
                       <div key={index} className="bg-blue-50 p-2 rounded text-xs">
                         <div className="flex items-center justify-between mb-1">
                           <span className="font-medium">{pattern.pattern}</span>
@@ -360,25 +323,25 @@ export function AnalyticsCard({
                 </div>
               )}
 
-              {analysis.analysisType === "behavior" && analysis.behaviorScores && (
+              {analysis.analysis_type === "behavior" && analysis.behavior_scores && (
                 <div>
                   <h6 className="font-medium text-sm text-gray-700 mb-2">詳細なスコア</h6>
                   <div className="space-y-2">
-                    {analysis.behaviorScores.map((score, index) => (
+                    {analysis.behavior_scores.map((score, index) => (
                       <div key={index} className="bg-purple-50 p-2 rounded text-xs">
                         <div className="flex items-center justify-between mb-1">
                           <span className="font-medium">{score.category}</span>
                           <div className="flex items-center space-x-1">
                             {getTrendIcon(score.trend)}
                             <span className={`font-medium ${getTrendColor(score.trend)}`}>
-                              {score.score}/{score.maxScore}
+                              {score.score}/{score.max_score}
                             </span>
                           </div>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
                           <div 
                             className="bg-purple-600 h-1.5 rounded-full transition-all duration-300"
-                            style={{ width: `${(score.score / score.maxScore) * 100}%` }}
+                            style={{ width: `${(score.score / score.max_score) * 100}%` }}
                           ></div>
                         </div>
                       </div>
