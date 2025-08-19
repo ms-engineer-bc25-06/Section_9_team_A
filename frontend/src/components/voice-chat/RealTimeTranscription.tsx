@@ -275,7 +275,7 @@ export const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
               <div ref={scrollAreaRef} className="space-y-2">
                 {segments.map((segment) => (
                   <div
-                    key={segment.segment.id}
+                    key={segment.id}
                     className={`p-3 rounded-lg border ${
                       segment.isComplete ? 'bg-white' : 'bg-yellow-50'
                     }`}

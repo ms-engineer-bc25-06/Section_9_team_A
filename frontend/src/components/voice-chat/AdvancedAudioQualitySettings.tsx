@@ -27,6 +27,7 @@ interface AdvancedAudioQualitySettingsProps {
     echoCancellation: any
     noiseReduction: any
     audioCompression: any
+    [key: string]: any // インデックスシグネチャを追加
   }
   onConfigChange: (newConfig: any) => void
   isEnabled: boolean
@@ -128,7 +129,7 @@ export const AdvancedAudioQualitySettings: React.FC<AdvancedAudioQualitySettings
                 <label className="text-sm font-medium">遅延補償 (ms)</label>
                 <Slider
                   value={[config.echoCancellation.delayCompensation]}
-                  onValueChange={([value]) => updateConfig('echoCancellation', 'delayCompensation', value)}
+                  onValueChange={([value]: [number]) => updateConfig('echoCancellation', 'delayCompensation', value)}
                   min={0}
                   max={200}
                   step={1}
@@ -159,7 +160,7 @@ export const AdvancedAudioQualitySettings: React.FC<AdvancedAudioQualitySettings
                 <label className="text-sm font-medium">適応率</label>
                 <Slider
                   value={[config.echoCancellation.adaptationRate]}
-                  onValueChange={([value]) => updateConfig('echoCancellation', 'adaptationRate', value)}
+                  onValueChange={([value]: [number]) => updateConfig('echoCancellation', 'adaptationRate', value)}
                   min={0.001}
                   max={0.1}
                   step={0.001}
@@ -240,7 +241,7 @@ export const AdvancedAudioQualitySettings: React.FC<AdvancedAudioQualitySettings
                 <label className="text-sm font-medium">VAD閾値</label>
                 <Slider
                   value={[config.noiseReduction.voiceActivityDetection.threshold]}
-                  onValueChange={([value]) => updateNestedConfig('noiseReduction', 'voiceActivityDetection', 'threshold', value)}
+                  onValueChange={([value]: [number]) => updateNestedConfig('noiseReduction', 'voiceActivityDetection', 'threshold', value)}
                   min={0.05}
                   max={0.5}
                   step={0.01}
@@ -253,7 +254,7 @@ export const AdvancedAudioQualitySettings: React.FC<AdvancedAudioQualitySettings
                 <label className="text-sm font-medium">ノイズフロア (dB)</label>
                 <Slider
                   value={[Math.abs(config.noiseReduction.voiceActivityDetection.noiseFloor)]}
-                  onValueChange={([value]) => updateNestedConfig('noiseReduction', 'voiceActivityDetection', 'noiseFloor', -value)}
+                  onValueChange={([value]: [number]) => updateNestedConfig('noiseReduction', 'voiceActivityDetection', 'noiseFloor', -value)}
                   min={20}
                   max={80}
                   step={1}
@@ -343,7 +344,7 @@ export const AdvancedAudioQualitySettings: React.FC<AdvancedAudioQualitySettings
                 <label className="text-sm font-medium">ビットレート (kbps)</label>
                 <Slider
                   value={[config.audioCompression.bitrate]}
-                  onValueChange={([value]) => updateConfig('audioCompression', 'bitrate', value)}
+                  onValueChange={([value]: [number]) => updateConfig('audioCompression', 'bitrate', value)}
                   min={16}
                   max={128}
                   step={8}
