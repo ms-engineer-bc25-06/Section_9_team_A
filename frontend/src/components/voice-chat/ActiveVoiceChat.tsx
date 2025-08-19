@@ -8,8 +8,11 @@ import { Badge } from "@/components/ui/Badge"
 import { Mic, MicOff, Volume2, VolumeX, Phone, Users, MessageCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useWebRTCVoiceChat } from "@/hooks/useWebRTCVoiceChat"
+import { useAudioStreaming } from "@/hooks/useAudioStreaming"
 import { AudioCapture } from "./AudioCapture"
 import { ParticipantsList } from "./ParticipantsList"
+import { AudioQualityMonitor } from "./AudioQualityMonitor"
+import { AudioQualitySettings } from "./AudioQualitySettings"
 
 interface Props {
   roomId: string
@@ -62,6 +65,7 @@ const TALK_TOPICS = [
 export function ActiveVoiceChat({ roomId }: Props) {
   const [duration, setDuration] = useState(0)
   const [currentTopic, setCurrentTopic] = useState<{ text: string; category: string; description: string }>({ text: '', category: '', description: '' })
+  const [showAudioSettings, setShowAudioSettings] = useState(false)
   const router = useRouter()
   
   // WebRTC音声チャットフック
@@ -81,6 +85,21 @@ export function ActiveVoiceChat({ roomId }: Props) {
     error,
     connectionStats,
   } = useWebRTCVoiceChat(roomId)
+
+  // 音声ストリーミングフック
+  const {
+    config: audioConfig,
+    updateConfig: updateAudioConfig,
+    qualityMetrics,
+    startStreaming,
+    stopStreaming,
+    isStreaming,
+    enableEchoCancellation,
+    disableEchoCancellation,
+    enableNoiseSuppression,
+    disableNoiseSuppression,
+    error: streamingError,
+  } = useAudioStreaming()
 
   // 現在のユーザー情報（実際の実装では認証から取得）
   const currentUser = {
@@ -159,6 +178,13 @@ export function ActiveVoiceChat({ roomId }: Props) {
     }
   }, [isInitialized, isConnected, joinRoom, roomId])
 
+  // ローカルストリームが利用可能になったら音声ストリーミング開始
+  useEffect(() => {
+    if (localStream && !isStreaming) {
+      startStreaming(localStream)
+    }
+  }, [localStream, isStreaming, startStreaming])
+
   // 接続状態に基づく表示
   const getConnectionStatusText = () => {
     switch (connectionState) {
@@ -195,11 +221,11 @@ export function ActiveVoiceChat({ roomId }: Props) {
   }
 
   // エラー表示
-  if (error) {
+  if (error || streamingError) {
     return (
       <div className="text-center py-8">
         <div className="text-red-600 text-lg font-semibold mb-4">エラーが発生しました</div>
-        <div className="text-gray-600 mb-4">{error}</div>
+        <div className="text-gray-600 mb-4">{error || streamingError}</div>
         <Button onClick={() => joinRoom(roomId)} variant="outline">
           再接続を試す
         </Button>
@@ -243,7 +269,16 @@ export function ActiveVoiceChat({ roomId }: Props) {
       {/* 音声コントロール */}
       <Card>
         <CardHeader>
-          <CardTitle>音声コントロール</CardTitle>
+          <CardTitle className="flex items-center justify-between">
+            <span>音声コントロール</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowAudioSettings(!showAudioSettings)}
+            >
+              {showAudioSettings ? '設定を隠す' : '音声設定'}
+            </Button>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-4">
@@ -278,10 +313,27 @@ export function ActiveVoiceChat({ roomId }: Props) {
         </CardContent>
       </Card>
 
+      {/* 音声品質設定 */}
+      {showAudioSettings && (
+        <AudioQualitySettings
+          config={audioConfig}
+          onConfigChange={updateAudioConfig}
+          isStreaming={isStreaming}
+        />
+      )}
+
+      {/* 音声品質監視 */}
+      <AudioQualityMonitor
+        metrics={qualityMetrics}
+        isStreaming={isStreaming}
+        error={streamingError}
+      />
+
       {/* 参加者リスト */}
       <ParticipantsList
         participants={formattedParticipants}
-        currentUser={currentUser}
+        currentUserId={currentUser.id}
+        currentUserRole={currentUser.role}
         onMuteParticipant={handleMuteParticipant}
         onChangeRole={handleChangeRole}
         onRemoveParticipant={handleRemoveParticipant}
