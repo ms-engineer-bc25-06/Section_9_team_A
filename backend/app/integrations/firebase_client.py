@@ -4,7 +4,7 @@ from typing import Optional, Dict, Any
 import structlog
 import os
 
-from app.config import settings
+from app.core.config import settings
 
 logger = structlog.get_logger()
 
