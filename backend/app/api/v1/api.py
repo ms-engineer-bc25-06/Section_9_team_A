@@ -17,6 +17,7 @@ from app.api.v1 import (
     feedback_approvals,
     comparison_analysis,
     industry_management,
+    report_management,
 )
 
 api_router = APIRouter()
@@ -93,4 +94,9 @@ api_router.include_router(
 # 業界管理
 api_router.include_router(
     industry_management.router, prefix="/industry-management", tags=["業界管理"]
+)
+
+# レポート管理
+api_router.include_router(
+    report_management.router, prefix="/report-management", tags=["レポート管理"]
 )

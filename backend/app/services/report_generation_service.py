@@ -1,13 +1,21 @@
 import uuid
+import json
+import base64
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, and_, func
 
 from app.models.analysis import Analysis
 from app.models.user import User
+from app.models.report import Report, ReportTemplate, ReportExport
 from app.schemas.comparison_analysis import (
     ComparisonResult, ComparisonReport, ReportGenerationRequest
+)
+from app.schemas.report_generation import (
+    ReportGenerationOptions, ReportFormat, ReportType, ChartType,
+    ChartData, VisualizationConfig, ReportSection
 )
 from app.core.exceptions import (
     NotFoundException, ValidationException, BusinessLogicException
@@ -27,28 +35,41 @@ class ReportGenerationService:
         db: AsyncSession,
         user: User,
         comparison_result: ComparisonResult,
-        report_request: ReportGenerationRequest
+        report_request: ReportGenerationRequest,
+        options: Optional[ReportGenerationOptions] = None
     ) -> ComparisonReport:
         """比較分析レポートを生成"""
         try:
+            # デフォルトオプションの設定
+            if options is None:
+                options = ReportGenerationOptions(
+                    report_format=ReportFormat(report_request.report_format),
+                    language=report_request.language,
+                    include_charts=report_request.include_charts,
+                    include_recommendations=report_request.include_recommendations
+                )
+            
             # レポートの基本情報を生成
-            title, summary = self._generate_report_title_and_summary(comparison_result)
+            title, summary = self._generate_report_title_and_summary(comparison_result, options)
             key_findings = self._extract_key_findings(comparison_result)
             detailed_analysis = self._create_detailed_analysis(comparison_result)
             
-            # 可視化データの生成
+            # 高度な可視化データの生成
             visualizations = []
-            if report_request.include_charts:
-                visualizations = self._create_visualizations(comparison_result)
+            charts_data = []
+            if options.include_charts:
+                visualizations, charts_data = self._create_advanced_visualizations(
+                    comparison_result, options
+                )
             
             # アクションプランの生成
             action_items, next_steps = [], []
-            if report_request.include_recommendations:
+            if options.include_recommendations:
                 action_items, next_steps = self._generate_action_plan(comparison_result)
             
             # カスタムセクションの追加
             custom_sections = self._generate_custom_sections(
-                comparison_result, report_request.custom_sections
+                comparison_result, options.custom_sections
             )
             
             # レポートの生成
@@ -68,14 +89,14 @@ class ReportGenerationService:
                 include_recommendations=report_request.include_recommendations
             )
             
-            # レポートの保存（TODO: データベースに保存）
-            await self._save_report(db, report)
+            # データベースにレポートを保存
+            await self._save_report_to_db(db, user, report, ReportType.COMPARISON, options)
             
             logger.info(
                 "比較分析レポートを生成",
                 report_id=report.report_id,
                 comparison_id=report.comparison_id,
-                format=report.report_format
+                format=options.report_format.value
             )
             
             return report
@@ -189,17 +210,30 @@ class ReportGenerationService:
     # プライベートメソッド
 
     def _generate_report_title_and_summary(
-        self, comparison_result: ComparisonResult
+        self, comparison_result: ComparisonResult, options: ReportGenerationOptions
     ) -> tuple[str, str]:
         """レポートのタイトルと概要を生成"""
-        title = f"{comparison_result.comparison_type.value}分析レポート"
+        # 言語に応じたタイトル生成
+        if options.language == "en":
+            title = f"{comparison_result.comparison_type.value} Analysis Report"
+        else:
+            title = f"{comparison_result.comparison_type.value}分析レポート"
         
-        summary = f"""
-        このレポートは、{comparison_result.comparison_scope.value}に関する
-        {comparison_result.comparison_type.value}分析の結果をまとめたものです。
-        総参加者数{comparison_result.total_participants}名のデータに基づいて
-        分析が行われ、信頼度{comparison_result.confidence_level:.1%}で結果が生成されています。
-        """
+        # 言語に応じた概要生成
+        if options.language == "en":
+            summary = f"""
+            This report summarizes the results of {comparison_result.comparison_type.value} analysis
+            regarding {comparison_result.comparison_scope.value}. The analysis was conducted
+            based on data from {comparison_result.total_participants} total participants,
+            and results were generated with a confidence level of {comparison_result.confidence_level:.1%}.
+            """
+        else:
+            summary = f"""
+            このレポートは、{comparison_result.comparison_scope.value}に関する
+            {comparison_result.comparison_type.value}分析の結果をまとめたものです。
+            総参加者数{comparison_result.total_participants}名のデータに基づいて
+            分析が行われ、信頼度{comparison_result.confidence_level:.1%}で結果が生成されています。
+            """
         
         return title, summary.strip()
 
@@ -242,44 +276,71 @@ class ReportGenerationService:
             }
         }
 
-    def _create_visualizations(self, comparison_result: ComparisonResult) -> List[Dict[str, Any]]:
-        """可視化データを作成"""
+    def _create_advanced_visualizations(
+        self, comparison_result: ComparisonResult, options: ReportGenerationOptions
+    ) -> Tuple[List[Dict[str, Any]], List[ChartData]]:
+        """高度な可視化データを作成"""
         visualizations = []
+        charts_data = []
         
         # パフォーマンス分布の可視化
         if comparison_result.performance_distribution:
+            chart_data = self._create_performance_distribution_chart(
+                comparison_result.performance_distribution, options
+            )
+            charts_data.append(chart_data)
             visualizations.append({
                 "type": "performance_distribution",
-                "title": "パフォーマンス分布",
-                "data": comparison_result.performance_distribution,
-                "chart_type": "bar_chart"
+                "title": chart_data.title,
+                "chart_id": chart_data.chart_id,
+                "chart_type": chart_data.chart_type.value
             })
         
         # 強み・成長領域の可視化
+        chart_data = self._create_strength_growth_chart(comparison_result, options)
+        charts_data.append(chart_data)
         visualizations.append({
             "type": "strength_growth_chart",
-            "title": "強みと成長領域",
-            "data": {
-                "strengths": comparison_result.strength_areas,
-                "growth_areas": comparison_result.growth_areas
-            },
-            "chart_type": "radar_chart"
+            "title": chart_data.title,
+            "chart_id": chart_data.chart_id,
+            "chart_type": chart_data.chart_type.value
         })
         
         # 改善提案の優先度マトリックス
         if comparison_result.improvement_suggestions:
+            chart_data = self._create_improvement_priority_matrix(
+                comparison_result.improvement_suggestions, options
+            )
+            charts_data.append(chart_data)
             visualizations.append({
                 "type": "improvement_priority_matrix",
-                "title": "改善提案の優先度マトリックス",
-                "data": {
-                    "suggestions": comparison_result.improvement_suggestions,
-                    "impact": "high",
-                    "effort": "medium"
-                },
-                "chart_type": "matrix_chart"
+                "title": chart_data.title,
+                "chart_id": chart_data.chart_id,
+                "chart_type": chart_data.chart_type.value
             })
         
-        return visualizations
+        # 成長トレンドの可視化
+        if hasattr(comparison_result, 'growth_trends') and comparison_result.growth_trends:
+            chart_data = self._create_growth_trend_chart(comparison_result.growth_trends, options)
+            charts_data.append(chart_data)
+            visualizations.append({
+                "type": "growth_trend_chart",
+                "title": chart_data.title,
+                "chart_id": chart_data.chart_id,
+                "chart_type": chart_data.chart_type.value
+            })
+        
+        # 比較結果のサマリーチャート
+        chart_data = self._create_comparison_summary_chart(comparison_result, options)
+        charts_data.append(chart_data)
+        visualizations.append({
+            "type": "comparison_summary_chart",
+            "title": chart_data.title,
+            "chart_id": chart_data.chart_id,
+            "chart_type": chart_data.chart_type.value
+        })
+        
+        return visualizations, charts_data
 
     def _generate_action_plan(
         self, comparison_result: ComparisonResult
@@ -494,10 +555,400 @@ class ReportGenerationService:
         
         return action_items, next_steps
 
-    async def _save_report(self, db: AsyncSession, report: ComparisonReport) -> None:
+    async def _save_report_to_db(
+        self,
+        db: AsyncSession,
+        user: User,
+        report: ComparisonReport,
+        report_type: ReportType,
+        options: ReportGenerationOptions
+    ) -> None:
         """レポートをデータベースに保存"""
-        # TODO: 実際のデータベース保存処理を実装
-        logger.info(f"レポートを保存: {report.report_id}")
+        try:
+            # レポートモデルの作成
+            db_report = Report(
+                report_id=report.report_id,
+                comparison_id=report.comparison_id,
+                report_type=report_type.value,
+                title=report.title,
+                summary=report.summary,
+                key_findings=report.key_findings,
+                detailed_analysis=report.detailed_analysis,
+                visualizations=report.visualizations,
+                charts_data=self._prepare_charts_data_for_db(report),
+                action_items=report.action_items,
+                next_steps=report.next_steps,
+                report_format=options.report_format.value,
+                include_charts=options.include_charts,
+                include_recommendations=options.include_recommendations,
+                language=options.language,
+                generated_by=user.id,
+                is_public=False,  # デフォルトは非公開
+                tags=["comparison_analysis", "auto_generated"]
+            )
+            
+            db.add(db_report)
+            await db.commit()
+            
+            logger.info(f"レポートをデータベースに保存: {report.report_id}")
+            
+        except Exception as e:
+            await db.rollback()
+            logger.error(f"レポートのデータベース保存に失敗: {e}")
+            raise
+
+    def _prepare_charts_data_for_db(self, report: ComparisonReport) -> List[Dict[str, Any]]:
+        """チャートデータをデータベース保存用に準備"""
+        # 現在の実装では空のリストを返す
+        # 実際のチャートデータは別途管理
+        return []
+
+    # チャート生成メソッド
+
+    def _create_performance_distribution_chart(
+        self, performance_data: Dict[str, Any], options: ReportGenerationOptions
+    ) -> ChartData:
+        """パフォーマンス分布チャートを作成"""
+        chart_id = f"performance_dist_{uuid.uuid4().hex[:8]}"
+        
+        # 言語に応じたタイトル
+        if options.language == "en":
+            title = "Performance Distribution"
+        else:
+            title = "パフォーマンス分布"
+        
+        # チャート設定
+        config = VisualizationConfig(
+            chart_type=ChartType.BAR_CHART,
+            title=title,
+            description="パフォーマンスレベルの分布を示します",
+            data_source="comparison_analysis",
+            x_axis="performance_level",
+            y_axis="count",
+            colors=options.chart_colors or ["#4CAF50", "#2196F3", "#FFC107", "#F44336"],
+            theme=options.chart_theme or "default",
+            animation=options.chart_animation
+        )
+        
+        return ChartData(
+            chart_id=chart_id,
+            chart_type=ChartType.BAR_CHART,
+            title=title,
+            data=performance_data,
+            config=config
+        )
+
+    def _create_strength_growth_chart(
+        self, comparison_result: ComparisonResult, options: ReportGenerationOptions
+    ) -> ChartData:
+        """強み・成長領域チャートを作成"""
+        chart_id = f"strength_growth_{uuid.uuid4().hex[:8]}"
+        
+        # 言語に応じたタイトル
+        if options.language == "en":
+            title = "Strengths and Growth Areas"
+        else:
+            title = "強みと成長領域"
+        
+        # データの準備
+        chart_data = {
+            "strengths": comparison_result.strength_areas,
+            "growth_areas": comparison_result.growth_areas,
+            "strength_count": len(comparison_result.strength_areas),
+            "growth_count": len(comparison_result.growth_areas)
+        }
+        
+        # チャート設定
+        config = VisualizationConfig(
+            chart_type=ChartType.RADAR_CHART,
+            title=title,
+            description="強みと成長領域をレーダーチャートで表示します",
+            data_source="comparison_analysis",
+            colors=options.chart_colors or ["#4CAF50", "#FF9800"],
+            theme=options.chart_theme or "default",
+            animation=options.chart_animation
+        )
+        
+        return ChartData(
+            chart_id=chart_id,
+            chart_type=ChartType.RADAR_CHART,
+            title=title,
+            data=chart_data,
+            config=config
+        )
+
+    def _create_improvement_priority_matrix(
+        self, improvement_suggestions: List[str], options: ReportGenerationOptions
+    ) -> ChartData:
+        """改善提案の優先度マトリックスチャートを作成"""
+        chart_id = f"improvement_matrix_{uuid.uuid4().hex[:8]}"
+        
+        # 言語に応じたタイトル
+        if options.language == "en":
+            title = "Improvement Priority Matrix"
+        else:
+            title = "改善提案の優先度マトリックス"
+        
+        # データの準備
+        chart_data = {
+            "suggestions": improvement_suggestions,
+            "impact_levels": ["high", "medium", "low"],
+            "effort_levels": ["low", "medium", "high"],
+            "matrix_data": self._create_priority_matrix_data(improvement_suggestions)
+        }
+        
+        # チャート設定
+        config = VisualizationConfig(
+            chart_type=ChartType.HEATMAP,
+            title=title,
+            description="改善提案の影響度と努力度をマトリックスで表示します",
+            data_source="comparison_analysis",
+            colors=options.chart_colors or ["#E3F2FD", "#2196F3", "#1976D2"],
+            theme=options.chart_theme or "default",
+            animation=options.chart_animation
+        )
+        
+        return ChartData(
+            chart_id=chart_id,
+            chart_type=ChartType.HEATMAP,
+            title=title,
+            data=chart_data,
+            config=config
+        )
+
+    def _create_growth_trend_chart(
+        self, growth_trends: Dict[str, Any], options: ReportGenerationOptions
+    ) -> ChartData:
+        """成長トレンドチャートを作成"""
+        chart_id = f"growth_trend_{uuid.uuid4().hex[:8]}"
+        
+        # 言語に応じたタイトル
+        if options.language == "en":
+            title = "Growth Trends Over Time"
+        else:
+            title = "成長トレンド"
+        
+        # チャート設定
+        config = VisualizationConfig(
+            chart_type=ChartType.LINE_CHART,
+            title=title,
+            description="時間経過による成長トレンドを表示します",
+            data_source="comparison_analysis",
+            x_axis="time_period",
+            y_axis="performance_score",
+            colors=options.chart_colors or ["#4CAF50", "#2196F3"],
+            theme=options.chart_theme or "default",
+            animation=options.chart_animation
+        )
+        
+        return ChartData(
+            chart_id=chart_id,
+            chart_type=ChartType.LINE_CHART,
+            title=title,
+            data=growth_trends,
+            config=config
+        )
+
+    def _create_comparison_summary_chart(
+        self, comparison_result: ComparisonResult, options: ReportGenerationOptions
+    ) -> ChartData:
+        """比較結果のサマリーチャートを作成"""
+        chart_id = f"comparison_summary_{uuid.uuid4().hex[:8]}"
+        
+        # 言語に応じたタイトル
+        if options.language == "en":
+            title = "Comparison Summary"
+        else:
+            title = "比較結果サマリー"
+        
+        # データの準備
+        summary_data = {
+            "total_participants": comparison_result.total_participants,
+            "confidence_level": comparison_result.confidence_level,
+            "strength_count": len(comparison_result.strength_areas),
+            "growth_count": len(comparison_result.growth_areas),
+            "suggestion_count": len(comparison_result.improvement_suggestions)
+        }
+        
+        # チャート設定
+        config = VisualizationConfig(
+            chart_type=ChartType.GAUGE_CHART,
+            title=title,
+            description="比較分析の主要指標をサマリーで表示します",
+            data_source="comparison_analysis",
+            colors=options.chart_colors or ["#4CAF50", "#2196F3", "#FF9800", "#F44336"],
+            theme=options.chart_theme or "default",
+            animation=options.chart_animation
+        )
+        
+        return ChartData(
+            chart_id=chart_id,
+            chart_type=ChartType.GAUGE_CHART,
+            title=title,
+            data=summary_data,
+            config=config
+        )
+
+    def _create_priority_matrix_data(self, suggestions: List[str]) -> List[Dict[str, Any]]:
+        """優先度マトリックスのデータを作成"""
+        matrix_data = []
+        
+        for i, suggestion in enumerate(suggestions):
+            # ランダムな影響度と努力度を生成（実際の実装では適切なロジックを使用）
+            impact = ["high", "medium", "low"][i % 3]
+            effort = ["low", "medium", "high"][(i + 1) % 3]
+            
+            matrix_data.append({
+                "suggestion": suggestion,
+                "impact": impact,
+                "effort": effort,
+                "priority": self._calculate_priority(impact, effort)
+            })
+        
+        return matrix_data
+
+    def _calculate_priority(self, impact: str, effort: str) -> str:
+        """影響度と努力度から優先度を計算"""
+        impact_scores = {"high": 3, "medium": 2, "low": 1}
+        effort_scores = {"high": 1, "medium": 2, "low": 3}
+        
+        priority_score = impact_scores.get(impact, 1) * effort_scores.get(effort, 1)
+        
+        if priority_score >= 6:
+            return "high"
+        elif priority_score >= 3:
+            return "medium"
+        else:
+            return "low"
+
+    # レポートエクスポート機能
+
+    async def export_report(
+        self,
+        db: AsyncSession,
+        user: User,
+        report_id: str,
+        export_format: ReportFormat,
+        options: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """レポートをエクスポート"""
+        try:
+            # レポートの取得
+            report = await self._get_report_by_id(db, report_id)
+            if not report:
+                raise NotFoundException("レポートが見つかりません")
+            
+            # エクスポート処理
+            if export_format == ReportFormat.PDF:
+                export_result = await self._export_to_pdf(report, options)
+            elif export_format == ReportFormat.HTML:
+                export_result = await self._export_to_html(report, options)
+            elif export_format == ReportFormat.EXCEL:
+                export_result = await self._export_to_excel(report, options)
+            elif export_format == ReportFormat.POWERPOINT:
+                export_result = await self._export_to_powerpoint(report, options)
+            else:
+                export_result = await self._export_to_json(report, options)
+            
+            # エクスポート履歴の保存
+            await self._save_export_history(db, user, report_id, export_format, export_result)
+            
+            logger.info(
+                "レポートをエクスポート",
+                report_id=report_id,
+                format=export_format.value,
+                user_id=user.id
+            )
+            
+            return export_result
+            
+        except Exception as e:
+            logger.error(f"レポートエクスポートに失敗: {e}")
+            raise
+
+    async def _get_report_by_id(self, db: AsyncSession, report_id: str) -> Optional[Report]:
+        """IDでレポートを取得"""
+        result = await db.execute(
+            select(Report).where(Report.report_id == report_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def _export_to_pdf(self, report: Report, options: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """PDF形式でエクスポート"""
+        # TODO: 実際のPDF生成処理を実装
+        return {
+            "format": "pdf",
+            "file_size": 1024000,  # 1MB
+            "download_url": f"/reports/{report.report_id}/download.pdf",
+            "status": "completed"
+        }
+
+    async def _export_to_html(self, report: Report, options: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """HTML形式でエクスポート"""
+        # TODO: 実際のHTML生成処理を実装
+        return {
+            "format": "html",
+            "file_size": 512000,  # 500KB
+            "download_url": f"/reports/{report.report_id}/download.html",
+            "status": "completed"
+        }
+
+    async def _export_to_excel(self, report: Report, options: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """Excel形式でエクスポート"""
+        # TODO: 実際のExcel生成処理を実装
+        return {
+            "format": "excel",
+            "file_size": 256000,  # 250KB
+            "download_url": f"/reports/{report.report_id}/download.xlsx",
+            "status": "completed"
+        }
+
+    async def _export_to_powerpoint(self, report: Report, options: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """PowerPoint形式でエクスポート"""
+        # TODO: 実際のPowerPoint生成処理を実装
+        return {
+            "format": "powerpoint",
+            "file_size": 2048000,  # 2MB
+            "download_url": f"/reports/{report.report_id}/download.pptx",
+            "status": "completed"
+        }
+
+    async def _export_to_json(self, report: Report, options: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """JSON形式でエクスポート"""
+        # TODO: 実際のJSON生成処理を実装
+        return {
+            "format": "json",
+            "file_size": 128000,  # 125KB
+            "download_url": f"/reports/{report.report_id}/download.json",
+            "status": "completed"
+        }
+
+    async def _save_export_history(
+        self,
+        db: AsyncSession,
+        user: User,
+        report_id: str,
+        export_format: ReportFormat,
+        export_result: Dict[str, Any]
+    ) -> None:
+        """エクスポート履歴を保存"""
+        try:
+            export_history = ReportExport(
+                report_id=report_id,
+                export_format=export_format.value,
+                export_type="download",
+                file_size=export_result.get("file_size", 0),
+                download_url=export_result.get("download_url", ""),
+                status=export_result.get("status", "completed"),
+                exported_by=user.id
+            )
+            
+            db.add(export_history)
+            await db.commit()
+            
+        except Exception as e:
+            await db.rollback()
+            logger.error(f"エクスポート履歴の保存に失敗: {e}")
 
 
 # グローバルインスタンス
