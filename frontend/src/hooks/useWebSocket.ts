@@ -2,7 +2,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { getAuthToken } from "@/lib/api"
+import { getAuthToken } from "@/lib/apiClient"
 
 type JsonValue = unknown
 
