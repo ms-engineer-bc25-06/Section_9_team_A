@@ -65,7 +65,8 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan,
 )
-app.include_router(health_router, prefix="/api/v1")   # ← 追加
+# health_routerは定義されていないため、コメントアウト
+# app.include_router(health_router, prefix="/api/v1")
 
 # CORS設定
 app.add_middleware(

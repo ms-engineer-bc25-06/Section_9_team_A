@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Float
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Float, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -36,6 +36,11 @@ class Analysis(Base):
     status = Column(String(50), default="processing")  # processing, completed, failed
     confidence_score = Column(Float, nullable=True)  # 0.0-1.0
     
+    # 公開制御
+    is_public = Column(Boolean, default=False)  # 公開フラグ
+    visibility_level = Column(String(50), default="private")  # 可視性レベル
+    requires_approval = Column(Boolean, default=True)  # 承認が必要か
+    
     # 外部キー
     voice_session_id = Column(Integer, ForeignKey("voice_sessions.id"), nullable=True)
     transcription_id = Column(Integer, ForeignKey("transcriptions.id"), nullable=True)
@@ -50,6 +55,7 @@ class Analysis(Base):
     voice_session = relationship("VoiceSession")
     transcription = relationship("Transcription")
     user = relationship("User")
+    feedback_approvals = relationship("FeedbackApproval", back_populates="analysis")
 
     def __repr__(self):
         return f"<Analysis(id={self.id}, type='{self.analysis_type}', title='{self.title}')>"
@@ -68,6 +74,20 @@ class Analysis(Base):
     def is_failed(self) -> bool:
         """分析が失敗しているかどうか"""
         return self.status == "failed"
+
+    @property
+    def is_approved_for_publication(self) -> bool:
+        """公開承認済みかどうか"""
+        if not self.requires_approval:
+            return True
+        return any(approval.is_approved for approval in self.feedback_approvals)
+
+    @property
+    def current_visibility_level(self) -> str:
+        """現在の可視性レベルを取得"""
+        if not self.is_approved_for_publication:
+            return "private"
+        return self.visibility_level
 
     def mark_as_completed(self, processed_at: datetime = None):
         """分析を完了としてマーク"""
@@ -104,3 +124,21 @@ class Analysis(Base):
             return "negative"
         else:
             return "neutral"
+
+    def set_visibility(self, level: str, requires_approval: bool = True):
+        """可視性レベルを設定"""
+        self.visibility_level = level
+        self.requires_approval = requires_approval
+        self.updated_at = datetime.utcnow()
+
+    def make_public(self):
+        """公開設定にする"""
+        self.is_public = True
+        self.visibility_level = "public"
+        self.updated_at = datetime.utcnow()
+
+    def make_private(self):
+        """非公開設定にする"""
+        self.is_public = False
+        self.visibility_level = "private"
+        self.updated_at = datetime.utcnow()
