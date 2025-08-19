@@ -11,11 +11,33 @@ function buildUrl(path: string) {
   return `${API_BASE}${API_PREFIX}${p}`;
 }
 
-async function getIdToken(): Promise<string> {
+// Firebase トークン取得関数
+export async function getAuthToken(): Promise<string | null> {
   const auth = getAuth();
   const user = auth.currentUser;
-  if (!user) throw new Error("未ログインのためAPIを呼び出せません。");
-  return user.getIdToken(true);
+  if (!user) return null;
+  return await user.getIdToken();
+}
+
+async function getIdToken(): Promise<string> {
+  const token = await getAuthToken();
+  if (!token) throw new Error("未ログインのためAPIを呼び出せません。");
+  return token;
+}
+
+// 認証付きfetch関数（旧api.tsから統合）
+export async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
+  const token = await getAuthToken();
+  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+  
+  return fetch(`${baseUrl}${endpoint}`, {
+    ...options,
+    headers: {
+      ...options.headers,
+      Authorization: token ? `Bearer ${token}` : "",
+      "Content-Type": "application/json",
+    },
+  });
 }
 
 async function handle<T>(res: Response, label: string): Promise<T> {

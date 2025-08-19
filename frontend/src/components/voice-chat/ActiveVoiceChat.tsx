@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar"
 import { Badge } from "@/components/ui/Badge"
 import { Mic, MicOff, Volume2, VolumeX, Phone, Users, MessageCircle, AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useWebRTCVoiceChat } from "@/hooks/useWebRTCVoiceChat"
+import { useVoiceChat } from "@/hooks/useVoiceChat"
 import { useAdvancedAudioOptimization } from "@/hooks/useAdvancedAudioOptimization"
 import { useRealTimeTranscription } from "@/hooks/useRealTimeTranscription"
 import { AudioCapture } from "./AudioCapture"
@@ -84,7 +84,7 @@ export function ActiveVoiceChat({ roomId }: Props) {
     isSpeakerOn,
     toggleMute,
     toggleSpeaker,
-  } = useWebRTCVoiceChat(roomId)
+  } = useVoiceChat(roomId)
 
   // 高度な音声品質最適化フック
   const {

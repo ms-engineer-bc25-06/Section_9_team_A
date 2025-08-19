@@ -5,7 +5,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Mail, Lock, Shield } from "lucide-react"
 import { useAuth } from "@/components/auth/AuthProvider"
-import { auth } from "@/lib/firebase"
+import { auth } from "@/lib/auth"
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState("")
