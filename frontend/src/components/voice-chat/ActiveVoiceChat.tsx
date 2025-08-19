@@ -9,10 +9,13 @@ import { Mic, MicOff, Volume2, VolumeX, Phone, Users, MessageCircle } from "luci
 import { useRouter } from "next/navigation"
 import { useWebRTCVoiceChat } from "@/hooks/useWebRTCVoiceChat"
 import { useAudioStreaming } from "@/hooks/useAudioStreaming"
+import { useRealTimeTranscription } from "@/hooks/useRealTimeTranscription"
 import { AudioCapture } from "./AudioCapture"
 import { ParticipantsList } from "./ParticipantsList"
 import { AudioQualityMonitor } from "./AudioQualityMonitor"
 import { AudioQualitySettings } from "./AudioQualitySettings"
+import { RealTimeTranscription } from "./RealTimeTranscription"
+import { TranscriptionSettings } from "./TranscriptionSettings"
 
 interface Props {
   roomId: string
@@ -66,6 +69,7 @@ export function ActiveVoiceChat({ roomId }: Props) {
   const [duration, setDuration] = useState(0)
   const [currentTopic, setCurrentTopic] = useState<{ text: string; category: string; description: string }>({ text: '', category: '', description: '' })
   const [showAudioSettings, setShowAudioSettings] = useState(false)
+  const [showTranscriptionSettings, setShowTranscriptionSettings] = useState(false)
   const router = useRouter()
   
   // WebRTC音声チャットフック
@@ -100,6 +104,26 @@ export function ActiveVoiceChat({ roomId }: Props) {
     disableNoiseSuppression,
     error: streamingError,
   } = useAudioStreaming()
+
+  // リアルタイム文字起こしフック
+  const {
+    isTranscribing,
+    isPaused,
+    currentText,
+    segments,
+    startTranscription,
+    stopTranscription,
+    pauseTranscription,
+    resumeTranscription,
+    clearTranscription,
+    updateTranscriptionOptions,
+    error: transcriptionError,
+    clearError: clearTranscriptionError,
+  } = useRealTimeTranscription(localStream, {
+    language: 'ja',
+    response_format: 'json',
+    temperature: 0.3,
+  })
 
   // 現在のユーザー情報（実際の実装では認証から取得）
   const currentUser = {
@@ -328,6 +352,34 @@ export function ActiveVoiceChat({ roomId }: Props) {
         isStreaming={isStreaming}
         error={streamingError}
       />
+
+      {/* リアルタイム文字起こし */}
+      <RealTimeTranscription
+        isTranscribing={isTranscribing}
+        isPaused={isPaused}
+        currentText={currentText}
+        segments={segments}
+        onStart={startTranscription}
+        onStop={stopTranscription}
+        onPause={pauseTranscription}
+        onResume={resumeTranscription}
+        onClear={clearTranscription}
+        error={transcriptionError}
+        onClearError={clearTranscriptionError}
+      />
+
+      {/* 文字起こし設定 */}
+      {showTranscriptionSettings && (
+        <TranscriptionSettings
+          options={{
+            language: 'ja',
+            response_format: 'json',
+            temperature: 0.3,
+          }}
+          onOptionsChange={updateTranscriptionOptions}
+          isTranscribing={isTranscribing}
+        />
+      )}
 
       {/* 参加者リスト */}
       <ParticipantsList
