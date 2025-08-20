@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import aliased
 from typing import Optional, Dict, Any, List
 import structlog
+from datetime import datetime, date
 
 from app.api.deps import get_session, get_current_user
 from app.schemas.team import UserOut, UserProfileOut
@@ -94,7 +95,21 @@ async def update_user_profile(
         
         for frontend_field, db_field in field_mapping.items():
             if frontend_field in update_data:
-                db_update_data[db_field] = update_data[frontend_field]
+                value = update_data[frontend_field]
+                
+                # 日付フィールドの場合は文字列をdateオブジェクトに変換
+                if db_field in ["join_date", "birth_date"] and value:
+                    try:
+                        if isinstance(value, str):
+                            # YYYY-MM-DD形式の文字列をdateオブジェクトに変換
+                            value = datetime.strptime(value, "%Y-%m-%d").date()
+                        elif isinstance(value, datetime):
+                            value = value.date()
+                    except ValueError as e:
+                        logger.warning(f"Invalid date format for {db_field}: {value}, error: {e}")
+                        continue  # 無効な日付の場合はスキップ
+                
+                db_update_data[db_field] = value
 
         updated_user = await auth_service.update_user(
             user_id=int(current_user.id), update_data=db_update_data
