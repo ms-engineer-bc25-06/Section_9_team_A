@@ -118,7 +118,11 @@ class AuthService:
             # 更新フィールドを設定
             for field, value in update_data.items():
                 if hasattr(user, field):
-                    setattr(user, field, value)
+                    # 日付フィールドの特別処理
+                    if field in ['join_date', 'birth_date'] and value == '':
+                        setattr(user, field, None)  # 空文字列の場合はNULLに設定
+                    else:
+                        setattr(user, field, value)
 
             user.updated_at = datetime.utcnow()
             await self.db.commit()
