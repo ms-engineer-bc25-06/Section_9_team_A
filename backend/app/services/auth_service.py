@@ -182,7 +182,8 @@ class AuthService:
                 full_name=display_name or email,
                 is_active=True,
                 is_verified=True,
-                last_login_at=datetime.utcnow()
+                last_login_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
             )
 
             self.db.add(user)
