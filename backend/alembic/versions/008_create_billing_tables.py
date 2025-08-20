@@ -1,7 +1,7 @@
 """Create billing tables
 
-Revision ID: create_billing_tables
-Revises: 63d85a506193
+Revision ID: 008_create_billing_tables
+Revises: 007_consolidate_team_to_organization
 Create Date: 2024-01-20 10:00:00.000000
 
 """
@@ -9,8 +9,8 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision = 'create_billing_tables'
-down_revision = '63d85a506193'
+revision = '008_create_billing_tables'
+down_revision = '007_consolidate_team_to_organization'
 branch_labels = None
 depends_on = None
 
@@ -190,7 +190,7 @@ def downgrade():
         op.drop_index('idx_organization_members_org_user', 'organization_members')
         print("✅ organization_membersインデックス削除完了")
     except Exception as e:
-        print(f"⚠️  organization_membersインデックス削除スキップ: {e}")
+        print(f"⚠️  organization_members organizationインデックス削除スキップ: {e}")
     
     try:
         op.drop_index('idx_organizations_stripe_customer', 'organizations')
