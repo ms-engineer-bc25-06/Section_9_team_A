@@ -9,9 +9,10 @@ describe('Basic Application Test', () => {
     cy.get('body').should('be.visible')
   })
 
-  it('should have navigation elements', () => {
-    // 基本的なナビゲーション要素が存在することを確認
-    cy.get('nav').should('exist')
+  it('should display login form for unauthenticated users', () => {
+    // 未認証ユーザーにはログインフォームが表示されることを確認
+    cy.get('h1').should('contain', 'Bridge LINE')
+    cy.get('form').should('exist')
   })
 
   it('should be responsive', () => {

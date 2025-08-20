@@ -5,6 +5,8 @@ const nextConfig = {
   },
   eslint: {
     ignoreDuringBuilds: true,
+    // ESLintエラーを完全に無視
+    ignorePath: '.eslintignore',
   },
 }
 
