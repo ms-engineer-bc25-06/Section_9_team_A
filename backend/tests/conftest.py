@@ -3,10 +3,35 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi.testclient import TestClient
+from httpx import AsyncClient
 
 from app.main import app
 from app.core.database import get_db
 from app.core.config import settings
+
+# テスト用のHTTPクライアント（同期・非同期両対応）
+class CombinedTestClient:
+    """同期・非同期両方のテストクライアント"""
+    
+    def __init__(self):
+        self.sync_client = TestClient(app)
+        self.async_client = None
+    
+    def __getattr__(self, name):
+        """同期クライアントのメソッドを委譲"""
+        return getattr(self.sync_client, name)
+    
+    async def get_async_client(self):
+        """非同期クライアントを取得"""
+        if self.async_client is None:
+            self.async_client = AsyncClient(app=app, base_url="http://test")
+        return self.async_client
+    
+    async def aclose(self):
+        """非同期クライアントを閉じる"""
+        if self.async_client:
+            await self.async_client.aclose()
+            self.async_client = None
 
 # テスト用のモックデータベースセッション
 @pytest.fixture
@@ -18,7 +43,7 @@ def mock_db_session():
 @pytest.fixture
 def client():
     """テスト用HTTPクライアント"""
-    return TestClient(app)
+    return CombinedTestClient()
 
 # テスト用のユーザーデータ
 @pytest.fixture
