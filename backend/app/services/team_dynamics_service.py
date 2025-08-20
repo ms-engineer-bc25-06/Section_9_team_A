@@ -6,13 +6,13 @@ import numpy as np
 from datetime import datetime, timedelta
 
 from app.models.team_dynamics import (
-    TeamInteraction, TeamCompatibility, TeamCohesion, TeamMemberProfile
+    TeamInteraction, TeamCompatibility, TeamCohesion, OrganizationMemberProfile
 )
 from app.models.voice_session import VoiceSession
 from app.models.transcription import Transcription
-from app.models.team import Team
+from app.models.organization import Organization
 from app.models.user import User
-from app.models.team_member import TeamMember
+from app.models.organization_member import OrganizationMember
 from app.schemas.team_dynamics import (
     TeamInteractionAnalysis, TeamCompatibilityAnalysis, TeamCohesionAnalysis
 )
@@ -169,8 +169,8 @@ class TeamDynamicsService:
         ).all()
         
         # チームメンバーを取得
-        team_members = self.db.query(TeamMember).filter(
-            TeamMember.team_id == team_id
+        team_members = self.db.query(OrganizationMember).filter(
+            OrganizationMember.organization_id == team_id
         ).all()
         member_ids = [member.user_id for member in team_members]
         
@@ -269,8 +269,8 @@ class TeamDynamicsService:
             ).delete()
             
             # チームメンバーを取得
-            team_members = self.db.query(TeamMember).filter(
-                TeamMember.team_id == team_id
+            team_members = self.db.query(OrganizationMember).filter(
+                OrganizationMember.organization_id == team_id
             ).all()
             
             if len(team_members) < 2:
@@ -337,14 +337,14 @@ class TeamDynamicsService:
     ) -> Dict[str, float]:
         """2人のメンバー間の相性を計算"""
         # メンバープロファイルを取得
-        profile1 = self.db.query(TeamMemberProfile).filter(
-            TeamMemberProfile.user_id == member1_id,
-            TeamMemberProfile.team_id == team_id
+        profile1 = self.db.query(OrganizationMemberProfile).filter(
+            OrganizationMemberProfile.user_id == member1_id,
+            OrganizationMemberProfile.organization_id == team_id
         ).first()
         
-        profile2 = self.db.query(TeamMemberProfile).filter(
-            TeamMemberProfile.user_id == member2_id,
-            TeamMemberProfile.team_id == team_id
+        profile2 = self.db.query(OrganizationMemberProfile).filter(
+            OrganizationMemberProfile.user_id == member2_id,
+            OrganizationMemberProfile.organization_id == team_id
         ).first()
         
         # プロファイルが存在しない場合はデフォルト値を設定
@@ -518,7 +518,7 @@ class TeamDynamicsService:
     def _create_compatibility_matrix(
         self, 
         compatibilities: List[TeamCompatibility], 
-        team_members: List[TeamMember]
+        team_members: List[OrganizationMember]
     ) -> Dict[int, Dict[int, float]]:
         """相性マトリックスを作成"""
         matrix = {}

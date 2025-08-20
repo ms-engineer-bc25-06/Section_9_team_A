@@ -9,9 +9,9 @@ from app.schemas.team_dynamics import (
     TeamInteractionAnalysis,
     TeamCompatibilityAnalysis,
     TeamCohesionAnalysis,
-    TeamMemberProfileCreate,
-    TeamMemberProfileUpdate,
-    TeamMemberProfileResponse
+    OrganizationMemberProfileCreate,
+    OrganizationMemberProfileUpdate,
+    OrganizationMemberProfileResponse
 )
 
 router = APIRouter()
@@ -179,11 +179,11 @@ async def get_team_dynamics_summary(
         )
 
 
-@router.post("/teams/{team_id}/members/{user_id}/profile", response_model=TeamMemberProfileResponse)
+@router.post("/teams/{team_id}/members/{user_id}/profile", response_model=OrganizationMemberProfileResponse)
 async def create_member_profile(
     team_id: int,
     user_id: int,
-    profile_data: TeamMemberProfileCreate,
+    profile_data: OrganizationMemberProfileCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -203,12 +203,12 @@ async def create_member_profile(
     # 権限チェック（チームメンバーかどうか）
     # TODO: 権限チェックロジックを実装
     
-    from app.models.team_dynamics import TeamMemberProfile
+    from app.models.team_dynamics import OrganizationMemberProfile
     
     # 既存のプロファイルをチェック
-    existing_profile = db.query(TeamMemberProfile).filter(
-        TeamMemberProfile.team_id == team_id,
-        TeamMemberProfile.user_id == user_id
+    existing_profile = db.query(OrganizationMemberProfile).filter(
+        OrganizationMemberProfile.team_id == team_id,
+        OrganizationMemberProfile.user_id == user_id
     ).first()
     
     if existing_profile:
@@ -218,7 +218,7 @@ async def create_member_profile(
         )
     
     # 新しいプロファイルを作成
-    new_profile = TeamMemberProfile(
+    new_profile = OrganizationMemberProfile(
         team_id=team_id,
         user_id=user_id,
         communication_style=profile_data.communication_style,
@@ -231,7 +231,7 @@ async def create_member_profile(
     db.commit()
     db.refresh(new_profile)
     
-    return TeamMemberProfileResponse(
+    return OrganizationMemberProfileResponse(
         id=new_profile.id,
         user_id=new_profile.user_id,
         team_id=new_profile.team_id,
@@ -243,11 +243,11 @@ async def create_member_profile(
     )
 
 
-@router.put("/teams/{team_id}/members/{user_id}/profile", response_model=TeamMemberProfileResponse)
+@router.put("/teams/{team_id}/members/{user_id}/profile", response_model=OrganizationMemberProfileResponse)
 async def update_member_profile(
     team_id: int,
     user_id: int,
-    profile_data: TeamMemberProfileUpdate,
+    profile_data: OrganizationMemberProfileUpdate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -267,12 +267,12 @@ async def update_member_profile(
     # 権限チェック（チームメンバーかどうか）
     # TODO: 権限チェックロジックを実装
     
-    from app.models.team_dynamics import TeamMemberProfile
+    from app.models.team_dynamics import OrganizationMemberProfile
     
     # 既存のプロファイルを取得
-    profile = db.query(TeamMemberProfile).filter(
-        TeamMemberProfile.team_id == team_id,
-        TeamMemberProfile.user_id == user_id
+    profile = db.query(OrganizationMemberProfile).filter(
+        OrganizationMemberProfile.team_id == team_id,
+        OrganizationMemberProfile.user_id == user_id
     ).first()
     
     if not profile:
@@ -289,7 +289,7 @@ async def update_member_profile(
     db.commit()
     db.refresh(profile)
     
-    return TeamMemberProfileResponse(
+    return OrganizationMemberProfileResponse(
         id=profile.id,
         user_id=profile.user_id,
         team_id=profile.team_id,
@@ -301,7 +301,7 @@ async def update_member_profile(
     )
 
 
-@router.get("/teams/{team_id}/members/{user_id}/profile", response_model=TeamMemberProfileResponse)
+@router.get("/teams/{team_id}/members/{user_id}/profile", response_model=OrganizationMemberProfileResponse)
 async def get_member_profile(
     team_id: int,
     user_id: int,
@@ -323,11 +323,11 @@ async def get_member_profile(
     # 権限チェック（チームメンバーかどうか）
     # TODO: 権限チェックロジックを実装
     
-    from app.models.team_dynamics import TeamMemberProfile
+    from app.models.team_dynamics import OrganizationMemberProfile
     
-    profile = db.query(TeamMemberProfile).filter(
-        TeamMemberProfile.team_id == team_id,
-        TeamMemberProfile.user_id == user_id
+    profile = db.query(OrganizationMemberProfile).filter(
+        OrganizationMemberProfile.team_id == team_id,
+        OrganizationMemberProfile.user_id == user_id
     ).first()
     
     if not profile:
@@ -336,7 +336,7 @@ async def get_member_profile(
             detail="プロファイルが見つかりません"
         )
     
-    return TeamMemberProfileResponse(
+    return OrganizationMemberProfileResponse(
         id=profile.id,
         user_id=profile.user_id,
         team_id=profile.team_id,

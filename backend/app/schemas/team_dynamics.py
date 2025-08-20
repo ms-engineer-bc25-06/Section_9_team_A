@@ -63,7 +63,7 @@ class TeamCohesionAnalysis(BaseModel):
     improvement_suggestions: str = Field(..., description="改善提案")
 
 
-class TeamMemberProfileCreate(BaseModel):
+class OrganizationMemberProfileCreate(BaseModel):
     """チームメンバープロファイル作成スキーマ"""
     communication_style: Optional[str] = Field(None, description="コミュニケーションスタイル")
     personality_traits: Optional[List[str]] = Field(None, description="性格特性のリスト")
@@ -71,7 +71,7 @@ class TeamMemberProfileCreate(BaseModel):
     interaction_patterns: Optional[Dict[str, Any]] = Field(None, description="相互作用パターンの履歴")
 
 
-class TeamMemberProfileUpdate(BaseModel):
+class OrganizationMemberProfileUpdate(BaseModel):
     """チームメンバープロファイル更新スキーマ"""
     communication_style: Optional[str] = Field(None, description="コミュニケーションスタイル")
     personality_traits: Optional[List[str]] = Field(None, description="性格特性のリスト")
@@ -79,7 +79,7 @@ class TeamMemberProfileUpdate(BaseModel):
     interaction_patterns: Optional[Dict[str, Any]] = Field(None, description="相互作用パターンの履歴")
 
 
-class TeamMemberProfileResponse(BaseModel):
+class OrganizationMemberProfileResponse(BaseModel):
     """チームメンバープロファイル応答スキーマ"""
     id: int = Field(..., description="プロファイルID")
     user_id: int = Field(..., description="ユーザーID")

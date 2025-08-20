@@ -12,7 +12,7 @@ from app.core.auth import get_current_active_user
 from app.models.user import User
 from app.schemas.team import (
     TeamCreate, TeamUpdate, TeamResponse, TeamListResponse,
-    TeamMemberCreate, TeamMemberUpdate, TeamMemberResponse
+    OrganizationMemberCreate, OrganizationMemberUpdate, OrganizationMemberResponse
 )
 from app.schemas.team_dynamics import (
     TeamDynamicsCreate, TeamDynamicsUpdate, TeamDynamicsResponse,
@@ -20,7 +20,7 @@ from app.schemas.team_dynamics import (
 )
 from app.services.team_service import TeamService
 from app.services.team_dynamics_service import TeamDynamicsService
-from app.services.team_member_service import TeamMemberService
+from app.services.team_member_service import OrganizationMemberService
 
 router = APIRouter()
 logger = structlog.get_logger()
@@ -175,7 +175,7 @@ async def delete_team(
 
 # ==================== チームメンバー管理 ====================
 
-@router.get("/{team_id}/members", response_model=List[TeamMemberResponse])
+@router.get("/{team_id}/members", response_model=List[OrganizationMemberResponse])
 async def get_team_members(
     team_id: int,
     current_user: User = Depends(get_current_active_user),
@@ -183,7 +183,7 @@ async def get_team_members(
 ):
     """チームメンバー一覧を取得"""
     try:
-        member_service = TeamMemberService()
+        member_service = OrganizationMemberService()
         members = await member_service.get_team_members(
             db=db,
             team_id=team_id,
@@ -200,16 +200,16 @@ async def get_team_members(
         )
 
 
-@router.post("/{team_id}/members", response_model=TeamMemberResponse)
+@router.post("/{team_id}/members", response_model=OrganizationMemberResponse)
 async def add_team_member(
     team_id: int,
-    member_create: TeamMemberCreate,
+    member_create: OrganizationMemberCreate,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
     """チームにメンバーを追加"""
     try:
-        member_service = TeamMemberService()
+        member_service = OrganizationMemberService()
         member = await member_service.add_team_member(
             db=db,
             team_id=team_id,
@@ -227,17 +227,17 @@ async def add_team_member(
         )
 
 
-@router.put("/{team_id}/members/{member_id}", response_model=TeamMemberResponse)
+@router.put("/{team_id}/members/{member_id}", response_model=OrganizationMemberResponse)
 async def update_team_member(
     team_id: int,
     member_id: int,
-    member_update: TeamMemberUpdate,
+    member_update: OrganizationMemberUpdate,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
     """チームメンバーを更新"""
     try:
-        member_service = TeamMemberService()
+        member_service = OrganizationMemberService()
         member = await member_service.update_team_member(
             db=db,
             team_id=team_id,
@@ -265,7 +265,7 @@ async def remove_team_member(
 ):
     """チームからメンバーを削除"""
     try:
-        member_service = TeamMemberService()
+        member_service = OrganizationMemberService()
         await member_service.remove_team_member(
             db=db,
             team_id=team_id,

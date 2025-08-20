@@ -4,10 +4,10 @@ from sqlalchemy import select
 from typing import List, Optional, Dict, Any
 
 from app.api.deps import get_session, get_current_user
-from app.schemas.team import TeamsListResponse, TeamMemberOut, TeamDetailOut, TeamMini
+from app.schemas.team import TeamsListResponse, OrganizationMemberOut, TeamDetailOut, TeamMini
 from app.models.user import User
-from app.models.team import Team
-from app.models.team_member import TeamMember  # ← ここがポイント
+from app.models.organization import Organization
+from app.models.organization_member import OrganizationMember  # ← ここがポイント
 
 router = APIRouter()  # prefix は api.py 側で付与
 
@@ -24,10 +24,10 @@ async def list_my_teams(
     current_user: User = Depends(get_current_user),
 ):
     stmt = (
-        select(Team)
-        .join(TeamMember, TeamMember.team_id == Team.id)
-        .where(TeamMember.user_id == current_user.id)
-        .order_by(Team.created_at.desc())
+        select(Organization)
+        .join(OrganizationMember, OrganizationMember.organization_id == Organization.id)
+        .where(OrganizationMember.user_id == current_user.id)
+        .order_by(Organization.created_at.desc())
     )
     result = await db.execute(stmt)
     teams = result.scalars().all()
@@ -41,33 +41,33 @@ async def get_team_detail(
     current_user: User = Depends(get_current_user),
 ):
     # アクセス権（所属チェック）
-    member_stmt = select(TeamMember).where(
-        TeamMember.team_id == team_id,
-        TeamMember.user_id == current_user.id,
+    member_stmt = select(OrganizationMember).where(
+        OrganizationMember.organization_id == team_id,
+        OrganizationMember.user_id == current_user.id,
     ).limit(1)
     if not (await db.execute(member_stmt)).first():
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="TEAM_ACCESS_DENIED")
 
-    team = await db.get(Team, team_id)
+    team = await db.get(Organization, team_id)
     if not team:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="TEAM_NOT_FOUND")
 
     # メンバー取得（User.profile は JSON を想定、Python 側でフィルタ）
     stmt = (
-        select(User, TeamMember)
-        .join(TeamMember, TeamMember.user_id == User.id)
-        .where(TeamMember.team_id == team_id)
+        select(User, OrganizationMember)
+        .join(OrganizationMember, OrganizationMember.user_id == User.id)
+        .where(OrganizationMember.organization_id == team_id)
     )
     rows = (await db.execute(stmt)).all()
 
-    members: List[TeamMemberOut] = []
+    members: List[OrganizationMemberOut] = []
     for u, tm in rows:
         name_ok = isinstance(u.display_name, str) and u.display_name.strip()
         department = _get_department_from_profile(getattr(u, "profile", None))
         if not name_ok or not department:
             continue
         members.append(
-            TeamMemberOut(
+            OrganizationMemberOut(
                 id=str(u.id),
                 display_name=u.display_name,
                 avatar_url=getattr(u, "avatar_url", None),
@@ -85,17 +85,17 @@ async def list_team_members_minimal(
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    member_stmt = select(TeamMember).where(
-        TeamMember.team_id == team_id,
-        TeamMember.user_id == current_user.id,
+    member_stmt = select(OrganizationMember).where(
+        OrganizationMember.organization_id == team_id,
+        OrganizationMember.user_id == current_user.id,
     ).limit(1)
     if not (await db.execute(member_stmt)).first():
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="TEAM_ACCESS_DENIED")
 
     stmt = (
-        select(User, TeamMember)
-        .join(TeamMember, TeamMember.user_id == User.id)
-        .where(TeamMember.team_id == team_id)
+        select(User, OrganizationMember)
+        .join(OrganizationMember, OrganizationMember.user_id == User.id)
+        .where(OrganizationMember.organization_id == team_id)
     )
     rows = (await db.execute(stmt)).all()
 

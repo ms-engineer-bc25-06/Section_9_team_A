@@ -12,7 +12,7 @@ class OrganizationMember(Base):
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     
-    # メンバー情報（旧TeamMember機能）
+    # メンバー情報（旧OrganizationMember機能）
     role = Column(String(50), nullable=False, default='member')  # member, admin, owner
     status = Column(String(50), nullable=False, default='active')  # active, inactive, suspended
     is_active = Column(Boolean, default=True)

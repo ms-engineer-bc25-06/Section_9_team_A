@@ -1,5 +1,5 @@
 // チームメンバー一覧
-import { TeamMemberList } from "@/components/team/TeamMemberList"
+import { OrganizationMemberList } from "@/components/team/OrganizationMemberList"
 import { Button } from "@/components/ui/Button"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
@@ -26,7 +26,7 @@ export default function TeamPage() {
       </header>
       
       <main className="container mx-auto px-4 py-8">
-        <TeamMemberList />
+        <OrganizationMemberList />
       </main>
     </div>
   )

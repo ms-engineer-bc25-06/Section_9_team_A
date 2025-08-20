@@ -24,7 +24,7 @@ from .analysis import Analysis
 from .chat_room import ChatRoom, ChatMessage, ChatRoomParticipant
 
 # チームダイナミクス関連
-from .team_dynamics import TeamInteraction, TeamCompatibility, TeamCohesion, TeamMemberProfile
+from .team_dynamics import TeamInteraction, TeamCompatibility, TeamCohesion, OrganizationMemberProfile
 
 # プライバシー関連
 from .privacy import (
@@ -68,7 +68,7 @@ __all__ = [
     "TeamInteraction",
     "TeamCompatibility",
     "TeamCohesion",
-    "TeamMemberProfile",
+    "OrganizationMemberProfile",
     "Payment",
     "PrivacyLevel",
     "DataCategory",

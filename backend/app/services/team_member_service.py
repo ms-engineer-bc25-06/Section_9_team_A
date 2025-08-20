@@ -4,20 +4,20 @@
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete
-from app.models.team_member import TeamMember
-from app.schemas.team import TeamMemberCreate, TeamMemberUpdate, TeamMemberResponse
+from app.models.organization_member import OrganizationMember
+from app.schemas.team import OrganizationMemberCreate, OrganizationMemberUpdate, OrganizationMemberResponse
 from app.core.exceptions import BridgeLineException
 
 
-class TeamMemberService:
+class OrganizationMemberService:
     """チームメンバー管理サービス"""
     
     async def create_team_member(
-        self, db: AsyncSession, team_member_data: TeamMemberCreate
-    ) -> TeamMember:
+        self, db: AsyncSession, team_member_data: OrganizationMemberCreate
+    ) -> OrganizationMember:
         """チームメンバーを作成"""
         try:
-            team_member = TeamMember(**team_member_data.model_dump())
+            team_member = OrganizationMember(**team_member_data.model_dump())
             db.add(team_member)
             await db.commit()
             await db.refresh(team_member)
@@ -28,31 +28,31 @@ class TeamMemberService:
     
     async def get_team_member(
         self, db: AsyncSession, member_id: str
-    ) -> Optional[TeamMember]:
+    ) -> Optional[OrganizationMember]:
         """チームメンバーを取得"""
         result = await db.execute(
-            select(TeamMember).where(TeamMember.id == member_id)
+            select(OrganizationMember).where(OrganizationMember.id == member_id)
         )
         return result.scalar_one_or_none()
     
     async def get_team_members(
         self, db: AsyncSession, team_id: str
-    ) -> List[TeamMember]:
+    ) -> List[OrganizationMember]:
         """チームのメンバー一覧を取得"""
         result = await db.execute(
-            select(TeamMember).where(TeamMember.team_id == team_id)
+            select(OrganizationMember).where(OrganizationMember.organization_id == team_id)
         )
         return result.scalars().all()
     
     async def update_team_member(
-        self, db: AsyncSession, member_id: str, team_member_data: TeamMemberUpdate
-    ) -> Optional[TeamMember]:
+        self, db: AsyncSession, member_id: str, team_member_data: OrganizationMemberUpdate
+    ) -> Optional[OrganizationMember]:
         """チームメンバーを更新"""
         try:
             update_data = team_member_data.model_dump(exclude_unset=True)
             await db.execute(
-                update(TeamMember)
-                .where(TeamMember.id == member_id)
+                update(OrganizationMember)
+                .where(OrganizationMember.id == member_id)
                 .values(**update_data)
             )
             await db.commit()
@@ -69,7 +69,7 @@ class TeamMemberService:
         """チームメンバーを削除"""
         try:
             await db.execute(
-                delete(TeamMember).where(TeamMember.id == member_id)
+                delete(OrganizationMember).where(OrganizationMember.id == member_id)
             )
             await db.commit()
             return True
@@ -79,10 +79,10 @@ class TeamMemberService:
     
     async def get_user_teams(
         self, db: AsyncSession, user_id: str
-    ) -> List[TeamMember]:
+    ) -> List[OrganizationMember]:
         """ユーザーが所属するチーム一覧を取得"""
         result = await db.execute(
-            select(TeamMember).where(TeamMember.user_id == user_id)
+            select(OrganizationMember).where(OrganizationMember.user_id == user_id)
         )
         return result.scalars().all()
     
@@ -91,9 +91,9 @@ class TeamMemberService:
     ) -> bool:
         """チームメンバーの存在確認"""
         result = await db.execute(
-            select(TeamMember).where(
-                TeamMember.team_id == team_id,
-                TeamMember.user_id == user_id
+            select(OrganizationMember).where(
+                OrganizationMember.organization_id == team_id,
+                OrganizationMember.user_id == user_id
             )
         )
         return result.scalar_one_or_none() is not None

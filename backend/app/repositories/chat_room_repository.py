@@ -7,7 +7,7 @@ from datetime import datetime
 
 from app.models.chat_room import ChatRoom, ChatMessage, ChatRoomParticipant
 from app.models.user import User
-from app.models.team import Team
+from app.models.organization import Organization
 from app.repositories.base import BaseRepository
 from app.schemas.chat_room import (
     ChatRoomCreate,
@@ -51,7 +51,7 @@ class ChatRoomRepository(BaseRepository[ChatRoom, ChatRoomCreate, ChatRoomUpdate
                 select(ChatRoom)
                 .options(
                     joinedload(ChatRoom.creator),
-                    joinedload(ChatRoom.team),
+                    joinedload(ChatRoom.organization),
                     joinedload(ChatRoom.messages).joinedload(ChatMessage.sender),
                 )
                 .where(ChatRoom.id == room_id)
@@ -106,17 +106,17 @@ class ChatRoomRepository(BaseRepository[ChatRoom, ChatRoomCreate, ChatRoomUpdate
             logger.error(f"Failed to get chat rooms by creator {created_by}: {e}")
             return []
 
-    async def get_rooms_by_team(
+    async def get_rooms_by_organization(
         self,
         db: AsyncSession,
-        team_id: int,
+        organization_id: int,
         skip: int = 0,
         limit: int = 10,
         filters: Optional[Dict[str, Any]] = None,
     ) -> List[ChatRoom]:
-        """チーム別チャットルーム一覧を取得"""
+        """組織別チャットルーム一覧を取得"""
         try:
-            query = select(ChatRoom).where(ChatRoom.team_id == team_id)
+            query = select(ChatRoom).where(ChatRoom.organization_id == organization_id)
 
             if filters:
                 query = self._apply_filters(query, filters)
@@ -126,7 +126,7 @@ class ChatRoomRepository(BaseRepository[ChatRoom, ChatRoomCreate, ChatRoomUpdate
             result = await db.execute(query)
             return result.scalars().all()
         except Exception as e:
-            logger.error(f"Failed to get chat rooms by team {team_id}: {e}")
+            logger.error(f"Failed to get chat rooms by organization {organization_id}: {e}")
             return []
 
     async def search_rooms(

@@ -147,7 +147,7 @@ class TeamCohesion(Base):
             return "low"
 
 
-class TeamMemberProfile(Base):
+class OrganizationMemberProfile(Base):
     """チームメンバープロファイルテーブル"""
     __tablename__ = "team_member_profiles"
     
@@ -165,7 +165,7 @@ class TeamMemberProfile(Base):
     team = relationship("Team", back_populates="member_profiles")
 
     def __repr__(self):
-        return f"<TeamMemberProfile(id={self.id}, user_id={self.user_id}, team_id={self.team_id})>"
+        return f"<OrganizationMemberProfile(id={self.id}, user_id={self.user_id}, team_id={self.team_id})>"
 
     @property
     def is_assertive_communicator(self) -> bool:

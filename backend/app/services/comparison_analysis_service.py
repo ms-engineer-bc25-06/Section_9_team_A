@@ -8,8 +8,8 @@ from sqlalchemy.orm import selectinload
 
 from app.models.analysis import Analysis
 from app.models.user import User
-from app.models.team_member import TeamMember
-from app.models.team import Team
+from app.models.organization_member import OrganizationMember
+from app.models.organization import Organization
 from app.schemas.comparison_analysis import (
     ComparisonRequest, ComparisonResult, SelfComparisonResult,
     AnonymousPeerComparison, TeamComparisonResult, ComparisonFilters,
@@ -619,13 +619,13 @@ class ComparisonAnalysisService:
 
     async def _get_user_team_membership(
         self, db: AsyncSession, user_id: int
-    ) -> Optional[TeamMember]:
+    ) -> Optional[OrganizationMember]:
         """ユーザーのチーム所属情報を取得"""
         result = await db.execute(
-            select(TeamMember).where(
+            select(OrganizationMember).where(
                 and_(
-                    TeamMember.user_id == user_id,
-                    TeamMember.status == "active"
+                    OrganizationMember.user_id == user_id,
+                    OrganizationMember.status == "active"
                 )
             )
         )
@@ -642,10 +642,10 @@ class ComparisonAnalysisService:
             select(
                 func.count(Analysis.id).label("total_analyses"),
                 func.avg(Analysis.confidence_score).label("avg_confidence")
-            ).join(TeamMember, Analysis.user_id == TeamMember.user_id).where(
+            ).join(OrganizationMember, Analysis.user_id == OrganizationMember.user_id).where(
                 and_(
-                    TeamMember.team_id == team_id,
-                    TeamMember.status == "active",
+                    OrganizationMember.organization_id == team_id,
+                    OrganizationMember.status == "active",
                     Analysis.status == "completed"
                 )
             )

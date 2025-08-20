@@ -40,7 +40,7 @@ class Organization(Base):
     voice_sessions = relationship("VoiceSession", back_populates="organization")
     chat_rooms = relationship("ChatRoom", back_populates="organization")
     shared_reports = relationship("ReportShare", back_populates="shared_with_organization")
-    member_profiles = relationship("TeamMemberProfile", back_populates="organization")
+    member_profiles = relationship("OrganizationMemberProfile", back_populates="organization")
 
     def __repr__(self):
         return f"<Organization(id={self.id}, name='{self.name}', slug='{self.slug}')>"
