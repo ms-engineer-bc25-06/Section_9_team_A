@@ -55,11 +55,13 @@ class ChatRoom(Base):
     started_at = Column(DateTime(timezone=True), nullable=True)
     ended_at = Column(DateTime(timezone=True), nullable=True)
 
-    # リレーションシップ（循環参照を避けるため、back_populatesは使用しない）
+    # リレーションシップ
     messages = relationship(
         "ChatMessage", back_populates="chat_room", cascade="all, delete-orphan"
     )
     participants_rel = relationship("ChatRoomParticipant", back_populates="chat_room")
+    creator = relationship("User", back_populates="created_chat_rooms", foreign_keys=[created_by])
+    team = relationship("Team", back_populates="chat_rooms")
 
     def __repr__(self):
         return f"<ChatRoom(id={self.id}, name='{self.name}', room_id='{self.room_id}')>"
@@ -126,6 +128,7 @@ class ChatMessage(Base):
 
     # リレーションシップ（循環参照を避けるため、back_populatesは使用しない）
     chat_room = relationship("ChatRoom", back_populates="messages")
+    sender = relationship("User", back_populates="chat_messages", foreign_keys=[sender_id])
 
     def __repr__(self):
         return f"<ChatMessage(id={self.id}, content='{self.content[:50]}...')>"
@@ -174,6 +177,7 @@ class ChatRoomParticipant(Base):
 
     # リレーションシップ（循環参照を避けるため、back_populatesは使用しない）
     chat_room = relationship("ChatRoom", back_populates="participants_rel")
+    user = relationship("User", back_populates="chat_room_participations", foreign_keys=[user_id])
 
     def __repr__(self):
         return f"<ChatRoomParticipant(room_id={self.chat_room_id}, user_id={self.user_id})>"

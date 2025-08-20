@@ -45,9 +45,9 @@ class Billing(Base):
     paid_at = Column(DateTime(timezone=True), nullable=True)
     due_date = Column(DateTime(timezone=True), nullable=True)
     
-    # リレーションシップ（循環参照を避けるため、back_populatesは使用しない）
-    user = relationship("User")
-    subscription = relationship("Subscription")
+    # リレーションシップ
+    user = relationship("User", back_populates="billing_records")
+    subscription = relationship("Subscription", back_populates="billing_records")
 
     def __repr__(self):
         return f"<Billing(id={self.id}, amount={self.amount}, status='{self.status}')>"

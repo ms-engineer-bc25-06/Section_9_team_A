@@ -58,6 +58,8 @@ class VoiceSession(Base):
     # リレーションシップ（基本的な機能のみ）
     host = relationship("User", back_populates="voice_sessions", foreign_keys=[user_id])
     team = relationship("Team", back_populates="voice_sessions")
+    analyses = relationship("Analysis", back_populates="voice_session")
+    transcriptions = relationship("Transcription", back_populates="voice_session")
 
     def __repr__(self) -> str:
         return f"<VoiceSession(id={self.id}, session_id='{self.session_id}', title='{self.title}')>"

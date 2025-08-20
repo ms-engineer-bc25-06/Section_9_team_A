@@ -160,9 +160,9 @@ class TeamMemberProfile(Base):
     interaction_patterns = Column(JSON)  # 相互作用パターンの履歴
     last_updated = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
-    # リレーション（循環参照を避けるため、back_populatesは使用しない）
-    user = relationship("User")
-    team = relationship("Team")
+    # リレーション
+    user = relationship("User", back_populates="team_profiles")
+    team = relationship("Team", back_populates="member_profiles")
 
     def __repr__(self):
         return f"<TeamMemberProfile(id={self.id}, user_id={self.user_id}, team_id={self.team_id})>"

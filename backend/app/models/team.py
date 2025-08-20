@@ -30,6 +30,9 @@ class Team(Base):
     owner = relationship("User", foreign_keys=[owner_id], back_populates="owned_teams")
     members = relationship("TeamMember", back_populates="team", uselist=True)
     voice_sessions = relationship("VoiceSession", back_populates="team", uselist=True)
+    chat_rooms = relationship("ChatRoom", back_populates="team")
+    shared_reports = relationship("ReportShare", back_populates="shared_with_team_rel")
+    member_profiles = relationship("TeamMemberProfile", back_populates="team")
 
     def __repr__(self):
         return f"<Team(id={self.id}, name='{self.name}', owner_id={self.owner_id})>"
