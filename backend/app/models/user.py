@@ -72,8 +72,8 @@ class User(Base):
     last_login_at = Column(DateTime(timezone=True), nullable=True)
 
     # リレーションシップ
-    teams = relationship("TeamMember", back_populates="user")
-    owned_teams = relationship("Team", back_populates="owner")
+    organization_memberships = relationship("OrganizationMember", back_populates="user")
+    owned_organizations = relationship("Organization", back_populates="owner")
     voice_sessions = relationship("VoiceSession", back_populates="host")
     transcriptions = relationship("Transcription", back_populates="user")
     analyses = relationship("Analysis", back_populates="user")

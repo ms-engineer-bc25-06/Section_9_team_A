@@ -47,7 +47,7 @@ class ChatRoom(Base):
 
     # 外部キー
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
-    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
 
     # タイムスタンプ
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -61,7 +61,7 @@ class ChatRoom(Base):
     )
     participants_rel = relationship("ChatRoomParticipant", back_populates="chat_room")
     creator = relationship("User", back_populates="created_chat_rooms", foreign_keys=[created_by])
-    team = relationship("Team", back_populates="chat_rooms")
+    organization = relationship("Organization", back_populates="chat_rooms")
 
     def __repr__(self):
         return f"<ChatRoom(id={self.id}, name='{self.name}', room_id='{self.room_id}')>"

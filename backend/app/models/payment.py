@@ -5,6 +5,14 @@ from .base import Base
 
 
 class Payment(Base):
+    """支払い処理モデル
+    
+    役割:
+    - 実際の支払い処理
+    - 支払い方法の管理
+    - 支払い状態の追跡
+    - Stripe等の外部決済サービスとの連携
+    """
     __tablename__ = "payments"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -22,6 +30,7 @@ class Payment(Base):
 
     # Relationships
     organization = relationship("Organization", back_populates="payments")
+    billing = relationship("Billing", back_populates="payment", uselist=False)  # 1対1の関係
 
     def __repr__(self):
         return f"<Payment(id={self.id}, org_id={self.organization_id}, amount={self.amount}, status='{self.status}')>"

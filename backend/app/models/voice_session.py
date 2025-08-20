@@ -45,9 +45,9 @@ class VoiceSession(Base):
     sentiment_score = Column(Float, nullable=True)
     key_topics = Column(Text, nullable=True)
 
-    # 所有者/チーム
+    # 所有者/組織
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
 
     # タイムスタンプ
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -57,7 +57,7 @@ class VoiceSession(Base):
 
     # リレーションシップ（基本的な機能のみ）
     host = relationship("User", back_populates="voice_sessions", foreign_keys=[user_id])
-    team = relationship("Team", back_populates="voice_sessions")
+    organization = relationship("Organization", back_populates="voice_sessions")
     analyses = relationship("Analysis", back_populates="voice_session")
     transcriptions = relationship("Transcription", back_populates="voice_session")
 

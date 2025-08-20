@@ -7,7 +7,14 @@ from app.models.base import Base
 
 
 class Billing(Base):
-    """請求モデル"""
+    """請求書・請求管理モデル
+    
+    役割:
+    - 請求書の作成・管理
+    - 請求金額の計算
+    - 支払い状態の追跡
+    - 請求履歴の管理
+    """
 
     __tablename__ = "billings"
 
@@ -48,6 +55,7 @@ class Billing(Base):
     # リレーションシップ
     user = relationship("User", back_populates="billing_records")
     subscription = relationship("Subscription", back_populates="billing_records")
+    payment = relationship("Payment", back_populates="billing", uselist=False)  # 1対1の関係
 
     def __repr__(self):
         return f"<Billing(id={self.id}, amount={self.amount}, status='{self.status}')>"
