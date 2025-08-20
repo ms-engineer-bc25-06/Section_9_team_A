@@ -90,10 +90,11 @@ class Settings(BaseSettings):
     INITIAL_ADMIN_EMAIL: Optional[str] = None         # 現在: admin@example.com
     INITIAL_ADMIN_DISPLAY_NAME: Optional[str] = None  # 現在: 管理者1
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
-        extra = "ignore"  # 環境変数の追加フィールドを無視（トラブルシューティング用）
+    model_config = {
+        "env_file": ".env",
+        "case_sensitive": True,
+        "extra": "ignore"  # 環境変数の追加フィールドを無視（トラブルシューティング用）
+    }
 
 
 # 設定インスタンス
