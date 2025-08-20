@@ -7,6 +7,7 @@ import { AnalysisUpdateForm } from "./AnalysisUpdateForm"
 import { ProfileTabs } from "./ProfileTabs"
 import { useAIAnalysis } from "@/hooks/useAIAnalysis"
 import { useProfile } from "@/hooks/useProfile"
+import Link from "next/link"
 
 // モックデータを削除 - 実際のユーザープロフィールデータを使用
 
@@ -92,7 +93,7 @@ export function ProfileView() {
             </div>
             
             <div className="flex justify-center">
-              <a 
+              <Link 
                 href="/profile/edit" 
                 className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
               >
@@ -100,7 +101,7 @@ export function ProfileView() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
                 プロフィールを編集する
-              </a>
+              </Link>
             </div>
           </div>
         </div>
