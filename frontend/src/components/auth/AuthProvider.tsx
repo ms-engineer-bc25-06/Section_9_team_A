@@ -118,9 +118,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             throw new Error(`認証エラー: ${response.status} ${response.statusText}`)
           }
         } catch (backendError) {
-          console.warn("⚠️ バックエンド連携エラー (接続問題):", backendError)
-          // Firebase認証は成功しているので、バックエンドエラーでもログインを継続
-          return null
+          console.error("❌ バックエンド連携エラー:", backendError)
+          // バックエンド認証が失敗した場合は、Firebase認証もロールバック
+          await signOut(auth)
+          throw new Error('バックエンド認証に失敗しました。しばらく待ってから再試行してください。')
         }
       }
       return null

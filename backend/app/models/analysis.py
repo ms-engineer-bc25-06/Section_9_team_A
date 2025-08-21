@@ -55,7 +55,7 @@ class Analysis(Base):
     voice_session = relationship("VoiceSession")
     transcription = relationship("Transcription")
     user = relationship("User")
-    feedback_approvals = relationship("FeedbackApproval", back_populates="analysis")
+    # feedback_approvals = relationship("FeedbackApproval", back_populates="analysis")
 
     def __repr__(self):
         return f"<Analysis(id={self.id}, type='{self.analysis_type}', title='{self.title}')>"

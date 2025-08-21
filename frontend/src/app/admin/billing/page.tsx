@@ -190,7 +190,7 @@ export default function AdminBillingPage() {
         {/* アクションボタン */}
         <div className="mb-6 flex items-center justify-between">
           <Link href="/admin/billing/add-users">
-            <Button className="bg-blue-600 hover:bg-blue-700">
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white">
               <Users className="h-4 w-4 mr-2" />
               ユーザーを追加
             </Button>

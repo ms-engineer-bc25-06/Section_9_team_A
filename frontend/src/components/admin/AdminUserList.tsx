@@ -11,7 +11,8 @@ import { Search, Users, UserCheck, MoreHorizontal } from "lucide-react"
 import { useState, useEffect } from "react"
 import Link from "next/link"
 
-// モックデータ（開発環境用）
+// モックデータ（開発環境用）- コメントアウト
+/*
 const mockUsers = [
   {
     id: 1,
@@ -21,6 +22,7 @@ const mockUsers = [
     joinDate: "2023-04-01",
     lastLogin: "2024-01-15 14:30",
     role: "member",
+    hasTemporaryPassword: false,
   },
   {
     id: 2,
@@ -30,6 +32,7 @@ const mockUsers = [
     joinDate: "2023-03-15",
     lastLogin: "2024-01-15 10:15",
     role: "member",
+    hasTemporaryPassword: false,
   },
   {
     id: 3,
@@ -39,6 +42,7 @@ const mockUsers = [
     joinDate: "2023-02-01",
     lastLogin: "2024-01-14 16:45",
     role: "member",
+    hasTemporaryPassword: false,
   },
   {
     id: 4,
@@ -48,44 +52,72 @@ const mockUsers = [
     joinDate: "2023-01-10",
     lastLogin: "2024-01-15 09:20",
     role: "admin",
+    hasTemporaryPassword: false,
   },
 ]
+*/
+
+// ユーザーの型定義
+interface User {
+  id: number
+  name: string
+  email: string
+  department: string
+  joinDate: string
+  lastLogin: string
+  role: string
+  hasTemporaryPassword: boolean
+}
 
 export function AdminUserList() {
   const [searchTerm, setSearchTerm] = useState("")
-  const [users, setUsers] = useState(mockUsers)
+  const [users, setUsers] = useState<User[]>([])
 
-  // 決済完了後の新しいユーザーを取得
+  // バックエンドAPIからユーザー一覧を取得
   useEffect(() => {
-    const pendingUsers = sessionStorage.getItem('pendingUsers')
-    if (pendingUsers) {
+    const fetchUsers = async () => {
       try {
-        const newUsers = JSON.parse(pendingUsers)
-        const currentDate = new Date().toISOString().split('T')[0]
+        console.log('Fetching users from backend...')
+        const response = await fetch('/api/v1/admin/users', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        })
         
-        // 新しいユーザーを既存のユーザーリストに追加
-        const usersWithIds = newUsers.map((user: any, index: number) => ({
-          ...user,
-          id: users.length + index + 1,
-          joinDate: currentDate,
-          lastLogin: "未ログイン"
-        }))
-        
-        setUsers(prevUsers => [...prevUsers, ...usersWithIds])
-        
-        // セッションストレージをクリア
-        sessionStorage.removeItem('pendingUsers')
+        if (response.ok) {
+          const userData = await response.json()
+          console.log('Users fetched:', userData)
+          
+          // バックエンドのデータ形式に合わせて変換
+          const formattedUsers = userData.map((user: any) => ({
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            department: user.department,
+            joinDate: user.created_at ? new Date(user.created_at).toISOString().split('T')[0] : '未設定',
+            lastLogin: "未ログイン", // バックエンドにlast_login_atフィールドがあれば使用
+            role: user.role,
+            hasTemporaryPassword: user.has_temporary_password
+          }))
+          
+          setUsers(formattedUsers)
+        } else {
+          console.error('Failed to fetch users:', response.status)
+        }
       } catch (error) {
-        console.error('Error parsing pending users:', error)
+        console.error('Error fetching users:', error)
       }
     }
+    
+    fetchUsers()
   }, [])
 
   const filteredUsers = users.filter(
     (user) =>
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.department.toLowerCase().includes(searchTerm.toLowerCase()),
+      (user.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (user.email?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (user.department?.toLowerCase() || '').includes(searchTerm.toLowerCase()),
   )
 
   const getRoleBadge = (role: string) => {
@@ -123,7 +155,7 @@ export function AdminUserList() {
                 />
               </div>
               <Link href="/admin/billing/add-users">
-                <Button className="bg-blue-600 hover:bg-blue-700">
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white">
                   <Users className="h-4 w-4 mr-2" />
                   ユーザー追加
                 </Button>
@@ -137,42 +169,65 @@ export function AdminUserList() {
               <TableRow>
                 <TableHead>ユーザー</TableHead>
                 <TableHead>部署</TableHead>
-
                 <TableHead>権限</TableHead>
+                <TableHead>パスワード状態</TableHead>
                 <TableHead>操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredUsers.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell>
-                    <div className="flex items-center space-x-3">
-                      <Avatar>
-                        <AvatarImage src={`/placeholder.svg?height=32&width=32&query=${user.name}`} />
-                        <AvatarFallback>{user.name.slice(0, 2)}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="font-medium">{user.name}</div>
-                        <div className="text-sm text-gray-600">{user.email}</div>
+              {filteredUsers.length > 0 ? (
+                filteredUsers.map((user: User) => (
+                  <TableRow key={user.id}>
+                    <TableCell>
+                      <div className="flex items-center space-x-3">
+                        <Avatar>
+                          <AvatarImage src={`/placeholder.svg?height=32&width=32&query=${user.name || 'user'}`} />
+                          <AvatarFallback>{(user.name || 'U').slice(0, 2)}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-medium">{user.name || '名前未設定'}</div>
+                          <div className="text-sm text-gray-600">{user.email || 'メール未設定'}</div>
+                        </div>
                       </div>
+                    </TableCell>
+                    <TableCell>{user.department || '部署未設定'}</TableCell>
+                    <TableCell>{getRoleBadge(user.role)}</TableCell>
+                    <TableCell>
+                      {user.hasTemporaryPassword ? (
+                        <Badge variant="outline" className="border-orange-500 text-orange-700">
+                          仮パスワード
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="border-green-500 text-green-700">
+                          設定済み
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="sm">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8">
+                    <div className="text-gray-500">
+                      <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                      <p className="text-lg font-medium">ユーザーが登録されていません</p>
+                      <p className="text-sm">ユーザー追加ボタンから新しいユーザーを追加してください</p>
                     </div>
                   </TableCell>
-                  <TableCell>{user.department}</TableCell>
-                  <TableCell>{getRoleBadge(user.role)}</TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="sm">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
                 </TableRow>
-              ))}
+              )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
 
       {/* 統計情報 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center space-x-2">
@@ -194,6 +249,18 @@ export function AdminUserList() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-green-600">{users.filter((user) => user.role === "admin").length}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center space-x-2">
+              <span className="text-orange-500">🔑</span>
+              <span>仮パスワード</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-orange-600">{users.filter((user) => user.hasTemporaryPassword).length}</div>
           </CardContent>
         </Card>
       </div>

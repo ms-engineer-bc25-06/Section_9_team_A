@@ -7,8 +7,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.models.user import User
-from app.core.config import settings  # DATABASE_URL が含まれている前提
-
+from app.config import settings 
 # DATABASE_URL を async ではなく sync に変換
 # asyncpg -> psycopg2 に置換
 sync_database_url = settings.DATABASE_URL.replace("+asyncpg", "")

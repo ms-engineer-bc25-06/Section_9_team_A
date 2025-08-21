@@ -40,6 +40,12 @@ class User(Base):
     # Firebase認証関連
     firebase_uid = Column(String(128), unique=True, index=True, nullable=True)
 
+    # 仮パスワード管理
+    has_temporary_password = Column(Boolean, default=True)  # 仮パスワード使用中フラグ
+    temporary_password_expires_at = Column(DateTime(timezone=True), nullable=True)  # 仮パスワード有効期限
+    is_first_login = Column(Boolean, default=True)  # 初回ログインフラグ
+    last_password_change_at = Column(DateTime(timezone=True), nullable=True)  # 最終パスワード変更日
+
     # アカウント状態
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
@@ -67,15 +73,22 @@ class User(Base):
     analyses = relationship("Analysis", back_populates="user")
     subscriptions = relationship("Subscription", back_populates="user")
     billing_records = relationship("Billing", back_populates="user")
-    created_chat_rooms = relationship("ChatRoom", back_populates="creator")
-    chat_messages = relationship("ChatMessage", back_populates="sender")
-    chat_room_participations = relationship("ChatRoomParticipant", back_populates="user")
+    # ChatRoom関連のリレーションシップ（一時的に無効化）
+    # created_chat_rooms = relationship("ChatRoom", back_populates="creator")
+    # chat_messages = relationship("ChatMessage", back_populates="sender")
+    # chat_room_participations = relationship("ChatRoomParticipant", back_populates="user")
     
     # チームダイナミクス分析関連
     team_profiles = relationship("TeamMemberProfile", back_populates="user")
     
     # 組織メンバーシップ関連
     organization_memberships = relationship("OrganizationMember", back_populates="user")
+    
+    # レポート関連（一時的に無効化）
+    # reports = relationship("Report", back_populates="user")
+    # report_exports = relationship("ReportExport", back_populates="user")
+    # shared_reports = relationship("ReportShare", foreign_keys="ReportShare.shared_by", back_populates="shared_by_user")
+    # received_reports = relationship("ReportShare", foreign_keys="ReportShare.shared_with", back_populates="shared_with_user")
 
     def __repr__(self):
         return f"<User(id={self.id}, email='{self.email}', username='{self.username}')>"
@@ -91,3 +104,15 @@ class User(Base):
     def has_active_subscription(self) -> bool:
         """アクティブなサブスクリプションがあるかどうか"""
         return self.subscription_status in ["basic", "premium"] and self.is_premium_user
+
+    @property
+    def needs_password_setup(self) -> bool:
+        """パスワード設定が必要かどうか"""
+        return self.is_first_login and self.has_temporary_password
+
+    @property
+    def is_temporary_password_expired(self) -> bool:
+        """仮パスワードが期限切れかどうか"""
+        if not self.temporary_password_expires_at:
+            return False
+        return self.temporary_password_expires_at < datetime.utcnow()

@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/Input"
 import { Label } from "@/components/ui/Label"
 import { Separator } from "@/components/ui/Separator"
 import { Mail, Lock, LogIn, Shield } from "lucide-react"
+import { getAuth } from "firebase/auth"
 
 export function LoginForm() {
   const [email, setEmail] = useState("")
@@ -24,6 +25,31 @@ export function LoginForm() {
 
     try {
       await login(email, password)
+      
+      // 初回ログイン判定
+      const token = await getAuth().currentUser?.getIdToken()
+      if (token) {
+        try {
+          const response = await fetch("/api/v1/auth/login-status", {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          })
+
+          if (response.ok) {
+            const data = await response.json()
+            if (data.needs_password_setup) {
+              // 初回ログインでパスワード設定が必要な場合
+              router.push("/auth/change-password")
+              return
+            }
+          }
+        } catch (error) {
+          console.error("ログイン状態確認エラー:", error)
+        }
+      }
+      
+      // 通常のダッシュボードにリダイレクト
       router.push("/dashboard")
     } catch (error) {
       console.error("Login failed:", error)

@@ -162,7 +162,7 @@ export function AdminBillingActions({
                   <Button 
                     onClick={handlePaymentClick}
                     disabled={isProcessing}
-                    className="w-full bg-blue-600 hover:bg-blue-700 h-12 text-lg font-semibold"
+                    className="w-full bg-blue-600 hover:bg-blue-700 h-12 text-lg font-semibold text-white"
                   >
                     {isProcessing ? (
                       <div className="flex items-center space-x-3">

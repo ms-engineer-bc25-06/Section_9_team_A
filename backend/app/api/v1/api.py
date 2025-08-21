@@ -23,6 +23,8 @@ from app.api.v1 import (
     comparison_analysis,
     report_management,
     feedback_approvals,
+    admin_users,
+    admin_role,
 )
 
 api_router = APIRouter()
@@ -59,6 +61,12 @@ api_router.include_router(analysis_unified.router, prefix="/analyses", tags=["�
 
 # 統合された管理者API
 api_router.include_router(admin_unified.router, prefix="/admin", tags=["統合管理者"])
+
+# 管理者用ユーザー管理API
+api_router.include_router(admin_users.router, prefix="/admin", tags=["管理者ユーザー管理"])
+
+# 管理者権限チェックAPI
+api_router.include_router(admin_role.router, prefix="/admin-role", tags=["管理者権限"])
 
 # 統合されたチームAPI
 api_router.include_router(team_unified.router, prefix="/teams", tags=["統合チーム"])

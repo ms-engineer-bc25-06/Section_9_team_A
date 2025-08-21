@@ -4,7 +4,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from jose import JWTError, jwt
 
-from app.core.config import settings
+from app.config import settings
 from app.core.database import get_db
 from app.core.auth import (
     get_current_user as _get_current_user,

@@ -61,8 +61,8 @@ class FeedbackApproval(Base):
     reviewed_at = Column(DateTime(timezone=True), nullable=True)  # レビュー日時
     published_at = Column(DateTime(timezone=True), nullable=True)  # 公開日時
     
-    # リレーションシップ
-    analysis = relationship("Analysis", back_populates="feedback_approvals")
+    # リレーションシップ（一時的に無効化）
+    # analysis = relationship("Analysis", back_populates="feedback_approvals")
     requester = relationship("User", foreign_keys=[requester_id])
     reviewer = relationship("User", foreign_keys=[reviewer_id])
 

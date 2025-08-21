@@ -109,6 +109,24 @@ class UserResponse(UserBase):
         from_attributes = True
 
 
+class LoginResponse(BaseModel):
+    """ログイン応答スキーマ"""
+
+    access_token: str
+    token_type: str
+    user_id: int
+    email: str
+    is_admin: bool
+    needs_password_setup: bool
+
+
+class LoginRequest(BaseModel):
+    """ログインリクエストスキーマ"""
+
+    email: str
+    password: str
+
+
 class FirebaseAuthRequest(BaseModel):
     """Firebase認証リクエストスキーマ"""
 

@@ -7,7 +7,7 @@ from sqlalchemy import select, text
 from app.core.database import async_session
 from app.models.user import User
 from app.models.role import Role, UserRole
-from app.core.config import settings
+from app.config import settings
 
 from app.integrations.firebase_client import get_firebase_client
 import structlog
