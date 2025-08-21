@@ -234,13 +234,18 @@ class VoiceSessionService:
                 raise PermissionException("Access denied")
 
             # 音声情報更新
+            if not audio_data.audio_file_path:
+                raise ValidationException("Audio file path is required")
+
             updated_session = await self.repository.update_audio_info(
                 self.db,
                 session_id=session_id,
                 audio_file_path=audio_data.audio_file_path,
-                audio_duration=audio_data.audio_duration,
-                audio_format=audio_data.audio_format,
-                file_size=audio_data.file_size,
+                audio_duration=audio_data.audio_duration or 0.0,
+                audio_format=audio_data.audio_format.value
+                if audio_data.audio_format
+                else "mp3",
+                file_size=audio_data.file_size or 0,
             )
 
             if not updated_session:
@@ -471,7 +476,7 @@ class VoiceSessionService:
             update_data = VoiceSessionUpdate(status="active", started_at=datetime.now())
 
             updated_session = await self.repository.update(
-                self.db, session.id, update_data
+                self.db, db_obj=session, obj_in=update_data
             )
 
             return VoiceSessionResponse.model_validate(updated_session)
@@ -499,7 +504,7 @@ class VoiceSessionService:
             )
 
             updated_session = await self.repository.update(
-                self.db, session.id, update_data
+                self.db, db_obj=session, obj_in=update_data
             )
 
             return VoiceSessionResponse.model_validate(updated_session)
@@ -558,7 +563,7 @@ class VoiceSessionService:
             )
 
             updated_session = await self.repository.update(
-                self.db, session.id, update_data
+                self.db, db_obj=session, obj_in=update_data
             )
 
             return VoiceSessionResponse.model_validate(updated_session)
@@ -597,7 +602,7 @@ class VoiceSessionService:
             )
 
             updated_session = await self.repository.update(
-                self.db, session.id, update_data
+                self.db, db_obj=session, obj_in=update_data
             )
 
             return VoiceSessionResponse.model_validate(updated_session)
@@ -691,7 +696,7 @@ class VoiceSessionService:
             )
 
             updated_session = await self.repository.update(
-                self.db, session.id, update_data
+                self.db, db_obj=session, obj_in=update_data
             )
 
             return VoiceSessionResponse.model_validate(updated_session)
@@ -782,7 +787,7 @@ class VoiceSessionService:
             )
 
             updated_session = await self.repository.update(
-                self.db, session.id, update_data
+                self.db, db_obj=session, obj_in=update_data
             )
 
             return RecordingStatusResponse(
@@ -827,7 +832,7 @@ class VoiceSessionService:
             )
 
             updated_session = await self.repository.update(
-                self.db, session.id, update_data
+                self.db, db_obj=session, obj_in=update_data
             )
 
             return RecordingStatusResponse(
@@ -868,7 +873,7 @@ class VoiceSessionService:
             )
 
             updated_session = await self.repository.update(
-                self.db, session.id, update_data
+                self.db, db_obj=session, obj_in=update_data
             )
 
             return RecordingStatusResponse(
@@ -909,7 +914,7 @@ class VoiceSessionService:
             )
 
             updated_session = await self.repository.update(
-                self.db, session.id, update_data
+                self.db, db_obj=session, obj_in=update_data
             )
 
             return RecordingStatusResponse(

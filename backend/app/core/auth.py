@@ -30,39 +30,49 @@ try:
         # 設定ファイルから直接読み込み
         import json
         import os
-        
+
         # 現在のディレクトリからfirebase-admin-key.jsonを読み込み
-        current_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        current_dir = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
         firebase_key_path = os.path.join(current_dir, "firebase-admin-key.json")
-        
+
         if os.path.exists(firebase_key_path):
-            with open(firebase_key_path, 'r') as f:
+            with open(firebase_key_path, "r") as f:
                 firebase_config = json.load(f)
-            
+
             cred = credentials.Certificate(firebase_config)
             firebase_admin.initialize_app(cred)
             logger.info("Firebase initialized successfully from config file")
         else:
             # 環境変数から読み込み（フォールバック）
             if settings.FIREBASE_PROJECT_ID and settings.FIREBASE_PRIVATE_KEY:
-                cred = credentials.Certificate({
-                    "type": "service_account",
-                    "project_id": settings.FIREBASE_PROJECT_ID,
-                    "private_key_id": settings.FIREBASE_PRIVATE_KEY_ID,
-                    "private_key": settings.FIREBASE_PRIVATE_KEY.replace("\\n", "\n")
-                    if settings.FIREBASE_PRIVATE_KEY
-                    else None,
-                    "client_email": settings.FIREBASE_CLIENT_EMAIL,
-                    "client_id": settings.FIREBASE_CLIENT_ID,
-                    "auth_uri": settings.FIREBASE_AUTH_URI,
-                    "token_uri": settings.FIREBASE_TOKEN_URI,
-                    "auth_provider_x509_cert_url": settings.FIREBASE_AUTH_PROVIDER_X509_CERT_URL,
-                    "client_x509_cert_url": settings.FIREBASE_CLIENT_X509_CERT_URL,
-                })
+                cred = credentials.Certificate(
+                    {
+                        "type": "service_account",
+                        "project_id": settings.FIREBASE_PROJECT_ID,
+                        "private_key_id": settings.FIREBASE_PRIVATE_KEY_ID,
+                        "private_key": settings.FIREBASE_PRIVATE_KEY.replace(
+                            "\\n", "\n"
+                        )
+                        if settings.FIREBASE_PRIVATE_KEY
+                        else None,
+                        "client_email": settings.FIREBASE_CLIENT_EMAIL,
+                        "client_id": settings.FIREBASE_CLIENT_ID,
+                        "auth_uri": settings.FIREBASE_AUTH_URI,
+                        "token_uri": settings.FIREBASE_TOKEN_URI,
+                        "auth_provider_x509_cert_url": settings.FIREBASE_AUTH_PROVIDER_X509_CERT_URL,
+                        "client_x509_cert_url": settings.FIREBASE_CLIENT_X509_CERT_URL,
+                    }
+                )
                 firebase_admin.initialize_app(cred)
-                logger.info("Firebase initialized successfully from environment variables")
+                logger.info(
+                    "Firebase initialized successfully from environment variables"
+                )
             else:
-                logger.warning("Firebase configuration not found, Firebase features will be disabled")
+                logger.warning(
+                    "Firebase configuration not found, Firebase features will be disabled"
+                )
 except Exception as e:
     logger.warning(f"Firebase initialization failed: {e}")
 
@@ -93,7 +103,7 @@ async def verify_token(token: str) -> Optional[dict]:
     """JWTトークン検証"""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
+        email = payload.get("sub")
         if email is None:
             return None
         return payload
@@ -105,7 +115,9 @@ async def verify_firebase_token(id_token: str) -> Optional[dict]:
     """Firebaseトークン検証"""
     try:
         # 時刻の許容範囲を設定（60秒）
-        decoded_token = auth.verify_id_token(id_token, check_revoked=True, clock_skew_seconds=60)
+        decoded_token = auth.verify_id_token(
+            id_token, check_revoked=True, clock_skew_seconds=60
+        )
         return decoded_token
     except Exception as e:
         logger.error(f"Firebase token verification failed: {e}")
@@ -129,7 +141,7 @@ async def get_current_user(
         # まずJWTトークンとして検証を試行
         payload = await verify_token(token)
         if payload:
-            email: str = payload.get("sub")
+            email = payload.get("sub")
             if email is None:
                 raise credentials_exception
 
@@ -145,9 +157,9 @@ async def get_current_user(
         # JWTトークンが無効な場合、Firebaseトークンとして検証を試行
         firebase_payload = await verify_firebase_token(token)
         if firebase_payload:
-            uid: str = firebase_payload.get("uid")
-            email: str = firebase_payload.get("email")
-            
+            uid = firebase_payload.get("uid")
+            email = firebase_payload.get("email")
+
             if not uid or not email:
                 raise credentials_exception
 
@@ -183,8 +195,7 @@ async def get_current_admin_user(
     """現在の管理者ユーザー取得"""
     if not current_user.is_admin:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="管理者権限が必要です"
+            status_code=status.HTTP_403_FORBIDDEN, detail="管理者権限が必要です"
         )
     return current_user
 

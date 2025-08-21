@@ -137,7 +137,6 @@ class VoiceSessionDetailResponse(VoiceSessionResponse):
     # 関連データを含む
     transcriptions_count: int = 0
     analyses_count: int = 0
-    duration_seconds: Optional[float] = None
 
     @property
     def duration_seconds(self) -> Optional[float]:

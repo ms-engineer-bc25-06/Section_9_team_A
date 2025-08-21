@@ -1,6 +1,7 @@
 """認証関連API"""
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 from datetime import datetime
@@ -258,8 +259,6 @@ async def firebase_login(
             
             logger.info(f"Firebase user logged in successfully: {email}")
             
-            from fastapi.responses import JSONResponse
-            
             response_data = {
                 "access_token": access_token,
                 "token_type": "bearer",
@@ -281,7 +280,6 @@ async def firebase_login(
             
         except ValueError as ve:
             logger.error(f"User creation/update validation error: {ve}")
-            from fastapi.responses import JSONResponse
             
             response = JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -300,8 +298,6 @@ async def firebase_login(
             logger.error(f"Error details: {str(db_error)}")
             import traceback
             logger.error(f"Database operation traceback: {traceback.format_exc()}")
-            
-            from fastapi.responses import JSONResponse
             
             response = JSONResponse(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -10,20 +10,27 @@ from sqlalchemy import select, and_
 from app.models.analysis import Analysis
 from app.models.user import User
 from app.schemas.analysis import (
-    AnalysisCreate, AnalysisUpdate, AnalysisResponse, AnalysisResult,
-    PersonalityTrait, CommunicationPattern, BehaviorScore, AnalysisType
+    AnalysisCreate,
+    AnalysisUpdate,
+    AnalysisResponse,
+    AnalysisResult,
+    PersonalityTrait,
+    CommunicationPattern,
+    BehaviorScore,
+    AnalysisType,
 )
 from app.integrations.openai_client import OpenAIClient
 from app.core.exceptions import AnalysisError
 
 logger = structlog.get_logger()
 
+
 class AIAnalysisService:
     """AI分析サービス"""
-    
+
     def __init__(self, openai_client: OpenAIClient):
         self.openai_client = openai_client
-        
+
     async def analyze_text(
         self,
         db: AsyncSession,
@@ -32,49 +39,58 @@ class AIAnalysisService:
         analysis_types: List[AnalysisType],
         voice_session_id: Optional[int] = None,
         transcription_id: Optional[int] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> List[AnalysisResponse]:
         """テキスト内容を分析"""
         try:
             analyses = []
-            
+
             for analysis_type in analysis_types:
                 # 分析実行
                 analysis_result = await self._execute_analysis(
                     text_content, analysis_type, user, metadata
                 )
-                
+
                 # データベースに保存
                 analysis = await self._save_analysis(
-                    db, user, analysis_type, text_content, analysis_result,
-                    voice_session_id, transcription_id
+                    db,
+                    user,
+                    analysis_type,
+                    text_content,
+                    analysis_result,
+                    voice_session_id,
+                    transcription_id,
                 )
-                
+
                 analyses.append(analysis)
-            
+
             return analyses
-            
+
         except Exception as e:
             logger.error("分析実行中にエラーが発生", error=str(e), user_id=user.id)
             raise AnalysisError(f"分析の実行に失敗しました: {str(e)}")
-    
+
     async def _execute_analysis(
         self,
         text_content: str,
         analysis_type: AnalysisType,
         user: User,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> AnalysisResult:
         """特定の分析タイプを実行"""
         start_time = datetime.now()
-        
+
         try:
             if analysis_type == AnalysisType.PERSONALITY:
                 result = await self._analyze_personality(text_content, user, metadata)
             elif analysis_type == AnalysisType.COMMUNICATION:
-                result = await self._analyze_communication_patterns(text_content, user, metadata)
+                result = await self._analyze_communication_patterns(
+                    text_content, user, metadata
+                )
             elif analysis_type == AnalysisType.BEHAVIOR:
-                result = await self._analyze_behavior_traits(text_content, user, metadata)
+                result = await self._analyze_behavior_traits(
+                    text_content, user, metadata
+                )
             elif analysis_type == AnalysisType.SENTIMENT:
                 result = await self._analyze_sentiment(text_content, user, metadata)
             elif analysis_type == AnalysisType.TOPIC:
@@ -83,17 +99,17 @@ class AIAnalysisService:
                 result = await self._analyze_summary(text_content, user, metadata)
             else:
                 raise ValueError(f"未対応の分析タイプ: {analysis_type}")
-            
+
             # 処理時間を計算
             processing_time = (datetime.now() - start_time).total_seconds()
             result.processing_time = processing_time
-            
+
             return result
-            
+
         except Exception as e:
             logger.error(f"{analysis_type}分析でエラー", error=str(e))
             raise AnalysisError(f"{analysis_type}分析の実行に失敗しました: {str(e)}")
-    
+
     async def _analyze_personality(
         self, text_content: str, user: User, metadata: Optional[Dict[str, Any]] = None
     ) -> AnalysisResult:
@@ -120,13 +136,13 @@ class AIAnalysisService:
     "sentence_count": 文数
 }}
 """
-        
-        response = await self.openai_client.chat_completion(
+
+        response = await self.openai_client.client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             model="gpt-4",
-            temperature=0.3
+            temperature=0.3,
         )
-        
+
         try:
             result_data = json.loads(response)
             return AnalysisResult(
@@ -136,16 +152,17 @@ class AIAnalysisService:
                 keywords=result_data.get("keywords", []),
                 topics=result_data.get("topics", []),
                 personality_traits=[
-                    PersonalityTrait(**trait) for trait in result_data.get("personality_traits", [])
+                    PersonalityTrait(**trait)
+                    for trait in result_data.get("personality_traits", [])
                 ],
                 word_count=result_data.get("word_count"),
                 sentence_count=result_data.get("sentence_count"),
-                confidence_score=0.8  # デフォルト値
+                confidence_score=0.8,  # デフォルト値
             )
         except Exception as e:
             logger.error("個性分析結果のパースに失敗", error=str(e))
             raise AnalysisError("個性分析結果の処理に失敗しました")
-    
+
     async def _analyze_communication_patterns(
         self, text_content: str, user: User, metadata: Optional[Dict[str, Any]] = None
     ) -> AnalysisResult:
@@ -172,13 +189,13 @@ class AIAnalysisService:
     "sentence_count": 文数
 }}
 """
-        
-        response = await self.openai_client.chat_completion(
+
+        response = await self.openai_client.client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             model="gpt-4",
-            temperature=0.3
+            temperature=0.3,
         )
-        
+
         try:
             result_data = json.loads(response)
             return AnalysisResult(
@@ -188,16 +205,21 @@ class AIAnalysisService:
                 keywords=result_data.get("keywords", []),
                 topics=result_data.get("topics", []),
                 communication_patterns=[
-                    CommunicationPattern(**pattern) for pattern in result_data.get("communication_patterns", [])
+                    CommunicationPattern(**pattern)
+                    for pattern in result_data.get("communication_patterns", [])
                 ],
                 word_count=result_data.get("word_count"),
                 sentence_count=result_data.get("sentence_count"),
-                confidence_score=0.8
+                confidence_score=0.8,
             )
         except Exception as e:
-            logger.error("コミュニケーションパターン分析結果のパースに失敗", error=str(e))
-            raise AnalysisError("コミュニケーションパターン分析結果の処理に失敗しました")
-    
+            logger.error(
+                "コミュニケーションパターン分析結果のパースに失敗", error=str(e)
+            )
+            raise AnalysisError(
+                "コミュニケーションパターン分析結果の処理に失敗しました"
+            )
+
     async def _analyze_behavior_traits(
         self, text_content: str, user: User, metadata: Optional[Dict[str, Any]] = None
     ) -> AnalysisResult:
@@ -224,13 +246,13 @@ class AIAnalysisService:
     "sentence_count": 文数
 }}
 """
-        
-        response = await self.openai_client.chat_completion(
+
+        response = await self.openai_client.client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             model="gpt-4",
-            temperature=0.3
+            temperature=0.3,
         )
-        
+
         try:
             result_data = json.loads(response)
             return AnalysisResult(
@@ -240,16 +262,17 @@ class AIAnalysisService:
                 keywords=result_data.get("keywords", []),
                 topics=result_data.get("topics", []),
                 behavior_scores=[
-                    BehaviorScore(**score) for score in result_data.get("behavior_scores", [])
+                    BehaviorScore(**score)
+                    for score in result_data.get("behavior_scores", [])
                 ],
                 word_count=result_data.get("word_count"),
                 sentence_count=result_data.get("sentence_count"),
-                confidence_score=0.8
+                confidence_score=0.8,
             )
         except Exception as e:
             logger.error("行動特性分析結果のパースに失敗", error=str(e))
             raise AnalysisError("行動特性分析結果の処理に失敗しました")
-    
+
     async def _analyze_sentiment(
         self, text_content: str, user: User, metadata: Optional[Dict[str, Any]] = None
     ) -> AnalysisResult:
@@ -270,13 +293,13 @@ class AIAnalysisService:
     "sentence_count": 文数
 }}
 """
-        
-        response = await self.openai_client.chat_completion(
+
+        response = await self.openai_client.client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             model="gpt-4",
-            temperature=0.1
+            temperature=0.1,
         )
-        
+
         try:
             result_data = json.loads(response)
             return AnalysisResult(
@@ -289,12 +312,12 @@ class AIAnalysisService:
                 sentiment_label=result_data.get("sentiment_label"),
                 word_count=result_data.get("word_count"),
                 sentence_count=result_data.get("sentence_count"),
-                confidence_score=0.9
+                confidence_score=0.9,
             )
         except Exception as e:
             logger.error("感情分析結果のパースに失敗", error=str(e))
             raise AnalysisError("感情分析結果の処理に失敗しました")
-    
+
     async def _analyze_topics(
         self, text_content: str, user: User, metadata: Optional[Dict[str, Any]] = None
     ) -> AnalysisResult:
@@ -313,13 +336,13 @@ class AIAnalysisService:
     "sentence_count": 文数
 }}
 """
-        
-        response = await self.openai_client.chat_completion(
+
+        response = await self.openai_client.client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             model="gpt-4",
-            temperature=0.3
+            temperature=0.3,
         )
-        
+
         try:
             result_data = json.loads(response)
             return AnalysisResult(
@@ -330,12 +353,12 @@ class AIAnalysisService:
                 topics=result_data.get("topics", []),
                 word_count=result_data.get("word_count"),
                 sentence_count=result_data.get("sentence_count"),
-                confidence_score=0.8
+                confidence_score=0.8,
             )
         except Exception as e:
             logger.error("トピック分析結果のパースに失敗", error=str(e))
             raise AnalysisError("トピック分析結果の処理に失敗しました")
-    
+
     async def _analyze_summary(
         self, text_content: str, user: User, metadata: Optional[Dict[str, Any]] = None
     ) -> AnalysisResult:
@@ -354,13 +377,13 @@ class AIAnalysisService:
     "sentence_count": 文数
 }}
 """
-        
-        response = await self.openai_client.chat_completion(
+
+        response = await self.openai_client.client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             model="gpt-4",
-            temperature=0.3
+            temperature=0.3,
         )
-        
+
         try:
             result_data = json.loads(response)
             return AnalysisResult(
@@ -371,12 +394,12 @@ class AIAnalysisService:
                 topics=result_data.get("topics", []),
                 word_count=result_data.get("word_count"),
                 sentence_count=result_data.get("sentence_count"),
-                confidence_score=0.8
+                confidence_score=0.8,
             )
         except Exception as e:
             logger.error("要約分析結果のパースに失敗", error=str(e))
             raise AnalysisError("要約分析結果の処理に失敗しました")
-    
+
     async def _save_analysis(
         self,
         db: AsyncSession,
@@ -385,13 +408,13 @@ class AIAnalysisService:
         content: str,
         result: AnalysisResult,
         voice_session_id: Optional[int] = None,
-        transcription_id: Optional[int] = None
+        transcription_id: Optional[int] = None,
     ) -> AnalysisResponse:
         """分析結果をデータベースに保存"""
         try:
             # 分析IDを生成
             analysis_id = str(uuid.uuid4())
-            
+
             # 分析モデルを作成
             analysis = Analysis(
                 analysis_id=analysis_id,
@@ -411,13 +434,13 @@ class AIAnalysisService:
                 voice_session_id=voice_session_id,
                 transcription_id=transcription_id,
                 user_id=user.id,
-                processed_at=datetime.now()
+                processed_at=datetime.now(),
             )
-            
+
             db.add(analysis)
             await db.commit()
             await db.refresh(analysis)
-            
+
             # レスポンス形式に変換
             return AnalysisResponse(
                 id=analysis.id,
@@ -441,43 +464,49 @@ class AIAnalysisService:
                 user_id=analysis.user_id,
                 created_at=analysis.created_at,
                 updated_at=analysis.updated_at,
-                processed_at=analysis.processed_at
+                processed_at=analysis.processed_at,
             )
-            
+
         except Exception as e:
             await db.rollback()
             logger.error("分析結果の保存に失敗", error=str(e))
             raise AnalysisError("分析結果の保存に失敗しました")
-    
+
     async def get_user_analyses(
         self,
         db: AsyncSession,
         user: User,
         page: int = 1,
         page_size: int = 20,
-        analysis_type: Optional[AnalysisType] = None
+        analysis_type: Optional[AnalysisType] = None,
     ) -> Dict[str, Any]:
         """ユーザーの分析結果一覧を取得"""
         try:
             query = select(Analysis).where(Analysis.user_id == user.id)
-            
+
             if analysis_type:
                 query = query.where(Analysis.analysis_type == analysis_type.value)
-            
+
             # 総件数を取得
             count_query = select(Analysis.id).where(Analysis.user_id == user.id)
             if analysis_type:
-                count_query = count_query.where(Analysis.analysis_type == analysis_type.value)
-            
+                count_query = count_query.where(
+                    Analysis.analysis_type == analysis_type.value
+                )
+
             total_count = await db.scalar(count_query)
-            
+
             # ページネーション
             offset = (page - 1) * page_size
-            query = query.offset(offset).limit(page_size).order_by(Analysis.created_at.desc())
-            
+            query = (
+                query.offset(offset)
+                .limit(page_size)
+                .order_by(Analysis.created_at.desc())
+            )
+
             result = await db.execute(query)
             analyses = result.scalars().all()
-            
+
             # レスポンス形式に変換
             analysis_responses = []
             for analysis in analyses:
@@ -504,39 +533,36 @@ class AIAnalysisService:
                     user_id=analysis.user_id,
                     created_at=analysis.created_at,
                     updated_at=analysis.updated_at,
-                    processed_at=analysis.processed_at
+                    processed_at=analysis.processed_at,
                 )
                 analysis_responses.append(response)
-            
+
             return {
                 "analyses": analysis_responses,
                 "total_count": total_count,
                 "page": page,
-                "page_size": page_size
+                "page_size": page_size,
             }
-            
+
         except Exception as e:
             logger.error("分析結果一覧の取得に失敗", error=str(e))
             raise AnalysisError("分析結果一覧の取得に失敗しました")
-    
+
     async def get_analysis_by_id(
         self, db: AsyncSession, analysis_id: str, user: User
     ) -> Optional[AnalysisResponse]:
         """分析IDで分析結果を取得"""
         try:
             query = select(Analysis).where(
-                and_(
-                    Analysis.analysis_id == analysis_id,
-                    Analysis.user_id == user.id
-                )
+                and_(Analysis.analysis_id == analysis_id, Analysis.user_id == user.id)
             )
-            
+
             result = await db.execute(query)
             analysis = result.scalar_one_or_none()
-            
+
             if not analysis:
                 return None
-            
+
             # 詳細なresultは再構築が必要（簡易版）
             return AnalysisResponse(
                 id=analysis.id,
@@ -560,9 +586,9 @@ class AIAnalysisService:
                 user_id=analysis.user_id,
                 created_at=analysis.created_at,
                 updated_at=analysis.updated_at,
-                processed_at=analysis.processed_at
+                processed_at=analysis.processed_at,
             )
-            
+
         except Exception as e:
             logger.error("分析結果の取得に失敗", error=str(e))
             raise AnalysisError("分析結果の取得に失敗しました")

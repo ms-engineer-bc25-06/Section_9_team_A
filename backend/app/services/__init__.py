@@ -71,7 +71,7 @@ from .report_generation_service import ReportGenerationService, report_generatio
 from .audio_enhancement_service import AudioEnhancementService, audio_enhancement_service
 
 # セッション状態サービス
-from .session_state_service import SessionStateService
+from .session_state_service import SessionStateService, session_state_service
 
 # ロールサービス
 from .role_service import RoleService
@@ -79,8 +79,8 @@ from .role_service import RoleService
 # アナウンスメントサービス
 from .announcement_service import AnnouncementService, announcement_service
 
-# 分析統一サービス
-from .analysis_unified import AnalysisUnifiedService
+# 分析統一サービス（APIルーターのため削除）
+# from .analysis_unified import AnalysisUnifiedService
 
 __all__ = [
     # 基本サービス
@@ -138,7 +138,7 @@ __all__ = [
     "comparison_analysis_service",
     "ReportGenerationService",
     "report_generation_service",
-    "AnalysisUnifiedService",
+    # "AnalysisUnifiedService",
     
     # 音声エンハンスメントサービス
     "AudioEnhancementService",
@@ -146,6 +146,7 @@ __all__ = [
     
     # セッション管理サービス
     "SessionStateService",
+    "session_state_service",
     
     # アナウンスメントサービス
     "AnnouncementService",

@@ -55,7 +55,7 @@ async def get_teams(
     except Exception as e:
         logger.error("チーム一覧取得でエラー", error=str(e), user_id=current_user.id)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail="チーム一覧の取得に失敗しました"
         )
 
@@ -287,7 +287,7 @@ async def get_team_dynamics(
 ):
     """チームダイナミクス一覧を取得"""
     try:
-        dynamics_service = TeamDynamicsService()
+        dynamics_service = TeamDynamicsService(db)
         result = await dynamics_service.get_team_dynamics(
             db=db,
             team_id=team_id,
@@ -322,7 +322,7 @@ async def create_team_dynamics(
 ):
     """チームダイナミクスを作成"""
     try:
-        dynamics_service = TeamDynamicsService()
+        dynamics_service = TeamDynamicsService(db)
         dynamics = await dynamics_service.create_team_dynamics(
             db=db,
             team_id=team_id,
@@ -349,7 +349,7 @@ async def get_team_dynamics_detail(
 ):
     """チームダイナミクスの詳細を取得"""
     try:
-        dynamics_service = TeamDynamicsService()
+        dynamics_service = TeamDynamicsService(db)
         dynamics = await dynamics_service.get_team_dynamics_detail(
             db=db,
             team_id=team_id,
@@ -377,7 +377,7 @@ async def update_team_dynamics(
 ):
     """チームダイナミクスを更新"""
     try:
-        dynamics_service = TeamDynamicsService()
+        dynamics_service = TeamDynamicsService(db)
         dynamics = await dynamics_service.update_team_dynamics(
             db=db,
             team_id=team_id,
@@ -408,7 +408,7 @@ async def get_team_metrics(
 ):
     """チームメトリクスを取得"""
     try:
-        dynamics_service = TeamDynamicsService()
+        dynamics_service = TeamDynamicsService(db)
         metrics = await dynamics_service.get_team_metrics(
             db=db,
             team_id=team_id,
@@ -436,7 +436,7 @@ async def get_team_analytics(
 ):
     """チーム分析データを取得"""
     try:
-        team_service = TeamService()
+        team_service = OrganizationService()
         analytics = await team_service.get_team_analytics(
             db=db,
             team_id=team_id,
@@ -466,7 +466,7 @@ async def invite_to_team(
 ):
     """チームにユーザーを招待"""
     try:
-        team_service = TeamService()
+        team_service = OrganizationService()
         invitation = await team_service.invite_user_to_team(
             db=db,
             team_id=team_id,
@@ -477,7 +477,7 @@ async def invite_to_team(
         
         return {
             "message": "招待が送信されました",
-            "invitation_id": invitation.id,
+            "invitation_id": invitation.get("id", 0),
             "email": email
         }
         
@@ -498,7 +498,7 @@ async def join_team(
 ):
     """チームに参加"""
     try:
-        team_service = TeamService()
+        team_service = OrganizationService()
         member = await team_service.join_team(
             db=db,
             team_id=team_id,
@@ -509,7 +509,7 @@ async def join_team(
         return {
             "message": "チームに参加しました",
             "team_id": team_id,
-            "member_id": member.id
+            "member_id": member.get("id", 0)
         }
         
     except Exception as e:

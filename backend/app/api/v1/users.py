@@ -60,7 +60,7 @@ async def get_user_profile(
     except Exception as e:
         logger.error(f"Profile retrieval failed: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail="Internal server error",
         )
 
@@ -156,7 +156,7 @@ async def update_user_profile(
     except Exception as e:
         logger.error(f"Profile update failed: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail="Internal server error",
         )
 
@@ -169,8 +169,8 @@ async def get_team_members(
     """現在のユーザーと同じチームのメンバー一覧を取得"""
     try:
         # 現在のユーザーが所属するチームIDを取得
-        team_query = select(TeamMember.team_id).where(
-            TeamMember.user_id == current_user.id
+        team_query = select(OrganizationMember.team_id).where(
+            OrganizationMember.user_id == current_user.id
         )
         team_result = await db.execute(team_query)
         user_teams = [row[0] for row in team_result.fetchall()]
@@ -180,9 +180,9 @@ async def get_team_members(
 
         # 同じチームのメンバーを取得
         members_query = (
-            select(User, TeamMember.role, TeamMember.status)
-            .join(TeamMember, User.id == TeamMember.user_id)
-            .where(TeamMember.team_id.in_(user_teams))
+            select(User, OrganizationMember.role, OrganizationMember.status)
+            .join(OrganizationMember, User.id == OrganizationMember.user_id)
+            .where(OrganizationMember.team_id.in_(user_teams))
             .distinct()
         )
 
@@ -231,7 +231,7 @@ async def get_team_members(
     except Exception as e:
         logger.error(f"Failed to get team members: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail="Internal server error",
         )
 

@@ -58,7 +58,12 @@ class Settings(BaseSettings):
 
     # OpenAI設定
     OPENAI_API_KEY: Optional[str] = None
+    OPENAI_PERSONAL_API_KEY: Optional[str] = None
     OPENAI_MODEL: str = "gpt-4"
+    
+    def get_openai_api_key(self) -> str:
+        """OpenAI APIキーを取得（個人APIキーを優先）"""
+        return self.OPENAI_PERSONAL_API_KEY or self.OPENAI_API_KEY or ""
 
     # Redis設定
     REDIS_URL: str = "redis://redis:6379"
