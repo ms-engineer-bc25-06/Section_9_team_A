@@ -25,6 +25,10 @@ class TeamDynamicsService:
     def __init__(self, db: Session):
         self.db = db
     
+    def set_db_session(self, db: Session):
+        """DBセッションを後から設定"""
+        self.db = db
+    
     def analyze_team_interactions(
         self, 
         team_id: int, 
@@ -727,3 +731,41 @@ class TeamDynamicsService:
             return "。".join(suggestions) + "。"
         else:
             return "現在のチーム結束力は良好です。この状態を維持してください。"
+
+
+# グローバルインスタンス（互換性のため）
+# 注意: 実際のプロダクションでは依存性注入を使用してください
+def get_team_dynamics_service(db_session=None):
+    """TeamDynamicsServiceのインスタンスを取得（DBセッションは後から注入）"""
+    if db_session is None:
+        # DBセッションが提供されていない場合は、Noneで初期化
+        # 実際の使用時にはset_db_session()でセッションを設定する必要があります
+        return TeamDynamicsService(db=None)
+    return TeamDynamicsService(db=db_session)
+
+# 互換性のためのインスタンス参照
+# 注意: このインスタンスを使用する前に、set_db_session()でDBセッションを設定してください
+team_dynamics_service = get_team_dynamics_service()
+
+"""
+使用例:
+
+# 方法1: 直接インスタンス化（推奨）
+from app.services.team_dynamics_service import TeamDynamicsService
+from app.dependencies import get_db
+
+db = next(get_db())
+service = TeamDynamicsService(db=db)
+
+# 方法2: グローバルインスタンスを使用（互換性のため）
+from app.services.team_dynamics_service import team_dynamics_service
+from app.dependencies import get_db
+
+db = next(get_db())
+team_dynamics_service.set_db_session(db)
+
+# 使用
+result = service.analyze_team_interactions(team_id=1, session_id=1, transcriptions=[])
+"""
+
+

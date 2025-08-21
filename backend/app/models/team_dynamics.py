@@ -5,11 +5,11 @@ from app.models.base import Base
 
 
 class TeamInteraction(Base):
-    """チーム相互作用パターン分析テーブル"""
+    """チーム相互作用パターン分析テーブル（組織メンバー間の相互作用）"""
     __tablename__ = "team_interactions"
     
     id = Column(Integer, primary_key=True, index=True)
-    team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
+    team_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
     session_id = Column(Integer, ForeignKey("voice_sessions.id"), nullable=False)
     speaker_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     listener_id = Column(Integer, ForeignKey("users.id"), nullable=False)
@@ -19,7 +19,7 @@ class TeamInteraction(Base):
     duration = Column(Float, default=0.0)  # 相互作用の持続時間（秒）
     
     # リレーション（循環参照を避けるため、back_populatesは使用しない）
-    team = relationship("Team")
+    team = relationship("Organization")
     session = relationship("VoiceSession")
     speaker = relationship("User", foreign_keys=[speaker_id])
     listener = relationship("User", foreign_keys=[listener_id])
@@ -48,11 +48,11 @@ class TeamInteraction(Base):
 
 
 class TeamCompatibility(Base):
-    """チーム相性スコアテーブル"""
+    """チーム相性スコアテーブル（組織メンバー間の相性分析）"""
     __tablename__ = "team_compatibilities"
     
     id = Column(Integer, primary_key=True, index=True)
-    team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
+    team_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
     member1_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     member2_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     communication_style_score = Column(Float, default=0.0)  # コミュニケーションスタイル相性 (0-100)
@@ -62,7 +62,7 @@ class TeamCompatibility(Base):
     last_updated = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
     # リレーション（循環参照を避けるため、back_populatesは使用しない）
-    team = relationship("Team")
+    team = relationship("Organization")
     member1 = relationship("User", foreign_keys=[member1_id])
     member2 = relationship("User", foreign_keys=[member2_id])
 
@@ -100,11 +100,11 @@ class TeamCompatibility(Base):
 
 
 class TeamCohesion(Base):
-    """チーム結束力分析テーブル"""
+    """チーム結束力分析テーブル（組織内チームの結束力分析）"""
     __tablename__ = "team_cohesions"
     
     id = Column(Integer, primary_key=True, index=True)
-    team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
+    team_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
     session_id = Column(Integer, ForeignKey("voice_sessions.id"), nullable=False)
     cohesion_score = Column(Float, default=0.0)  # 結束力スコア (0-100)
     common_topics = Column(JSON)  # 共通トピックのリスト
@@ -114,7 +114,7 @@ class TeamCohesion(Base):
     analysis_date = Column(DateTime(timezone=True), server_default=func.now())
     
     # リレーション（循環参照を避けるため、back_populatesは使用しない）
-    team = relationship("Team")
+    team = relationship("Organization")
     session = relationship("VoiceSession")
 
     def __repr__(self):
@@ -148,12 +148,12 @@ class TeamCohesion(Base):
 
 
 class OrganizationMemberProfile(Base):
-    """チームメンバープロファイルテーブル"""
+    """組織メンバープロファイルテーブル"""
     __tablename__ = "team_member_profiles"
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
+    team_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
     communication_style = Column(String(50))  # 'assertive', 'passive', 'collaborative', 'competitive'
     personality_traits = Column(JSON)  # 性格特性の配列
     work_preferences = Column(JSON)  # 作業環境の好み

@@ -29,7 +29,7 @@ class Invitation(Base):
     message = Column(Text, nullable=True)
     
     # 外部キー
-    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    team_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
     invited_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     invited_user = Column(Integer, ForeignKey("users.id"), nullable=True)
 

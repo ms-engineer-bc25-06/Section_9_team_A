@@ -210,7 +210,9 @@ class ReportShare(Base):
         Integer, ForeignKey("users.id"), nullable=False, comment="共有者ID"
     )
     shared_with = Column(Integer, ForeignKey("users.id"), comment="共有先ユーザーID")
-    shared_with_team = Column(Integer, ForeignKey("teams.id"), comment="共有先チームID")
+    shared_with_team = Column(
+        Integer, ForeignKey("organizations.id"), comment="共有先組織ID"
+    )
 
     # 共有設定
     share_type = Column(

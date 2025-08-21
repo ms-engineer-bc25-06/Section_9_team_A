@@ -36,11 +36,16 @@ class Organization(Base):
     payments = relationship("Payment", back_populates="organization", cascade="all, delete-orphan")
     subscriptions = relationship("Subscription", back_populates="organization", cascade="all, delete-orphan")
     
-    # 旧Team関連の機能
+    # チーム機能を統合
     voice_sessions = relationship("VoiceSession", back_populates="organization")
     chat_rooms = relationship("ChatRoom", back_populates="organization")
     shared_reports = relationship("ReportShare", back_populates="shared_with_organization")
     member_profiles = relationship("OrganizationMemberProfile", back_populates="organization")
+    
+    # チームダイナミクス関連
+    team_interactions = relationship("TeamInteraction", back_populates="team")
+    team_compatibilities = relationship("TeamCompatibility", back_populates="team")
+    team_cohesions = relationship("TeamCohesion", back_populates="team")
 
     def __repr__(self):
         return f"<Organization(id={self.id}, name='{self.name}', slug='{self.slug}')>"
