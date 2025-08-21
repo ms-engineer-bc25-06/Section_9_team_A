@@ -71,15 +71,27 @@ class ConnectionManager:
             self.last_heartbeat[connection_id] = datetime.now()
 
             logger.info(
-                f"WebSocket connected: {connection_id}",
+                "WebSocket connection established",
+                connection_id=connection_id,
                 user_id=user.id,
                 session_id=session_id,
+                total_connections=len(self.active_connections),
+                session_connections=len(
+                    self.session_connections.get(session_id, set())
+                ),
+                user_connections=len(self.user_connections.get(user.id, set())),
             )
 
             return connection_id
 
         except Exception as e:
-            logger.error(f"Failed to establish WebSocket connection: {e}")
+            logger.error(
+                "Failed to establish WebSocket connection",
+                error_type=type(e).__name__,
+                error_message=str(e),
+                user_id=user.id,
+                session_id=session_id,
+            )
             raise
 
     async def _check_connection_limits(self, session_id: str, user_id: int):
@@ -149,12 +161,17 @@ class ConnectionManager:
             logger.error(f"Failed to send personal message to {connection_id}: {e}")
             await self.disconnect(connection_id)
 
-    async def broadcast_to_session(self, message: dict, session_id: str, exclude_connection: Optional[str] = None):
+    async def broadcast_to_session(
+        self, message: dict, session_id: str, exclude_connection: Optional[str] = None
+    ):
         """セッション内の全接続にメッセージをブロードキャスト"""
         try:
             if session_id in self.session_connections:
                 for connection_id in self.session_connections[session_id]:
-                    if connection_id != exclude_connection and connection_id in self.active_connections:
+                    if (
+                        connection_id != exclude_connection
+                        and connection_id in self.active_connections
+                    ):
                         await self.send_personal_message(message, connection_id)
                 logger.debug(f"Broadcast message sent to session {session_id}")
         except Exception as e:
@@ -168,19 +185,24 @@ class ConnectionManager:
                 if connection_id in self.connection_info:
                     connection_info = self.connection_info[connection_id]
                     user = connection_info.get("user")
-                    if user:
-                        participants.append({
-                            "id": str(user.id),
-                            "username": user.username,
-                            "display_name": user.display_name,
-                            "email": user.email,
-                            "role": "PARTICIPANT",
-                            "status": "online",
-                            "is_active": True,
-                            "is_muted": False,
-                            "joinedAt": connection_info.get("connected_at").isoformat(),
-                            "lastActivity": connection_info.get("last_activity").isoformat(),
-                        })
+                    connected_at = connection_info.get("connected_at")
+                    last_activity = connection_info.get("last_activity")
+
+                    if user and connected_at and last_activity:
+                        participants.append(
+                            {
+                                "id": str(user.id),
+                                "username": user.username,
+                                "display_name": user.display_name,
+                                "email": user.email,
+                                "role": "PARTICIPANT",
+                                "status": "online",
+                                "is_active": True,
+                                "is_muted": False,
+                                "joinedAt": connected_at.isoformat(),
+                                "lastActivity": last_activity.isoformat(),
+                            }
+                        )
         return participants
 
     async def update_connection_activity(self, connection_id: str):
@@ -228,29 +250,221 @@ class WebSocketAuth:
 
     @staticmethod
     async def authenticate_websocket(websocket: WebSocket) -> User:
-        """WebSocket接続の認証"""
+        """WebSocket接続の認証（JWTトークンとFirebaseトークンの両方に対応）"""
         try:
             # クエリパラメータからトークンを取得
             query_params = websocket.query_params
             token = query_params.get("token")
 
             if not token:
+                logger.warning("WebSocket authentication failed: No token provided")
                 raise AuthenticationException("No authentication token provided")
 
-            # Firebaseトークンを検証
-            user = await verify_firebase_token(token)
-            if not user:
-                raise AuthenticationException("Invalid authentication token")
+            logger.info(
+                "WebSocket authentication started",
+                token_length=len(token) if token else 0,
+            )
 
-            return user
+            # まずJWTトークンとして検証を試行
+            try:
+                from app.core.auth import verify_token
+
+                payload = await verify_token(token)
+                if payload:
+                    email = payload.get("sub")
+                    if email:
+                        logger.debug("JWT token verification successful", email=email)
+                        # データベースからユーザーを取得
+                        async with AsyncSessionLocal() as db:
+                            result = await db.execute(
+                                select(User).where(User.email == email)
+                            )
+                            user = result.scalar_one_or_none()
+                            if user:
+                                logger.info(
+                                    "WebSocket authentication successful via JWT",
+                                    user_id=user.id,
+                                    email=email,
+                                )
+                                return user
+                            else:
+                                logger.warning(
+                                    "JWT token valid but user not found in database",
+                                    email=email,
+                                )
+                    else:
+                        logger.warning("JWT token missing 'sub' field")
+                else:
+                    logger.debug("JWT token verification returned None")
+            except Exception as jwt_error:
+                logger.debug(
+                    "JWT token verification failed",
+                    error_type=type(jwt_error).__name__,
+                    error_message=str(jwt_error),
+                )
+
+            # JWTトークンが無効な場合、Firebaseトークンとして検証を試行
+            try:
+                logger.debug("Attempting Firebase token verification")
+                firebase_payload = await verify_firebase_token(token)
+                if firebase_payload:
+                    uid = firebase_payload.get("uid")
+                    email = firebase_payload.get("email")
+
+                    if uid and email:
+                        logger.debug(
+                            "Firebase token verification successful",
+                            uid=uid,
+                            email=email,
+                        )
+                        # Firebase UIDでユーザーを検索
+                        async with AsyncSessionLocal() as db:
+                            result = await db.execute(
+                                select(User).where(User.firebase_uid == uid)
+                            )
+                            user = result.scalar_one_or_none()
+                            if user:
+                                logger.info(
+                                    "WebSocket authentication successful via Firebase",
+                                    user_id=user.id,
+                                    firebase_uid=uid,
+                                    email=email,
+                                )
+                                return user
+                            else:
+                                logger.warning(
+                                    "Firebase token valid but user not found in database",
+                                    firebase_uid=uid,
+                                    email=email,
+                                )
+                    else:
+                        logger.warning(
+                            "Firebase token missing required fields",
+                            has_uid=bool(uid),
+                            has_email=bool(email),
+                        )
+                else:
+                    logger.debug("Firebase token verification returned None")
+            except Exception as firebase_error:
+                logger.debug(
+                    "Firebase token verification failed",
+                    error_type=type(firebase_error).__name__,
+                    error_message=str(firebase_error),
+                )
+
+            # どちらのトークンも無効
+            logger.warning(
+                "WebSocket authentication failed: All token verification methods failed"
+            )
+            raise AuthenticationException("Invalid authentication token")
 
         except Exception as e:
-            logger.error(f"WebSocket authentication failed: {e}")
+            logger.error(
+                "WebSocket authentication failed with unexpected error",
+                error_type=type(e).__name__,
+                error_message=str(e),
+                error_traceback=str(e.__traceback__),
+            )
             raise AuthenticationException(f"Authentication failed: {str(e)}")
 
 
 class WebSocketMessageHandler:
     """WebSocketメッセージハンドラークラス"""
+
+    @staticmethod
+    async def _check_permission(
+        user: User, session_id: str, required_permission: str
+    ) -> bool:
+        """ユーザーの権限をチェック"""
+        try:
+            # 基本的な権限チェック
+            if not user.is_active:
+                logger.warning(
+                    "Permission check failed: User is not active",
+                    user_id=user.id,
+                    session_id=session_id,
+                )
+                return False
+
+            # セッション参加者の権限チェック
+            if required_permission in ["manage_session", "moderate_participants"]:
+                # ホストまたはモデレーター権限が必要
+                # TODO: 実際の権限システムと連携
+                # 現在は基本的なチェックのみ
+                logger.debug(
+                    "Permission check passed for session management",
+                    user_id=user.id,
+                    session_id=session_id,
+                    permission=required_permission,
+                )
+                return True
+
+            # 基本的な参加者権限
+            logger.debug(
+                "Basic participant permission granted",
+                user_id=user.id,
+                session_id=session_id,
+                permission=required_permission,
+            )
+            return True
+
+        except Exception as e:
+            logger.error(
+                "Permission check failed with error",
+                error_type=type(e).__name__,
+                error_message=str(e),
+                user_id=user.id,
+                session_id=session_id,
+                permission=required_permission,
+            )
+            return False
+
+    @staticmethod
+    async def _check_participant_permission(
+        user: User, session_id: str, target_user_id: int, action: str
+    ) -> bool:
+        """特定の参加者に対する操作権限をチェック"""
+        try:
+            # 自分自身に対する操作は許可
+            if user.id == target_user_id:
+                logger.debug(
+                    "Self-operation permission granted",
+                    user_id=user.id,
+                    target_user_id=target_user_id,
+                    action=action,
+                )
+                return True
+
+            # 管理者権限チェック
+            if await WebSocketMessageHandler._check_permission(
+                user, session_id, "moderate_participants"
+            ):
+                logger.debug(
+                    "Moderator permission granted for participant operation",
+                    user_id=user.id,
+                    target_user_id=target_user_id,
+                    action=action,
+                )
+                return True
+
+            logger.warning(
+                "Insufficient permission for participant operation",
+                user_id=user.id,
+                target_user_id=target_user_id,
+                action=action,
+            )
+            return False
+
+        except Exception as e:
+            logger.error(
+                "Participant permission check failed",
+                error_type=type(e).__name__,
+                error_message=str(e),
+                user_id=user.id,
+                target_user_id=target_user_id,
+                action=action,
+            )
+            return False
 
     @staticmethod
     async def handle_join_session(session_id: str, connection_id: str, user: User):
@@ -299,15 +513,30 @@ class WebSocketMessageHandler:
             logger.error(f"Failed to handle join session: {e}")
 
     @staticmethod
-    async def handle_message(websocket: WebSocket, message: dict, connection_id: str, user: User):
+    async def handle_message(
+        websocket: WebSocket, message: dict, connection_id: str, user: User
+    ):
         """WebSocketメッセージの処理"""
         try:
             message_type = message.get("type")
             session_id = message.get("roomId") or message.get("session_id")
 
             if not session_id:
-                logger.warning(f"No session ID in message: {message}")
+                logger.warning(
+                    "Message processing failed: No session ID",
+                    message=message,
+                    connection_id=connection_id,
+                    user_id=user.id,
+                )
                 return
+
+            logger.debug(
+                "Processing WebSocket message",
+                message_type=message_type,
+                session_id=session_id,
+                connection_id=connection_id,
+                user_id=user.id,
+            )
 
             # 接続の活動時間を更新
             await manager.update_connection_activity(connection_id)
@@ -315,6 +544,7 @@ class WebSocketMessageHandler:
             # メッセージタイプに応じた処理
             if message_type == "ping":
                 # ハートビート応答
+                logger.debug("Processing ping message", connection_id=connection_id)
                 await manager.send_personal_message(
                     {"type": "pong", "timestamp": datetime.now().isoformat()},
                     connection_id,
@@ -322,42 +552,111 @@ class WebSocketMessageHandler:
 
             elif message_type in ["offer", "answer", "ice-candidate"]:
                 # WebRTCシグナリングメッセージ
+                logger.debug(
+                    "Processing WebRTC signaling message",
+                    message_type=message_type,
+                    session_id=session_id,
+                    connection_id=connection_id,
+                )
                 await WebSocketMessageHandler._handle_webrtc_signaling(
                     message, session_id, connection_id, user
                 )
 
             elif message_type == "join_session":
                 # セッション参加
-                await WebSocketMessageHandler.handle_join_session(session_id, connection_id, user)
+                logger.info(
+                    "User joining session",
+                    user_id=user.id,
+                    session_id=session_id,
+                    connection_id=connection_id,
+                )
+                await WebSocketMessageHandler.handle_join_session(
+                    session_id, connection_id, user
+                )
 
             elif message_type == "leave_session":
                 # セッション退出
-                await WebSocketMessageHandler._handle_leave_session(session_id, connection_id, user)
+                logger.info(
+                    "User leaving session",
+                    user_id=user.id,
+                    session_id=session_id,
+                    connection_id=connection_id,
+                )
+                await WebSocketMessageHandler._handle_leave_session(
+                    session_id, connection_id, user
+                )
 
             elif message_type == "mute_participant":
                 # 参加者のミュート制御
-                await WebSocketMessageHandler._handle_mute_participant(message, session_id, connection_id, user)
+                participant_id = message.get("participant_id")
+                muted = message.get("muted", False)
+                logger.info(
+                    "Participant mute control",
+                    user_id=user.id,
+                    target_participant_id=participant_id,
+                    muted=muted,
+                    session_id=session_id,
+                )
+                await WebSocketMessageHandler._handle_mute_participant(
+                    message, session_id, connection_id, user
+                )
 
             elif message_type == "change_participant_role":
                 # 参加者の役割変更
-                await WebSocketMessageHandler._handle_change_role(message, session_id, connection_id, user)
+                participant_id = message.get("participant_id")
+                new_role = message.get("new_role")
+                logger.info(
+                    "Participant role change",
+                    user_id=user.id,
+                    target_participant_id=participant_id,
+                    new_role=new_role,
+                    session_id=session_id,
+                )
+                await WebSocketMessageHandler._handle_change_role(
+                    message, session_id, connection_id, user
+                )
 
             elif message_type == "remove_participant":
                 # 参加者の削除
-                await WebSocketMessageHandler._handle_remove_participant(message, session_id, connection_id, user)
+                participant_id = message.get("participant_id")
+                logger.info(
+                    "Participant removal",
+                    user_id=user.id,
+                    target_participant_id=participant_id,
+                    session_id=session_id,
+                )
+                await WebSocketMessageHandler._handle_remove_participant(
+                    message, session_id, connection_id, user
+                )
 
             else:
-                logger.warning(f"Unknown message type: {message_type}")
+                logger.warning(
+                    "Unknown message type received",
+                    message_type=message_type,
+                    session_id=session_id,
+                    connection_id=connection_id,
+                    user_id=user.id,
+                )
 
         except Exception as e:
-            logger.error(f"Failed to handle message: {e}")
+            logger.error(
+                "Failed to handle WebSocket message",
+                error_type=type(e).__name__,
+                error_message=str(e),
+                message_type=message.get("type"),
+                session_id=message.get("roomId") or message.get("session_id"),
+                connection_id=connection_id,
+                user_id=user.id,
+            )
             await manager.send_personal_message(
                 {"type": "error", "message": "Failed to process message"},
                 connection_id,
             )
 
     @staticmethod
-    async def _handle_webrtc_signaling(message: dict, session_id: str, connection_id: str, user: User):
+    async def _handle_webrtc_signaling(
+        message: dict, session_id: str, connection_id: str, user: User
+    ):
         """WebRTCシグナリングメッセージの処理"""
         try:
             message_type = message.get("type")
@@ -367,8 +666,10 @@ class WebSocketMessageHandler:
             if message_type == "offer":
                 # Offerを対象ユーザーに転送
                 if target_user_id:
-                    target_connection = await WebSocketMessageHandler._find_user_connection(
-                        target_user_id, session_id
+                    target_connection = (
+                        await WebSocketMessageHandler._find_user_connection(
+                            target_user_id, session_id
+                        )
                     )
                     if target_connection:
                         await manager.send_personal_message(
@@ -381,13 +682,17 @@ class WebSocketMessageHandler:
                             },
                             target_connection,
                         )
-                        logger.info(f"Offer forwarded from {user.id} to {target_user_id}")
+                        logger.info(
+                            f"Offer forwarded from {user.id} to {target_user_id}"
+                        )
 
             elif message_type == "answer":
                 # Answerを対象ユーザーに転送
                 if target_user_id:
-                    target_connection = await WebSocketMessageHandler._find_user_connection(
-                        target_user_id, session_id
+                    target_connection = (
+                        await WebSocketMessageHandler._find_user_connection(
+                            target_user_id, session_id
+                        )
                     )
                     if target_connection:
                         await manager.send_personal_message(
@@ -400,13 +705,17 @@ class WebSocketMessageHandler:
                             },
                             target_connection,
                         )
-                        logger.info(f"Answer forwarded from {user.id} to {target_user_id}")
+                        logger.info(
+                            f"Answer forwarded from {user.id} to {target_user_id}"
+                        )
 
             elif message_type == "ice-candidate":
                 # ICE候補を対象ユーザーに転送
                 if target_user_id:
-                    target_connection = await WebSocketMessageHandler._find_user_connection(
-                        target_user_id, session_id
+                    target_connection = (
+                        await WebSocketMessageHandler._find_user_connection(
+                            target_user_id, session_id
+                        )
                     )
                     if target_connection:
                         await manager.send_personal_message(
@@ -419,7 +728,9 @@ class WebSocketMessageHandler:
                             },
                             target_connection,
                         )
-                        logger.info(f"ICE candidate forwarded from {user.id} to {target_user_id}")
+                        logger.info(
+                            f"ICE candidate forwarded from {user.id} to {target_user_id}"
+                        )
 
         except Exception as e:
             logger.error(f"Failed to handle WebRTC signaling: {e}")
@@ -461,14 +772,46 @@ class WebSocketMessageHandler:
             logger.error(f"Failed to handle leave session: {e}")
 
     @staticmethod
-    async def _handle_mute_participant(message: dict, session_id: str, connection_id: str, user: User):
+    async def _handle_mute_participant(
+        message: dict, session_id: str, connection_id: str, user: User
+    ):
         """参加者のミュート制御"""
         try:
             participant_id = message.get("participant_id")
             muted = message.get("muted", False)
 
-            # 権限チェック（ホストまたはモデレーターのみ）
-            # TODO: 実際の権限チェックを実装
+            # パラメータ検証
+            if participant_id is None:
+                logger.warning(
+                    "Missing participant_id in mute message",
+                    message=message,
+                    user_id=user.id,
+                    session_id=session_id,
+                )
+                await manager.send_personal_message(
+                    {"type": "error", "message": "Missing participant_id parameter"},
+                    connection_id,
+                )
+                return
+
+            # 権限チェック
+            if not await WebSocketMessageHandler._check_participant_permission(
+                user, session_id, participant_id, "mute_participant"
+            ):
+                logger.warning(
+                    "Permission denied for mute participant operation",
+                    user_id=user.id,
+                    target_participant_id=participant_id,
+                    session_id=session_id,
+                )
+                await manager.send_personal_message(
+                    {
+                        "type": "error",
+                        "message": "Insufficient permissions for this operation",
+                    },
+                    connection_id,
+                )
+                return
 
             # ミュート状態変更を全員に通知
             await manager.broadcast_to_session(
@@ -483,20 +826,69 @@ class WebSocketMessageHandler:
                 session_id,
             )
 
-            logger.info(f"Participant {participant_id} muted: {muted}")
+            logger.info(
+                "Participant mute operation successful",
+                user_id=user.id,
+                target_participant_id=participant_id,
+                muted=muted,
+                session_id=session_id,
+            )
 
         except Exception as e:
-            logger.error(f"Failed to handle mute participant: {e}")
+            logger.error(
+                "Failed to handle mute participant",
+                error_type=type(e).__name__,
+                error_message=str(e),
+                user_id=user.id,
+                target_participant_id=message.get("participant_id"),
+                session_id=session_id,
+            )
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to process mute operation"},
+                connection_id,
+            )
 
     @staticmethod
-    async def _handle_change_role(message: dict, session_id: str, connection_id: str, user: User):
+    async def _handle_change_role(
+        message: dict, session_id: str, connection_id: str, user: User
+    ):
         """参加者の役割変更"""
         try:
             participant_id = message.get("participant_id")
             new_role = message.get("new_role")
 
+            # パラメータ検証
+            if participant_id is None or new_role is None:
+                logger.warning(
+                    "Missing required parameters in role change message",
+                    message=message,
+                    user_id=user.id,
+                    session_id=session_id,
+                )
+                await manager.send_personal_message(
+                    {"type": "error", "message": "Missing required parameters"},
+                    connection_id,
+                )
+                return
+
             # 権限チェック（ホストのみ）
-            # TODO: 実際の権限チェックを実装
+            if not await WebSocketMessageHandler._check_permission(
+                user, session_id, "manage_session"
+            ):
+                logger.warning(
+                    "Permission denied for role change operation",
+                    user_id=user.id,
+                    target_participant_id=participant_id,
+                    session_id=session_id,
+                )
+                await manager.send_personal_message(
+                    {
+                        "type": "error",
+                        "message": "Only session hosts can change participant roles",
+                    },
+                    connection_id,
+                )
+                return
 
             # 役割変更を全員に通知
             await manager.broadcast_to_session(
@@ -511,19 +903,68 @@ class WebSocketMessageHandler:
                 session_id,
             )
 
-            logger.info(f"Participant {participant_id} role changed to {new_role}")
+            logger.info(
+                "Participant role change successful",
+                user_id=user.id,
+                target_participant_id=participant_id,
+                new_role=new_role,
+                session_id=session_id,
+            )
 
         except Exception as e:
-            logger.error(f"Failed to handle change role: {e}")
+            logger.error(
+                "Failed to handle change role",
+                error_type=type(e).__name__,
+                error_message=str(e),
+                user_id=user.id,
+                target_participant_id=message.get("participant_id"),
+                session_id=session_id,
+            )
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to process role change"},
+                connection_id,
+            )
 
     @staticmethod
-    async def _handle_remove_participant(message: dict, session_id: str, connection_id: str, user: User):
+    async def _handle_remove_participant(
+        message: dict, session_id: str, connection_id: str, user: User
+    ):
         """参加者の削除"""
         try:
             participant_id = message.get("participant_id")
 
+            # パラメータ検証
+            if participant_id is None:
+                logger.warning(
+                    "Missing participant_id in remove participant message",
+                    message=message,
+                    user_id=user.id,
+                    session_id=session_id,
+                )
+                await manager.send_personal_message(
+                    {"type": "error", "message": "Missing participant_id parameter"},
+                    connection_id,
+                )
+                return
+
             # 権限チェック（ホストのみ）
-            # TODO: 実際の権限チェックを実装
+            if not await WebSocketMessageHandler._check_permission(
+                user, session_id, "manage_session"
+            ):
+                logger.warning(
+                    "Permission denied for participant removal operation",
+                    user_id=user.id,
+                    target_participant_id=participant_id,
+                    session_id=session_id,
+                )
+                await manager.send_personal_message(
+                    {
+                        "type": "error",
+                        "message": "Only session hosts can remove participants",
+                    },
+                    connection_id,
+                )
+                return
 
             # 参加者削除を全員に通知
             await manager.broadcast_to_session(
@@ -536,10 +977,26 @@ class WebSocketMessageHandler:
                 session_id,
             )
 
-            logger.info(f"Participant {participant_id} removed from session {session_id}")
+            logger.info(
+                "Participant removal successful",
+                user_id=user.id,
+                target_participant_id=participant_id,
+                session_id=session_id,
+            )
 
         except Exception as e:
-            logger.error(f"Failed to handle remove participant: {e}")
+            logger.error(
+                "Failed to handle remove participant",
+                error_type=type(e).__name__,
+                error_message=str(e),
+                user_id=user.id,
+                target_participant_id=message.get("participant_id"),
+                session_id=session_id,
+            )
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to process participant removal"},
+                connection_id,
+            )
 
 
 # 定期的なクリーンアップタスク

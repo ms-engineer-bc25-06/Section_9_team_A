@@ -42,7 +42,7 @@ class Invitation(Base):
     accepted_at = Column(DateTime(timezone=True), nullable=True)
 
     # リレーションシップ（循環参照を避けるため、back_populatesは使用しない）
-    team = relationship("Team")
+    team = relationship("Organization")
     inviter = relationship("User", foreign_keys=[invited_by])
     invitee = relationship("User", foreign_keys=[invited_user])
 

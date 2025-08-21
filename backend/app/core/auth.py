@@ -207,19 +207,37 @@ def authenticate_user(email: str, password: str, db: AsyncSession) -> Optional[U
 
 
 async def get_current_user_from_token(token: str) -> Optional[User]:
-    """トークンから現在のユーザーを取得（WebSocket等の非依存性コンテキスト用）"""
+    """トークンから現在のユーザーを取得（JWTトークンとFirebaseトークンの両方に対応）"""
     try:
+        # まずJWTトークンとして検証を試行
         payload = await verify_token(token)
-        if payload is None:
-            return None
-        email: Optional[str] = payload.get("sub")
-        if not email:
-            return None
+        if payload:
+            email: Optional[str] = payload.get("sub")
+            if email:
+                async with AsyncSessionLocal() as db:
+                    result = await db.execute(select(User).where(User.email == email))
+                    user = result.scalar_one_or_none()
+                    if user:
+                        return user
 
-        async with AsyncSessionLocal() as db:
-            result = await db.execute(select(User).where(User.email == email))
-            user = result.scalar_one_or_none()
-            return user
+        # JWTトークンが無効な場合、Firebaseトークンとして検証を試行
+        firebase_payload = await verify_firebase_token(token)
+        if firebase_payload:
+            uid = firebase_payload.get("uid")
+            email = firebase_payload.get("email")
+
+            if uid and email:
+                async with AsyncSessionLocal() as db:
+                    result = await db.execute(
+                        select(User).where(User.firebase_uid == uid)
+                    )
+                    user = result.scalar_one_or_none()
+                    if user:
+                        return user
+
+        # どちらのトークンも無効
+        return None
+
     except Exception as e:
         logger.error(f"get_current_user_from_token failed: {e}")
         return None
