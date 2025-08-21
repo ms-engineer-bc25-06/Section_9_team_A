@@ -250,7 +250,7 @@ class WebSocketAuth:
 
     @staticmethod
     async def authenticate_websocket(websocket: WebSocket) -> User:
-        """WebSocket接続の認証（JWTトークンとFirebaseトークンの両方に対応）"""
+        """WebSocket接続の認証（Firebase IDトークンのみ）"""
         try:
             # クエリパラメータからトークンを取得
             query_params = websocket.query_params
@@ -265,98 +265,54 @@ class WebSocketAuth:
                 token_length=len(token) if token else 0,
             )
 
-            # まずJWTトークンとして検証を試行
+            # Firebase IDトークンの検証
             try:
-                from app.core.auth import verify_token
-
-                payload = await verify_token(token)
-                if payload:
-                    email = payload.get("sub")
-                    if email:
-                        logger.debug("JWT token verification successful", email=email)
-                        # データベースからユーザーを取得
-                        async with AsyncSessionLocal() as db:
-                            result = await db.execute(
-                                select(User).where(User.email == email)
-                            )
-                            user = result.scalar_one_or_none()
-                            if user:
-                                logger.info(
-                                    "WebSocket authentication successful via JWT",
-                                    user_id=user.id,
-                                    email=email,
-                                )
-                                return user
-                            else:
-                                logger.warning(
-                                    "JWT token valid but user not found in database",
-                                    email=email,
-                                )
-                    else:
-                        logger.warning("JWT token missing 'sub' field")
-                else:
-                    logger.debug("JWT token verification returned None")
-            except Exception as jwt_error:
-                logger.debug(
-                    "JWT token verification failed",
-                    error_type=type(jwt_error).__name__,
-                    error_message=str(jwt_error),
-                )
-
-            # JWTトークンが無効な場合、Firebaseトークンとして検証を試行
-            try:
-                logger.debug("Attempting Firebase token verification")
                 firebase_payload = await verify_firebase_token(token)
-                if firebase_payload:
-                    uid = firebase_payload.get("uid")
-                    email = firebase_payload.get("email")
+                if not firebase_payload:
+                    logger.warning("Firebase token verification returned None")
+                    raise AuthenticationException("Invalid Firebase token")
 
-                    if uid and email:
-                        logger.debug(
-                            "Firebase token verification successful",
-                            uid=uid,
+                uid = firebase_payload.get("uid")
+                email = firebase_payload.get("email")
+
+                if not uid or not email:
+                    logger.warning(
+                        "Firebase token missing required fields",
+                        has_uid=bool(uid),
+                        has_email=bool(email),
+                    )
+                    raise AuthenticationException("Invalid token payload")
+
+                # Firebase UIDでユーザーを検索
+                async with AsyncSessionLocal() as db:
+                    result = await db.execute(
+                        select(User).where(User.firebase_uid == uid)
+                    )
+                    user = result.scalar_one_or_none()
+
+                    if not user:
+                        logger.warning(
+                            "Firebase token valid but user not found in database",
+                            firebase_uid=uid,
                             email=email,
                         )
-                        # Firebase UIDでユーザーを検索
-                        async with AsyncSessionLocal() as db:
-                            result = await db.execute(
-                                select(User).where(User.firebase_uid == uid)
-                            )
-                            user = result.scalar_one_or_none()
-                            if user:
-                                logger.info(
-                                    "WebSocket authentication successful via Firebase",
-                                    user_id=user.id,
-                                    firebase_uid=uid,
-                                    email=email,
-                                )
-                                return user
-                            else:
-                                logger.warning(
-                                    "Firebase token valid but user not found in database",
-                                    firebase_uid=uid,
-                                    email=email,
-                                )
-                    else:
-                        logger.warning(
-                            "Firebase token missing required fields",
-                            has_uid=bool(uid),
-                            has_email=bool(email),
-                        )
-                else:
-                    logger.debug("Firebase token verification returned None")
+                        raise AuthenticationException("User not found")
+
+                    logger.info(
+                        "WebSocket authentication successful",
+                        user_id=user.id,
+                        firebase_uid=uid,
+                        email=email,
+                    )
+                    return user
+
             except Exception as firebase_error:
-                logger.debug(
+                logger.error(
                     "Firebase token verification failed",
                     error_type=type(firebase_error).__name__,
                     error_message=str(firebase_error),
                 )
-
-            # どちらのトークンも無効
-            logger.warning(
-                "WebSocket authentication failed: All token verification methods failed"
-            )
-            raise AuthenticationException("Invalid authentication token")
+                raise AuthenticationException("Invalid authentication token")
 
         except Exception as e:
             logger.error(

@@ -2,7 +2,6 @@ from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import JWTError, jwt
 from passlib.context import CryptContext
 import firebase_admin
 from firebase_admin import auth, credentials
@@ -18,11 +17,6 @@ logger = structlog.get_logger()
 
 # パスワードハッシュ化
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# JWT設定
-SECRET_KEY = settings.SECRET_KEY
-ALGORITHM = settings.ALGORITHM
-ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
 
 # Firebase初期化
 try:
@@ -87,28 +81,7 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-    """アクセストークン作成"""
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
-
-
-async def verify_token(token: str) -> Optional[dict]:
-    """JWTトークン検証"""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email = payload.get("sub")
-        if email is None:
-            return None
-        return payload
-    except JWTError:
-        return None
+# JWT関連の関数は削除（Firebase IDトークンのみを使用）
 
 
 async def verify_firebase_token(id_token: str) -> Optional[dict]:
@@ -128,7 +101,7 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    """現在のユーザー取得（JWTトークンまたはFirebaseトークン対応）"""
+    """現在のユーザー取得（Firebase IDトークンのみ）"""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -138,45 +111,30 @@ async def get_current_user(
     try:
         token = credentials.credentials
 
-        # まずJWTトークンとして検証を試行
-        payload = await verify_token(token)
-        if payload:
-            email = payload.get("sub")
-            if email is None:
-                raise credentials_exception
-
-            # ユーザー取得
-            result = await db.execute(select(User).where(User.email == email))
-            user = result.scalar_one_or_none()
-
-            if user is None:
-                raise credentials_exception
-
-            return user
-
-        # JWTトークンが無効な場合、Firebaseトークンとして検証を試行
+        # Firebase IDトークンの検証
         firebase_payload = await verify_firebase_token(token)
-        if firebase_payload:
-            uid = firebase_payload.get("uid")
-            email = firebase_payload.get("email")
+        if not firebase_payload:
+            raise credentials_exception
 
-            if not uid or not email:
-                raise credentials_exception
+        uid = firebase_payload.get("uid")
+        email = firebase_payload.get("email")
 
-            # Firebase UIDでユーザーを検索
-            result = await db.execute(select(User).where(User.firebase_uid == uid))
-            user = result.scalar_one_or_none()
+        if not uid or not email:
+            raise credentials_exception
 
-            if user is None:
-                raise credentials_exception
+        # Firebase UIDでユーザーを検索
+        result = await db.execute(select(User).where(User.firebase_uid == uid))
+        user = result.scalar_one_or_none()
 
-            return user
+        if user is None:
+            raise credentials_exception
 
-        # どちらのトークンも無効
-        raise credentials_exception
+        return user
 
     except Exception as e:
-        logger.error(f"Authentication failed: {e}")
+        logger.error(
+            "Authentication failed", error_type=type(e).__name__, error_message=str(e)
+        )
         raise credentials_exception
 
 
@@ -207,37 +165,29 @@ def authenticate_user(email: str, password: str, db: AsyncSession) -> Optional[U
 
 
 async def get_current_user_from_token(token: str) -> Optional[User]:
-    """トークンから現在のユーザーを取得（JWTトークンとFirebaseトークンの両方に対応）"""
+    """トークンから現在のユーザーを取得（Firebase IDトークンのみ）"""
     try:
-        # まずJWTトークンとして検証を試行
-        payload = await verify_token(token)
-        if payload:
-            email: Optional[str] = payload.get("sub")
-            if email:
-                async with AsyncSessionLocal() as db:
-                    result = await db.execute(select(User).where(User.email == email))
-                    user = result.scalar_one_or_none()
-                    if user:
-                        return user
-
-        # JWTトークンが無効な場合、Firebaseトークンとして検証を試行
+        # Firebase IDトークンの検証
         firebase_payload = await verify_firebase_token(token)
-        if firebase_payload:
-            uid = firebase_payload.get("uid")
-            email = firebase_payload.get("email")
+        if not firebase_payload:
+            return None
 
-            if uid and email:
-                async with AsyncSessionLocal() as db:
-                    result = await db.execute(
-                        select(User).where(User.firebase_uid == uid)
-                    )
-                    user = result.scalar_one_or_none()
-                    if user:
-                        return user
+        uid = firebase_payload.get("uid")
+        email = firebase_payload.get("email")
 
-        # どちらのトークンも無効
-        return None
+        if not uid or not email:
+            return None
+
+        # Firebase UIDでユーザーを検索
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(User).where(User.firebase_uid == uid))
+            user = result.scalar_one_or_none()
+            return user
 
     except Exception as e:
-        logger.error(f"get_current_user_from_token failed: {e}")
+        logger.error(
+            "get_current_user_from_token failed",
+            error_type=type(e).__name__,
+            error_message=str(e),
+        )
         return None
