@@ -60,7 +60,9 @@ class ChatRoom(Base):
         "ChatMessage", back_populates="chat_room", cascade="all, delete-orphan"
     )
     participants_rel = relationship("ChatRoomParticipant", back_populates="chat_room")
-    creator = relationship("User", back_populates="created_chat_rooms", foreign_keys=[created_by])
+    # Userモデルとのリレーションシップを一時的に無効化（循環参照回避）
+    # creator = relationship("User", back_populates="created_chat_rooms", foreign_keys=[created_by])
+    creator = relationship("User", foreign_keys=[created_by])
     organization = relationship("Organization", back_populates="chat_rooms")
 
     def __repr__(self):
@@ -128,7 +130,9 @@ class ChatMessage(Base):
 
     # リレーションシップ（循環参照を避けるため、back_populatesは使用しない）
     chat_room = relationship("ChatRoom", back_populates="messages")
-    sender = relationship("User", back_populates="chat_messages", foreign_keys=[sender_id])
+    # Userモデルとのリレーションシップを一時的に無効化（循環参照回避）
+    # sender = relationship("User", back_populates="chat_messages", foreign_keys=[sender_id])
+    sender = relationship("User", foreign_keys=[sender_id])
 
     def __repr__(self):
         return f"<ChatMessage(id={self.id}, content='{self.content[:50]}...')>"
@@ -177,7 +181,9 @@ class ChatRoomParticipant(Base):
 
     # リレーションシップ（循環参照を避けるため、back_populatesは使用しない）
     chat_room = relationship("ChatRoom", back_populates="participants_rel")
-    user = relationship("User", back_populates="chat_room_participations", foreign_keys=[user_id])
+    # Userモデルとのリレーションシップを一時的に無効化（循環参照回避）
+    # user = relationship("User", back_populates="chat_room_participations", foreign_keys=[user_id])
+    user = relationship("User", foreign_keys=[user_id])
 
     def __repr__(self):
         return f"<ChatRoomParticipant(room_id={self.chat_room_id}, user_id={self.user_id})>"
