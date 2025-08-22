@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/Badge"
 import { Separator } from "@/components/ui/Separator"
 import { Button } from "@/components/ui/Button"
 import Link from "next/link"
+import { PersonalGrowthEmbed } from "./PersonalGrowthEmbed"
+import { AIAnalysisEmbed } from "./AIAnalysisEmbed"
 import { 
   User, 
   Brain, 
@@ -118,97 +120,10 @@ export function ProfileTabs({ profile, children }: ProfileTabsProps) {
         )
       
       case "ai-analysis":
-        return (
-          <div className="space-y-6">
-            {children}
-            
-            {/* 分析結果一覧へのリンク */}
-            <Card>
-              <CardContent className="p-6">
-                <div className="text-center">
-                  <BarChart3 className="h-12 w-12 text-blue-500 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">より詳細な分析結果を確認</h3>
-                  <p className="text-gray-600 mb-4">
-                    すべての分析結果を一覧で確認し、詳細なレポートや統計情報を閲覧できます。
-                  </p>
-                  <Link href="/analytics">
-                    <Button className="bg-blue-600 hover:bg-blue-700">
-                      <BarChart3 className="h-4 w-4 mr-2" />
-                      分析結果一覧へ
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )
+        return <AIAnalysisEmbed />
       
       case "growth":
-        return (
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <TrendingUp className="h-5 w-5 text-green-500" />
-                  <span>成長指標</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="text-center p-4 bg-green-50 rounded-lg">
-                    <TrendingUp className="h-8 w-8 mx-auto mb-2 text-green-600" />
-                    <p className="text-sm text-gray-600">コミュニケーション能力</p>
-                    <p className="text-2xl font-bold text-green-600">+15%</p>
-                    <p className="text-xs text-gray-500">過去30日間</p>
-                  </div>
-                  <div className="text-center p-4 bg-blue-50 rounded-lg">
-                    <User className="h-8 w-8 mx-auto mb-2 text-blue-600" />
-                    <p className="text-sm text-gray-600">チーム貢献度</p>
-                    <p className="text-2xl font-bold text-blue-600">+8%</p>
-                    <p className="text-xs text-gray-500">過去30日間</p>
-                  </div>
-                  <div className="text-center p-4 bg-purple-50 rounded-lg">
-                    <Brain className="h-8 w-8 mx-auto mb-2 text-purple-600" />
-                    <p className="text-sm text-gray-600">問題解決能力</p>
-                    <p className="text-2xl font-bold text-purple-600">+12%</p>
-                    <p className="text-xs text-gray-500">過去30日間</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>月別成長記録</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div>
-                      <p className="font-medium">2024年1月</p>
-                      <p className="text-sm text-gray-600">積極的な発言が増加、チームメンバーへのサポート向上</p>
-                    </div>
-                    <Badge variant="outline" className="text-green-600">+20%</Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div>
-                      <p className="font-medium">2023年12月</p>
-                      <p className="text-sm text-gray-600">新しいアイデアの提案、問題解決への貢献</p>
-                    </div>
-                    <Badge variant="outline" className="text-blue-600">+15%</Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div>
-                      <p className="font-medium">2023年11月</p>
-                      <p className="text-sm text-gray-600">チームワークの向上、コミュニケーション改善</p>
-                    </div>
-                    <Badge variant="outline" className="text-green-600">+10%</Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )
+        return <PersonalGrowthEmbed />
       
       case "settings":
         return (

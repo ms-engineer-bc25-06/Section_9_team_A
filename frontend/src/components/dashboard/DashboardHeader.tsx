@@ -39,6 +39,7 @@ const DashboardHeader: React.FC = () => {
     { name: '音声チャット', href: '/voice-chat', icon: MessageSquare },
     { name: '分析', href: '/analytics', icon: BarChart3 },
     { name: 'チームダイナミクス', href: '/team-dynamics', icon: Target },
+    { name: '個人成長支援', href: '/personal-growth', icon: Target },
   ]
 
   return (

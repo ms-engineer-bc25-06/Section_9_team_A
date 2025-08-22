@@ -161,28 +161,49 @@ class AuthService:
     ) -> User:
         """Firebaseユーザーを取得または作成"""
         try:
-            # 既存ユーザーを検索
+            # 既存ユーザーを検索（firebase_uidまたはemailで）
             result = await self.db.execute(
-                select(User).where(User.firebase_uid == firebase_uid)
+                select(User).where(
+                    (User.firebase_uid == firebase_uid) | (User.email == email)
+                )
             )
             user = result.scalar_one_or_none()
 
             if user:
                 # 既存ユーザーの情報を更新
+                if not user.firebase_uid:
+                    user.firebase_uid = firebase_uid
                 user.email = email
                 user.last_login_at = datetime.utcnow()
                 if display_name:
                     user.full_name = display_name
+                user.is_verified = True
+                user.is_active = True
+                
                 await self.db.commit()
                 await self.db.refresh(user)
                 logger.info(f"Existing Firebase user logged in: {email}")
                 return user
 
             # 新しいユーザーを作成
+            # ユーザー名の重複を避ける
+            username = email.split('@')[0]
+            counter = 1
+            original_username = username
+            
+            while True:
+                result = await self.db.execute(
+                    select(User).where(User.username == username)
+                )
+                if not result.scalar_one_or_none():
+                    break
+                username = f"{original_username}{counter}"
+                counter += 1
+
             user = User(
                 firebase_uid=firebase_uid,
                 email=email,
-                username=email,  # 一時的にメールアドレスをユーザー名として使用
+                username=username,
                 full_name=display_name or email,
                 is_active=True,
                 is_verified=True,
@@ -194,10 +215,10 @@ class AuthService:
             await self.db.commit()
             await self.db.refresh(user)
 
-            logger.info(f"New Firebase user created: {email}")
+            logger.info(f"New Firebase user created: {email} with username: {username}")
             return user
 
         except Exception as e:
             logger.error(f"Firebase user creation/update failed: {e}")
             await self.db.rollback()
-            raise ValueError("Failed to create or update Firebase user")
+            raise ValueError(f"Failed to create or update Firebase user: {str(e)}")

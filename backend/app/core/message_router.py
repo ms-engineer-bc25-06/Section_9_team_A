@@ -371,16 +371,58 @@ class MessageRouter:
         try:
             queued_message.status = MessageStatus.PROCESSING
 
-            message_type = WebSocketMessageType(queued_message.message.get("type"))
+            message_type = queued_message.message.get("type")
+
+            # AI分析関連のメッセージを直接処理
+            if message_type in [
+                "ai_analysis_subscribe",
+                "ai_analysis_unsubscribe",
+                "ai_analysis_request",
+                "ai_analysis_progress_request",
+                "ai_analysis_cancel"
+            ]:
+                # WebSocketメッセージハンドラーで直接処理
+                from app.core.websocket import WebSocketMessageHandler
+
+                session_id = queued_message.message.get("session_id", "default")
+                connection_id = queued_message.metadata.get("connection_id")
+
+                if message_type == "ai_analysis_subscribe":
+                    await WebSocketMessageHandler.handle_ai_analysis_subscribe(
+                        session_id, connection_id, queued_message.user_id, queued_message.message
+                    )
+                elif message_type == "ai_analysis_unsubscribe":
+                    await WebSocketMessageHandler.handle_ai_analysis_unsubscribe(
+                        session_id, connection_id, queued_message.user_id, queued_message.message
+                    )
+                elif message_type == "ai_analysis_request":
+                    await WebSocketMessageHandler.handle_ai_analysis_request(
+                        session_id, connection_id, queued_message.user_id, queued_message.message
+                    )
+                elif message_type == "ai_analysis_progress_request":
+                    await WebSocketMessageHandler.handle_ai_analysis_progress_request(
+                        session_id, connection_id, queued_message.user_id, queued_message.message
+                    )
+                elif message_type == "ai_analysis_cancel":
+                    await WebSocketMessageHandler.handle_ai_analysis_cancel(
+                        session_id, connection_id, queued_message.user_id, queued_message.message
+                    )
+
+                queued_message.status = MessageStatus.DELIVERED
+                self.stats["messages_processed"] += 1
+                return
+
+            # 通常のメッセージ処理
+            message_type_enum = WebSocketMessageType(message_type)
 
             # ハンドラーの実行
-            if message_type in self.handlers:
-                handler = self.handlers[message_type]
+            if message_type_enum in self.handlers:
+                handler = self.handlers[message_type_enum]
                 await handler(queued_message)
                 queued_message.status = MessageStatus.DELIVERED
                 self.stats["messages_processed"] += 1
             else:
-                logger.warning(f"No handler for message type: {message_type.value}")
+                logger.warning(f"No handler for message type: {message_type}")
                 queued_message.status = MessageStatus.FAILED
                 self.stats["messages_failed"] += 1
 

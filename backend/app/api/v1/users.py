@@ -13,6 +13,7 @@ from app.models.user import User
 from app.models.team_member import TeamMember
 from app.services.auth_service import AuthService
 
+
 router = APIRouter()  # prefix は api.py 側で付与
 logger = structlog.get_logger()
 
@@ -261,5 +262,7 @@ async def get_user_detail(
             "respected_person": _val(prof, "respected_person"),
             "motto": _val(prof, "motto"),
             "future_goals": _val(prof, "future_goals"),
+            "feedback": prof.get("feedback"),
+            "ai_analysis": prof.get("ai_analysis"),
         },
     )

@@ -46,6 +46,10 @@ class UserProfileOut(BaseModel):
     total_speaking_time_seconds: Optional[int] = None
     last_analysis_at: Optional[str] = None
 
+    # AI分析フィードバック関連
+    feedback: Optional[List[str]] = None
+    ai_analysis: Optional[Dict[str, Any]] = None
+
     if _V2:
         model_config = ConfigDict(from_attributes=True)
 
@@ -101,6 +105,34 @@ class TeamMemberOut(BaseModel):
     profile: Optional[UserProfileOut] = None
     if _V2:
         model_config = ConfigDict(from_attributes=True)
+
+
+class TeamMemberCreate(BaseModel):
+    """チームメンバー作成用スキーマ"""
+    user_id: str
+    role: Optional[str] = None
+    status: Optional[str] = "active"
+
+
+class TeamMemberUpdate(BaseModel):
+    """チームメンバー更新用スキーマ"""
+    role: Optional[str] = None
+    status: Optional[str] = None
+
+
+class TeamMemberResponse(BaseModel):
+    """チームメンバー応答用スキーマ"""
+    id: str
+    user_id: str
+    team_id: str
+    role: Optional[str] = None
+    status: Optional[str] = None
+    joined_at: Optional[str] = None
+    user: Optional[UserOut] = None
+
+    if _V2:
+        model_config = ConfigDict(from_attributes=True)
+
 
 class TeamDetailOut(BaseModel):
     id: str

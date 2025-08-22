@@ -99,6 +99,36 @@ class TeamDynamicsSummary(BaseModel):
     recommendations: List[str] = Field(..., description="推奨事項のリスト")
 
 
+class TeamDynamicsListResponse(BaseModel):
+    """チームダイナミクス一覧応答スキーマ"""
+    team_dynamics: List[TeamDynamicsResponse]
+    total_count: int
+    page: int
+    page_size: int
+
+
+class TeamDynamicsFilter(BaseModel):
+    """チームダイナミクスフィルタースキーマ"""
+    team_id: Optional[int] = Field(None, description="チームIDでフィルタリング")
+    analysis_type: Optional[str] = Field(None, description="分析タイプでフィルタリング")
+    start_date: Optional[datetime] = Field(None, description="開始日時")
+    end_date: Optional[datetime] = Field(None, description="終了日時")
+
+
+class TeamMetrics(BaseModel):
+    """チームメトリクススキーマ"""
+    team_id: int = Field(..., description="チームID")
+    total_members: int = Field(..., description="総メンバー数")
+    active_members: int = Field(..., description="アクティブメンバー数")
+    total_sessions: int = Field(..., description="総セッション数")
+    total_duration: float = Field(..., description="総セッション時間（分）")
+    average_session_duration: float = Field(..., description="平均セッション時間（分）")
+    participation_rate: float = Field(..., description="参加率（0-100）")
+    communication_score: float = Field(..., description="コミュニケーションスコア（0-100）")
+    collaboration_score: float = Field(..., description="コラボレーションスコア（0-100）")
+    last_updated: datetime = Field(..., description="最終更新日時")
+
+
 class InteractionPattern(BaseModel):
     """相互作用パターンスキーマ"""
     speaker_id: int = Field(..., description="発言者ID")

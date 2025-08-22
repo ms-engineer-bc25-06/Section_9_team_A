@@ -77,3 +77,38 @@ class AnalysisError(BridgeLineException):
 
     def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
         super().__init__(message, "ANALYSIS_ERROR", details)
+
+
+class PrivacyError(BridgeLineException):
+    """プライバシー制御例外"""
+
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+        super().__init__(message, "PRIVACY_ERROR", details)
+
+
+class AccessDeniedError(BridgeLineException):
+    """データアクセス拒否例外"""
+
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+        super().__init__(message, "ACCESS_DENIED", details)
+
+
+class BusinessLogicException(BridgeLineException):
+    """ビジネスロジック例外"""
+
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+        super().__init__(message, "BUSINESS_LOGIC_ERROR", details)
+
+
+class DuplicateException(BridgeLineException):
+    """重複データ例外"""
+
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+        super().__init__(message, "DUPLICATE_DATA", details)
+
+
+class ConflictException(BridgeLineException):
+    """競合例外"""
+
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+        super().__init__(message, "CONFLICT", details)
