@@ -24,7 +24,7 @@ const DashboardPage: React.FC = () => {
       const checkBackendAuth = async () => {
         try {
           console.log("② バックエンド認証確認開始...")
-          const response = await apiClient.get('/api/v1/auth/me')
+          const response = await apiClient.get('/auth/me')
           
           if (response.ok) {
             const userData = await response.json()

@@ -42,15 +42,14 @@ export function LoginForm() {
         console.log("✅ 通常ログイン成功")
         
         // 初回ログイン判定
-        const auth = getAuth()
-        const user = auth.currentUser
-        if (user) {
-          try {
-            const token = await user.getIdToken()
+        // ログイン状態確認（JWTトークンを使用）
+        try {
+          const jwtToken = localStorage.getItem('jwt_token')
+          if (jwtToken) {
             console.log("🔍 ログイン状態を確認中...")
             const response = await fetch("http://localhost:8000/api/v1/auth/login-status", {
               headers: {
-                Authorization: `Bearer ${token}`
+                Authorization: `Bearer ${jwtToken}`
               }
             })
 

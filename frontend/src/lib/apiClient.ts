@@ -10,6 +10,10 @@ const API_PREFIX = "/api/v1";
 // URLビルダー関数
 function buildUrl(path: string): string {
   const p = path.startsWith("/") ? path : `/${path}`;
+  // パスが既にAPI_PREFIXを含んでいる場合は重複を避ける
+  if (p.startsWith(API_PREFIX)) {
+    return `${API_BASE_URL}${p}`;
+  }
   return `${API_BASE_URL}${API_PREFIX}${p}`;
 }
 
@@ -36,12 +40,15 @@ function getJWTToken(): string | null {
 
 // 認証トークンを取得する関数（優先順位付き）
 async function getToken(): Promise<string | null> {
-  // まずFirebaseトークンを試行
+  // まずJWTトークンを試行（バックエンド認証済みの場合）
+  const jwtToken = getJWTToken();
+  if (jwtToken) return jwtToken;
+  
+  // フォールバックとしてFirebaseトークンを試行
   const firebaseToken = await getAuthToken();
   if (firebaseToken) return firebaseToken;
   
-  // フォールバックとしてJWTトークンを試行
-  return getJWTToken();
+  return null;
 }
 
 // 認証付きfetch関数
