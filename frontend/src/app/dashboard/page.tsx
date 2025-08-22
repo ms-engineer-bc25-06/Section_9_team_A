@@ -6,6 +6,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth/AuthProvider"
 import { DashboardCards } from "@/components/dashboard/DashboardCards"
+import { apiClient } from "@/lib/apiClient"
 
 const DashboardPage: React.FC = () => {
   const { user, backendToken, isLoading } = useAuth()
@@ -22,13 +23,8 @@ const DashboardPage: React.FC = () => {
     if (user && backendToken && !backendAuthChecked) {
       const checkBackendAuth = async () => {
         try {
-          console.log("バックエンド認証確認開始...")
-          const response = await fetch('http://localhost:8000/api/v1/auth/me', {
-            headers: {
-              'Authorization': `Bearer ${backendToken}`,
-              'Content-Type': 'application/json'
-            }
-          })
+          console.log("② バックエンド認証確認開始...")
+          const response = await apiClient.get('/api/v1/auth/me')
           
           if (response.ok) {
             const userData = await response.json()

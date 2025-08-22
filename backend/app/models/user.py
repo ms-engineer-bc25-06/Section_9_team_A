@@ -120,6 +120,11 @@ class User(Base):
         return f"<User(id={self.id}, email='{self.email}', username='{self.username}')>"
 
     @property
+    def display_name(self) -> str:
+        """表示名を取得（full_nameまたはusernameから）"""
+        return self.full_name or self.username
+
+    @property
     def is_premium_user(self) -> bool:
         """プレミアムユーザーかどうか"""
         end_date = cast(Optional[datetime], self.subscription_end_date)

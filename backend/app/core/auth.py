@@ -6,6 +6,7 @@ from passlib.context import CryptContext
 import firebase_admin
 from firebase_admin import auth, credentials
 import structlog
+from jose import JWTError, jwt
 
 from app.config import settings
 from app.models.user import User
@@ -81,12 +82,44 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 
-# JWT関連の関数は削除（Firebase IDトークンのみを使用）
+# JWT関連の関数
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    """JWTアクセストークンを作成"""
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(
+            minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
+        )
+
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(
+        to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
+    )
+    return encoded_jwt
+
+
+def verify_jwt_token(token: str) -> Optional[dict]:
+    """JWTトークンを検証"""
+    try:
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+        )
+        return payload
+    except JWTError as e:
+        logger.error(f"JWT token verification failed: {e}")
+        return None
 
 
 async def verify_firebase_token(id_token: str) -> Optional[dict]:
     """Firebaseトークン検証"""
     try:
+        # Firebaseが初期化されているかチェック
+        if not firebase_admin._apps:
+            logger.error("Firebase not initialized, cannot verify token")
+            return None
+
         # 時刻の許容範囲を設定（60秒）
         decoded_token = auth.verify_id_token(
             id_token, check_revoked=True, clock_skew_seconds=60
@@ -101,7 +134,7 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    """現在のユーザー取得（Firebase IDトークンのみ）"""
+    """現在のユーザー取得（JWTまたはFirebase IDトークン）"""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -111,26 +144,71 @@ async def get_current_user(
     try:
         token = credentials.credentials
 
-        # Firebase IDトークンの検証
+        # まずJWTトークンとして検証を試行
+        jwt_payload = verify_jwt_token(token)
+        if jwt_payload:
+            user_id = jwt_payload.get("sub")
+            if user_id:
+                try:
+                    # JWTのsubフィールドからユーザーIDを取得（int型として処理）
+                    user_id_int = int(user_id) if isinstance(user_id, str) else user_id
+                    result = await db.execute(
+                        select(User).where(User.id == user_id_int)
+                    )
+                    user = result.scalar_one_or_none()
+                    if user:
+                        return user
+                except (ValueError, TypeError) as e:
+                    logger.error(
+                        f"Invalid user ID format in JWT: {user_id}, error: {e}"
+                    )
+                    raise credentials_exception
+                except HTTPException:
+                    # HTTPExceptionはそのまま再送出
+                    raise
+                except Exception as db_error:
+                    logger.error(f"Database error during JWT user lookup: {db_error}")
+                    # データベースエラーの場合は503エラーを返す
+                    raise HTTPException(
+                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                        detail="Database service temporarily unavailable",
+                    )
+
+        # JWTが失敗した場合、Firebase IDトークンとして検証を試行
         firebase_payload = await verify_firebase_token(token)
-        if not firebase_payload:
-            raise credentials_exception
+        if firebase_payload:
+            uid = firebase_payload.get("uid")
+            email = firebase_payload.get("email")
 
-        uid = firebase_payload.get("uid")
-        email = firebase_payload.get("email")
+            if not uid or not email:
+                raise credentials_exception
 
-        if not uid or not email:
-            raise credentials_exception
+            try:
+                # Firebase UIDでユーザーを検索
+                result = await db.execute(select(User).where(User.firebase_uid == uid))
+                user = result.scalar_one_or_none()
 
-        # Firebase UIDでユーザーを検索
-        result = await db.execute(select(User).where(User.firebase_uid == uid))
-        user = result.scalar_one_or_none()
+                if user is None:
+                    raise credentials_exception
 
-        if user is None:
-            raise credentials_exception
+                return user
+            except HTTPException:
+                # HTTPExceptionはそのまま再送出
+                raise
+            except Exception as db_error:
+                logger.error(f"Database error during Firebase user lookup: {db_error}")
+                # データベースエラーの場合は503エラーを返す
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Database service temporarily unavailable",
+                )
 
-        return user
+        # どちらの認証も失敗
+        raise credentials_exception
 
+    except HTTPException:
+        # HTTPExceptionはそのまま再送出
+        raise
     except Exception as e:
         logger.error(
             "Authentication failed", error_type=type(e).__name__, error_message=str(e)
@@ -165,24 +243,56 @@ def authenticate_user(email: str, password: str, db: AsyncSession) -> Optional[U
 
 
 async def get_current_user_from_token(token: str) -> Optional[User]:
-    """トークンから現在のユーザーを取得（Firebase IDトークンのみ）"""
+    """トークンから現在のユーザーを取得（JWTまたはFirebase IDトークン）"""
     try:
-        # Firebase IDトークンの検証
+        # まずJWTトークンとして検証を試行
+        jwt_payload = verify_jwt_token(token)
+        if jwt_payload:
+            user_id = jwt_payload.get("sub")
+            if user_id:
+                try:
+                    # JWTのsubフィールドからユーザーIDを取得（int型として処理）
+                    user_id_int = int(user_id) if isinstance(user_id, str) else user_id
+                    async with AsyncSessionLocal() as db:
+                        result = await db.execute(
+                            select(User).where(User.id == user_id_int)
+                        )
+                        user = result.scalar_one_or_none()
+                        return user
+                except (ValueError, TypeError) as e:
+                    logger.error(
+                        f"Invalid user ID format in JWT from token: {user_id}, error: {e}"
+                    )
+                    return None
+                except Exception as db_error:
+                    logger.error(
+                        f"Database error during JWT user lookup from token: {db_error}"
+                    )
+                    return None
+
+        # JWTが失敗した場合、Firebase IDトークンとして検証を試行
         firebase_payload = await verify_firebase_token(token)
-        if not firebase_payload:
-            return None
+        if firebase_payload:
+            uid = firebase_payload.get("uid")
+            email = firebase_payload.get("email")
 
-        uid = firebase_payload.get("uid")
-        email = firebase_payload.get("email")
+            if not uid or not email:
+                return None
 
-        if not uid or not email:
-            return None
+            try:
+                async with AsyncSessionLocal() as db:
+                    result = await db.execute(
+                        select(User).where(User.firebase_uid == uid)
+                    )
+                    user = result.scalar_one_or_none()
+                    return user
+            except Exception as db_error:
+                logger.error(
+                    f"Database error during Firebase user lookup from token: {db_error}"
+                )
+                return None
 
-        # Firebase UIDでユーザーを検索
-        async with AsyncSessionLocal() as db:
-            result = await db.execute(select(User).where(User.firebase_uid == uid))
-            user = result.scalar_one_or_none()
-            return user
+        return None
 
     except Exception as e:
         logger.error(

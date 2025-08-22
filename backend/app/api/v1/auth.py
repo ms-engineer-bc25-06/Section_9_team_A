@@ -2,22 +2,22 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from typing import Optional
 import structlog
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import select
 from typing import Optional
 from pydantic import BaseModel
 
+from app.core.auth import get_current_user, create_access_token
 from app.core.database import get_db
-from app.core.auth import get_current_user
+from app.models.user import User
 from app.schemas.auth import (
-    Token,
-    TokenData,
-    UserLogin,
-    UserRegister,
     FirebaseAuthRequest,
+    FirebaseAuthResponse,
+    TokenResponse,
     UserResponse,
     LoginResponse,
     LoginRequest,
@@ -27,40 +27,10 @@ from app.integrations.firebase_client import update_firebase_user_password
 from app.models.user import User
 
 router = APIRouter()
-security = HTTPBearer()
 logger = structlog.get_logger()
 
-
-@router.post("/login", response_model=Token)
-async def login(user_credentials: UserLogin, db: AsyncSession = Depends(get_db)):
-    """ユーザーログイン（従来のメール/パスワード認証）"""
-    try:
-        auth_service = AuthService(db)
-        user = await auth_service.authenticate_user(
-            email=user_credentials.email, password=user_credentials.password
-        )
-
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect email or password",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-
-        # JWTトークンの生成は削除（Firebase IDトークンのみを使用）
-        logger.info(f"User logged in successfully: {user.email}")
-
-        return {
-            "access_token": "firebase_token_required",
-            "token_type": "firebase",
-            "user": user,
-        }
-    except Exception as e:
-        logger.error(f"Login failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error",
-        )
+# セキュリティ設定
+security = HTTPBearer()
 
 
 @router.post("/temporary-login", response_model=Token)
@@ -153,7 +123,7 @@ async def temporary_login(
         )
 
 
-@router.post("/firebase-login")
+@router.post("/firebase-login", response_model=FirebaseAuthResponse)
 async def firebase_login(
     request: FirebaseAuthRequest, db: AsyncSession = Depends(get_db)
 ):
@@ -232,6 +202,9 @@ async def firebase_login(
 
             # データベースでユーザーを検索または作成
             auth_service = AuthService(db)
+
+            logger.info(f"AuthService created, calling get_or_create_firebase_user")
+
             user = await auth_service.get_or_create_firebase_user(
                 firebase_uid=uid,
                 email=email,
@@ -239,55 +212,36 @@ async def firebase_login(
             )
             logger.info(f"User operation completed successfully: {user.id}")
 
-            # アクセストークンを作成（Firebase IDトークンのみを使用）
-            # access_token = create_access_token(data={"sub": user.email, "uid": uid})
+            # JWTアクセストークンを作成
+            access_token_expires = timedelta(minutes=30)
+            access_token = create_access_token(
+                data={"sub": str(user.id), "email": user.email, "firebase_uid": uid},
+                expires_delta=access_token_expires,
+            )
 
             logger.info(f"Firebase user logged in successfully: {email}")
 
             response_data = {
-                "access_token": "firebase_token_required",
-                "token_type": "firebase",
+                "access_token": access_token,
+                "token_type": "bearer",
+                "expires_in": 1800,  # 30分
                 "user": {
                     "id": user.id,
                     "email": user.email,
-                    "username": user.username,
-                    "full_name": user.full_name,
+                    "display_name": user.display_name,
                     "firebase_uid": user.firebase_uid,
+                    "is_active": user.is_active,
                     "is_admin": user.is_admin,
                 },
             }
 
-            response = JSONResponse(content=response_data)
-            response.headers["Access-Control-Allow-Origin"] = "http://localhost:3000"
-            response.headers["Access-Control-Allow-Credentials"] = "true"
+            return FirebaseAuthResponse(**response_data)
 
-            return response
-
-        except ValueError as ve:
-            logger.error(f"User creation/update validation error: {ve}")
-
-            response = JSONResponse(
-                status_code=status.HTTP_400_BAD_REQUEST, content={"detail": str(ve)}
-            )
-            response.headers["Access-Control-Allow-Origin"] = "http://localhost:3000"
-            response.headers["Access-Control-Allow-Credentials"] = "true"
-
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
-        except Exception as db_error:
-            logger.error(f"Database operation failed: {db_error}")
-            logger.error(f"Error type: {type(db_error)}")
-            logger.error(f"Error details: {str(db_error)}")
-
-            response = JSONResponse(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                content={"detail": "Database operation failed"},
-            )
-            response.headers["Access-Control-Allow-Origin"] = "http://localhost:3000"
-            response.headers["Access-Control-Allow-Credentials"] = "true"
-
+        except Exception as e:
+            logger.error(f"Database operation failed: {e}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Database operation failed",
+                detail="Internal server error during user creation/retrieval",
             )
     except HTTPException:
         raise
@@ -297,6 +251,8 @@ async def firebase_login(
 
         logger.error(f"Firebase login traceback: {traceback.format_exc()}")
 
+        from fastapi.responses import JSONResponse
+        
         response = JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"detail": "Internal server error"},
@@ -309,26 +265,25 @@ async def firebase_login(
         return response
 
 
-@router.post("/register", response_model=Token)
-async def register(user_data: UserRegister, db: AsyncSession = Depends(get_db)):
-    """ユーザー登録"""
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh_token(
+    current_user: User = Depends(get_current_user),
+):
+    """アクセストークンの更新"""
     try:
-        auth_service = AuthService(db)
-        user = await auth_service.create_user(user_data)
+        # 新しいJWTトークンを作成
+        access_token_expires = timedelta(minutes=30)
+        access_token = create_access_token(
+            data={"sub": str(current_user.id), "email": current_user.email},
+            expires_delta=access_token_expires,
+        )
 
-        # access_token = create_access_token(data={"sub": user.email})
-        logger.info(f"User registered successfully: {user.email}")
+        return TokenResponse(
+            access_token=access_token, token_type="bearer", expires_in=1800
+        )
 
-        return {
-            "access_token": "firebase_token_required",
-            "token_type": "firebase",
-            "user": user,
-        }
-    except ValueError as e:
-        logger.warning(f"Registration failed - validation error: {e}")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
-        logger.error(f"Registration failed: {e}")
+        logger.error(f"Token refresh failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error",
@@ -546,46 +501,28 @@ async def create_dev_admin(user_data: dict, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/logout")
-async def logout(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    current_user=Depends(get_current_user),
-):
-    """ユーザーログアウト"""
-    try:
-        # トークンをブラックリストに追加する処理をここに実装
-        logger.info(f"User logged out: {current_user.email}")
-        return {"message": "Successfully logged out"}
-    except Exception as e:
-        logger.error(f"Logout failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error",
-        )
+async def logout():
+    """ログアウト処理"""
+    # JWTはステートレスなので、クライアント側でトークンを削除する
+            return {"message": "Successfully logged out"}
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user_info(current_user=Depends(get_current_user)):
+async def get_current_user_info(current_user: User = Depends(get_current_user)):
     """現在のユーザー情報を取得"""
-    return current_user
-
-
-@router.post("/refresh")
-async def refresh_token(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    current_user=Depends(get_current_user),
-):
-    """トークンリフレッシュ"""
     try:
-        # new_access_token = create_access_token(data={"sub": current_user.email})
-        logger.info(f"Token refreshed successfully for user: {current_user.email}")
-
-        return {
-            "access_token": "firebase_token_required",
-            "token_type": "firebase",
-            "user": current_user,
-        }
+        return UserResponse(
+            id=current_user.id,
+            email=current_user.email,
+            display_name=current_user.display_name,
+            firebase_uid=current_user.firebase_uid,
+            is_active=current_user.is_active,
+            is_admin=current_user.is_admin,
+            created_at=current_user.created_at,
+            updated_at=current_user.updated_at,
+        )
     except Exception as e:
-        logger.error(f"Token refresh failed: {e}")
+        logger.error(f"Failed to get current user info: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error",
@@ -719,3 +656,9 @@ async def dev_login(login_data: LoginRequest, db: AsyncSession = Depends(get_db)
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="仮パスワードでログインしてください",
     )
+
+
+@router.get("/verify")
+async def verify_token(current_user: User = Depends(get_current_user)):
+    """トークンの有効性を確認"""
+    return {"valid": True, "user_id": current_user.id}
