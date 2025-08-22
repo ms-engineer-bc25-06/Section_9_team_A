@@ -66,9 +66,9 @@ export function LoginForm() {
             } else {
               console.error("ログイン状態確認失敗:", response.status)
             }
-          } catch (error) {
-            console.error("ログイン状態確認エラー:", error)
           }
+        } catch (error) {
+          console.error("ログイン状態確認エラー:", error)
         }
         
         // 通常のダッシュボードにリダイレクト
