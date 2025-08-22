@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Label } from "@/components/ui/Label"
 import { Separator } from "@/components/ui/Separator"
-import { Mail, Lock, LogIn, Shield, AlertCircle } from "lucide-react"
+import { Mail, Lock, LogIn, AlertCircle } from "lucide-react"
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
 
 export function LoginForm() {
@@ -100,10 +100,6 @@ export function LoginForm() {
     }
   }
 
-  const handleGoToAdmin = () => {
-    router.push("/admin/login")
-  }
-
   return (
     <div className="space-y-6">
       <div className="text-center space-y-2"></div>
@@ -164,7 +160,11 @@ export function LoginForm() {
           </Label>
         </div>
 
-        <Button type="submit" className="w-full" disabled={isLoading}>
+        <Button 
+          type="submit" 
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 text-lg font-medium rounded-lg transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 cursor-pointer" 
+          disabled={isLoading}
+        >
           <LogIn className="mr-2 h-4 w-4" />
           {isLoading ? "ログイン中..." : "ログイン"}
         </Button>
@@ -180,16 +180,6 @@ export function LoginForm() {
           仮パスワードは管理者が発行した一時的なパスワードです
         </p>
       </div>
-
-      <Button
-        variant="outline"
-        className="w-full bg-transparent"
-        onClick={handleGoToAdmin}
-        disabled={isLoading}
-      >
-        <Shield className="mr-2 h-4 w-4" />
-        管理者ログインはこちら
-      </Button>
     </div>
   )
 }

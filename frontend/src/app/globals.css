@@ -54,4 +54,11 @@
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
   }
+
+  /* ボタン要素でカーソルを手の形に */
+  button, 
+  [role="button"], 
+  .cursor-pointer {
+    cursor: pointer;
+  }
 }
