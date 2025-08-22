@@ -37,13 +37,34 @@ target_metadata = Base.metadata
 
 
 def get_url():
-    """データベースURLを取得（同期的な接続用に修正）"""
-    # alembic.iniからURLを取得
+    """データベースURLを取得（Docker環境対応）"""
+    # 環境変数からデータベースURLを取得
+    database_url = os.getenv("DATABASE_URL")
+
+    if database_url:
+        # 非同期URLを同期的なURLに変換
+        if database_url.startswith("postgresql+asyncpg://"):
+            database_url = database_url.replace(
+                "postgresql+asyncpg://", "postgresql://"
+            )
+
+        # Dockerコンテナ内からアクセスする場合のホスト名修正
+        if "@localhost:" in database_url:
+            # Dockerコンテナ内からはlocalhostではなくpostgresを使用
+            database_url = database_url.replace("@localhost:", "@postgres:")
+
+        return database_url
+
+    # 環境変数が設定されていない場合は、alembic.iniから取得
     url = config.get_main_option("sqlalchemy.url")
-    # 非同期URLを同期的なURLに変換
-    if url.startswith("postgresql+asyncpg://"):
-        url = url.replace("postgresql+asyncpg://", "postgresql://")
-    return url
+    if url:
+        # 非同期URLを同期的なURLに変換
+        if url.startswith("postgresql+asyncpg://"):
+            url = url.replace("postgresql+asyncpg://", "postgresql://")
+        return url
+
+    # デフォルトのURL（フォールバック）
+    return "postgresql://bridge_user:bridge_password@postgres:5432/bridge_line_db"
 
 
 def run_migrations_offline() -> None:
