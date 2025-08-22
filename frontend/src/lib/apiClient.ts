@@ -25,7 +25,7 @@ async function getIdToken(): Promise<string> {
   return token;
 }
 
-// 認証付きfetch関数（旧api.tsから統合）
+// 認証付きfetch関数
 export async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
   const token = await getAuthToken();
   const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;

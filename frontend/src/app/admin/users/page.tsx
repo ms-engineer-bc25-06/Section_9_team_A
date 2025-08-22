@@ -1,10 +1,32 @@
 // TODO この機能は将来的に実装する(登録されているユーザーの一覧を管理者が閲覧・編集できるページ)
+"use client"
+
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/components/auth/AuthProvider"
 import { AdminUserList } from "@/components/admin/AdminUserList"
 import { Button } from "@/components/ui/Button"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
 export default function AdminUsersPage() {
+  const { user, isLoading } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!user && !isLoading) {
+      router.push("/")
+    }
+  }, [user, isLoading, router])
+
+  if (isLoading || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="bg-white shadow-sm border-b">

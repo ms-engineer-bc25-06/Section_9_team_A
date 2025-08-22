@@ -60,12 +60,7 @@ export const adminUsersApi = {
         const realUsers = await testApiGet<UserResponse[]>('/admin/users/test')
         console.log('Real users fetched successfully:', realUsers.length, 'users')
         return realUsers
-        
-        // モックデータが必要な場合は以下を使用
-        // console.log('Fetching mock users...')
-        // const mockUsers = await testApiGet<UserResponse[]>('/admin/users/mock')
-        // console.log('Mock users fetched successfully:', mockUsers.length, 'users')
-        // return mockUsers
+
       } catch (error) {
         console.error('Failed to fetch users:', error)
         // エラーの場合は空配列を返す
