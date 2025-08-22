@@ -192,7 +192,7 @@ class ReportExport(Base):
 
     # リレーション
     report = relationship("Report", back_populates="exports")
-    # user = relationship("User", back_populates="report_exports")
+    user = relationship("User", back_populates="report_exports")
 
 
 class ReportShare(Base):

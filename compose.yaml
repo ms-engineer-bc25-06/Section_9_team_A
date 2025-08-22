@@ -54,7 +54,7 @@ services:
       - BACKEND_CORS_ORIGINS=["http://localhost:3000", "http://localhost:3001"]
       - DEBUG=true
       - ENVIRONMENT=development
-      - LOG_LEVEL=INFO
+      - LOG_LEVEL=DEBUG
       - OPENAI_PERSONAL_API_KEY=${OPENAI_PERSONAL_API_KEY:-}
       - WEBSOCKET_URL=ws://localhost:8000/ws
     depends_on:

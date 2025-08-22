@@ -69,7 +69,7 @@ class Analysis(Base):
     )
     processed_at = Column(DateTime(timezone=True), nullable=True)
 
-    # リレーションシップ（循環参照を避けるため、back_populatesは使用しない）
+    # リレーションシップ
     voice_session = relationship("VoiceSession")
     transcription = relationship("Transcription")
     user = relationship("User")
@@ -165,3 +165,10 @@ class Analysis(Base):
         self.is_public = False
         self.visibility_level = "private"
         self.updated_at = datetime.utcnow()
+
+
+# 循環参照を避けるための遅延インポート
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.feedback_approval import FeedbackApproval

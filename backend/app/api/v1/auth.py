@@ -7,8 +7,6 @@ from sqlalchemy import select
 from typing import Optional
 import structlog
 from datetime import datetime, timedelta
-from sqlalchemy import select
-from typing import Optional
 from pydantic import BaseModel
 
 from app.core.auth import get_current_user, create_access_token
@@ -21,10 +19,11 @@ from app.schemas.auth import (
     UserResponse,
     LoginResponse,
     LoginRequest,
+    Token,
+    UserLogin,
 )
 from app.services.auth_service import AuthService
 from app.integrations.firebase_client import update_firebase_user_password
-from app.models.user import User
 
 router = APIRouter()
 logger = structlog.get_logger()
@@ -252,7 +251,7 @@ async def firebase_login(
         logger.error(f"Firebase login traceback: {traceback.format_exc()}")
 
         from fastapi.responses import JSONResponse
-        
+
         response = JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"detail": "Internal server error"},
@@ -504,7 +503,7 @@ async def create_dev_admin(user_data: dict, db: AsyncSession = Depends(get_db)):
 async def logout():
     """ログアウト処理"""
     # JWTはステートレスなので、クライアント側でトークンを削除する
-            return {"message": "Successfully logged out"}
+    return {"message": "Successfully logged out"}
 
 
 @router.get("/me", response_model=UserResponse)

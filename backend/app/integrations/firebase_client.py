@@ -306,6 +306,10 @@ class FirebaseClient:
                 if not self.initialize():
                     return False
 
+            if self._auth is None:
+                logger.error("Firebase Auth is not initialized")
+                return False
+
             self._auth.update_user(uid, password=new_password)
             logger.info(f"Password updated for user {uid}")
             return True

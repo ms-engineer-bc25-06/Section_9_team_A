@@ -10,7 +10,8 @@ from app.api.deps import get_session, get_current_user
 from app.schemas.team import UserOut, UserProfileOut
 from app.schemas.user import ProfileUpdate, ProfileResponse
 from app.models.user import User
-from app.models.team_member import TeamMember
+
+# from app.models.team_member import TeamMember  # このモデルは存在しない
 from app.services.auth_service import AuthService
 from app.models.organization_member import OrganizationMember
 

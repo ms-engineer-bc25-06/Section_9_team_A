@@ -65,27 +65,15 @@ async def get_db() -> AsyncSession:
         logger.error("Database session factory is not initialized")
         raise RuntimeError("Database session factory is not initialized")
 
+    session = AsyncSessionLocal()
     try:
-        async with AsyncSessionLocal() as session:
-            yield session
+        yield session
     except Exception as e:
-        logger.error(f"Failed to create database session: {e}")
-        # より詳細なエラー情報を提供
-        if "authentication" in str(e).lower() or "401" in str(e):
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Authentication service unavailable",
-            )
-        elif "connection" in str(e).lower():
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Database connection failed",
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"Service temporarily unavailable: {str(e)}",
-            )
+        logger.error(f"Database session error: {e}")
+        await session.rollback()
+        raise
+    finally:
+        await session.close()
 
 
 # データベースセッション依存性（新しい名前）
