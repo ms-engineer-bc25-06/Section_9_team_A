@@ -30,13 +30,13 @@ const DashboardCards: React.FC = () => {
       action: () => router.push("/profile"),
       color: "bg-purple-500",
     },
-    // {
-    //   title: "AI分析結果",
-    //   description: "コミュニケーション分析を確認",
-    //   icon: BarChart3,
-    //   action: () => router.push("/analytics"),
-    //   color: "bg-orange-500",
-    // },
+    {
+      title: "AI分析結果",
+      description: "コミュニケーション分析を確認",
+      icon: BarChart3,
+      action: () => router.push("/analytics"),
+      color: "bg-orange-500",
+    },
   ]
 
   return (

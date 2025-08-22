@@ -2,6 +2,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/components/auth/AuthProvider"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
 import { Badge } from "@/components/ui/Badge"
@@ -13,10 +15,19 @@ import Link from "next/link"
 import { getAuth, onAuthStateChanged } from "firebase/auth"
 
 export default function AdminBillingPage() {
+  const { user, isLoading } = useAuth()
+  const router = useRouter()
   const [userCount, setUserCount] = useState(0)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingData, setIsLoadingData] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+
+  // 認証チェック
+  useEffect(() => {
+    if (!user && !isLoading) {
+      router.push("/")
+    }
+  }, [user, isLoading, router])
 
   // 認証トークンを取得する関数
   const getAuthToken = async (): Promise<string | null> => {
@@ -44,6 +55,8 @@ export default function AdminBillingPage() {
   }
 
   useEffect(() => {
+    if (!user) return // 認証されていない場合はスキップ
+    
     // 開発環境での認証状態を確認
     if (process.env.NODE_ENV === 'development') {
       const auth = getAuth()
@@ -56,11 +69,11 @@ export default function AdminBillingPage() {
     const interval = setInterval(fetchUserCount, 5 * 60 * 1000)
     
     return () => clearInterval(interval)
-  }, [])
+  }, [user])
 
     const fetchUserCount = async () => {
     try {
-      setIsLoading(true)
+      setIsLoadingData(true)
       // 認証トークンを取得（Firebase認証から）
       const token = await getAuthToken()
       
@@ -107,7 +120,7 @@ export default function AdminBillingPage() {
         setError(err instanceof Error ? err.message : 'エラーが発生しました')
       }
     } finally {
-      setIsLoading(false)
+      setIsLoadingData(false)
     }
   }
 
@@ -130,13 +143,10 @@ export default function AdminBillingPage() {
   const additionalUsers = Math.max(0, testUserCount - 10)
   const additionalCost = additionalUsers * 500
 
-  if (isLoading) {
+  if (isLoading || !user) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">読み込み中...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     )
   }
@@ -199,10 +209,10 @@ export default function AdminBillingPage() {
           <Button 
             onClick={fetchUserCount} 
             variant="outline" 
-            disabled={isLoading}
+            disabled={isLoadingData}
             className="flex items-center space-x-2"
           >
-            {isLoading ? (
+            {isLoadingData ? (
               <>
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                 <span>更新中...</span>
