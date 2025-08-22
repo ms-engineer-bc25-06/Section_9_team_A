@@ -7,7 +7,7 @@ services:
     container_name: bridge_line_postgres
     environment:
       POSTGRES_DB: bridge_line_db
-      POSTGRES_USER: bridge_user
+      POSTGR qES_USER: bridge_user
       POSTGRES_PASSWORD: bridge_password
     ports:
       - "5432:5432"
