@@ -8,7 +8,7 @@ from app.models.team_dynamics import (
     TeamInteraction,
     TeamCompatibility,
     TeamCohesion,
-    TeamMemberProfile
+    OrganizationMemberProfile
 )
 from app.repositories.base import BaseRepository
 
@@ -167,17 +167,17 @@ class TeamDynamicsRepository(BaseRepository[Any, Any, Any]):
         await db.refresh(db_cohesion)
         return db_cohesion
 
-    # TeamMemberProfile 関連メソッド
+    # OrganizationMemberProfile 関連メソッド
     async def get_member_profile(
         self, db: AsyncSession, user_id: int, team_id: int
-    ) -> Optional[TeamMemberProfile]:
+    ) -> Optional[OrganizationMemberProfile]:
         """チームメンバープロファイルを取得"""
         result = await db.execute(
-            select(TeamMemberProfile)
+            select(OrganizationMemberProfile)
             .where(
                 and_(
-                    TeamMemberProfile.user_id == user_id,
-                    TeamMemberProfile.team_id == team_id
+                    OrganizationMemberProfile.user_id == user_id,
+                    OrganizationMemberProfile.team_id == team_id
                 )
             )
         )
@@ -185,20 +185,20 @@ class TeamDynamicsRepository(BaseRepository[Any, Any, Any]):
 
     async def get_team_profiles(
         self, db: AsyncSession, team_id: int
-    ) -> List[TeamMemberProfile]:
+    ) -> List[OrganizationMemberProfile]:
         """チームの全メンバープロファイルを取得"""
         result = await db.execute(
-            select(TeamMemberProfile)
-            .where(TeamMemberProfile.team_id == team_id)
-            .order_by(TeamMemberProfile.last_updated.desc())
+            select(OrganizationMemberProfile)
+            .where(OrganizationMemberProfile.team_id == team_id)
+            .order_by(OrganizationMemberProfile.last_updated.desc())
         )
         return result.scalars().all()
 
     async def create_member_profile(
         self, db: AsyncSession, profile_data: Dict[str, Any]
-    ) -> TeamMemberProfile:
+    ) -> OrganizationMemberProfile:
         """メンバープロファイルを作成"""
-        db_profile = TeamMemberProfile(**profile_data)
+        db_profile = OrganizationMemberProfile(**profile_data)
         db.add(db_profile)
         await db.commit()
         await db.refresh(db_profile)
@@ -206,9 +206,9 @@ class TeamDynamicsRepository(BaseRepository[Any, Any, Any]):
 
     async def update_member_profile(
         self, db: AsyncSession, profile_id: int, update_data: Dict[str, Any]
-    ) -> Optional[TeamMemberProfile]:
+    ) -> Optional[OrganizationMemberProfile]:
         """メンバープロファイルを更新"""
-        profile = await db.get(TeamMemberProfile, profile_id)
+        profile = await db.get(OrganizationMemberProfile, profile_id)
         if not profile:
             return None
         

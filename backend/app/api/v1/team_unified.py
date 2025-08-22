@@ -12,15 +12,14 @@ from app.core.auth import get_current_active_user
 from app.models.user import User
 from app.schemas.team import (
     TeamCreate, TeamUpdate, TeamResponse, TeamListResponse,
-    TeamMemberCreate, TeamMemberUpdate, TeamMemberResponse
+    OrganizationMemberCreate, OrganizationMemberUpdate, OrganizationMemberResponse
 )
 from app.schemas.team_dynamics import (
     TeamDynamicsCreate, TeamDynamicsUpdate, TeamDynamicsResponse,
     TeamDynamicsListResponse, TeamMetrics
 )
-from app.services.team_service import TeamService
+from app.services.organization_service import OrganizationService
 from app.services.team_dynamics_service import TeamDynamicsService
-from app.services.team_member_service import TeamMemberService
 
 router = APIRouter()
 logger = structlog.get_logger()
@@ -39,27 +38,24 @@ async def get_teams(
 ):
     """ユーザーが所属するチーム一覧を取得"""
     try:
-        team_service = TeamService()
-        result = await team_service.get_user_teams(
+        organization_service = OrganizationService()
+        result = await organization_service.get_user_teams(
             db=db,
-            user=current_user,
-            page=page,
-            page_size=page_size,
-            team_name=team_name,
-            status=status
+            user_id=current_user.id
         )
         
+        # 結果を適切な形式に変換
+        teams = [{"id": str(org.id), "name": org.name} for org in result]
         return TeamListResponse(
-            teams=result["teams"],
-            total_count=result["total_count"],
-            page=result["page"],
-            page_size=result["page_size"]
+            teams=teams,
+            total=len(teams),
+            has_more=False
         )
         
     except Exception as e:
         logger.error("チーム一覧取得でエラー", error=str(e), user_id=current_user.id)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail="チーム一覧の取得に失敗しました"
         )
 
@@ -72,11 +68,11 @@ async def create_team(
 ):
     """新しいチームを作成"""
     try:
-        team_service = TeamService()
-        team = await team_service.create_team(
+        organization_service = OrganizationService()
+        team = await organization_service.create_team(
             db=db,
             team_data=team_create,
-            creator=current_user
+            creator_id=current_user.id
         )
         
         logger.info(
@@ -104,11 +100,10 @@ async def get_team(
 ):
     """チームの詳細を取得"""
     try:
-        team_service = TeamService()
-        team = await team_service.get_team(
+        organization_service = OrganizationService()
+        team = await organization_service.get_team(
             db=db,
-            team_id=team_id,
-            user=current_user
+            team_id=team_id
         )
         
         return team
@@ -130,12 +125,11 @@ async def update_team(
 ):
     """チームを更新"""
     try:
-        team_service = TeamService()
-        team = await team_service.update_team(
+        organization_service = OrganizationService()
+        team = await organization_service.update_team(
             db=db,
             team_id=team_id,
-            team_data=team_update,
-            user=current_user
+            team_data=team_update
         )
         
         return team
@@ -156,11 +150,10 @@ async def delete_team(
 ):
     """チームを削除"""
     try:
-        team_service = TeamService()
-        await team_service.delete_team(
+        organization_service = OrganizationService()
+        await organization_service.delete_team(
             db=db,
-            team_id=team_id,
-            user=current_user
+            team_id=team_id
         )
         
         return {"message": "チームが正常に削除されました"}
@@ -175,7 +168,7 @@ async def delete_team(
 
 # ==================== チームメンバー管理 ====================
 
-@router.get("/{team_id}/members", response_model=List[TeamMemberResponse])
+@router.get("/{team_id}/members", response_model=List[OrganizationMemberResponse])
 async def get_team_members(
     team_id: int,
     current_user: User = Depends(get_current_active_user),
@@ -183,11 +176,10 @@ async def get_team_members(
 ):
     """チームメンバー一覧を取得"""
     try:
-        member_service = TeamMemberService()
-        members = await member_service.get_team_members(
+        organization_service = OrganizationService()
+        members = await organization_service.get_organization_members(
             db=db,
-            team_id=team_id,
-            user=current_user
+            org_id=team_id
         )
         
         return members
@@ -200,21 +192,21 @@ async def get_team_members(
         )
 
 
-@router.post("/{team_id}/members", response_model=TeamMemberResponse)
+@router.post("/{team_id}/members", response_model=OrganizationMemberResponse)
 async def add_team_member(
     team_id: int,
-    member_create: TeamMemberCreate,
+    member_create: OrganizationMemberCreate,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
     """チームにメンバーを追加"""
     try:
-        member_service = TeamMemberService()
-        member = await member_service.add_team_member(
+        organization_service = OrganizationService()
+        member = await organization_service.add_member(
             db=db,
-            team_id=team_id,
-            member_data=member_create,
-            added_by=current_user
+            org_id=team_id,
+            user_id=int(member_create.user_id),
+            role=member_create.role or "member"
         )
         
         return member
@@ -227,23 +219,22 @@ async def add_team_member(
         )
 
 
-@router.put("/{team_id}/members/{member_id}", response_model=TeamMemberResponse)
+@router.put("/{team_id}/members/{member_id}", response_model=OrganizationMemberResponse)
 async def update_team_member(
     team_id: int,
     member_id: int,
-    member_update: TeamMemberUpdate,
+    member_update: OrganizationMemberUpdate,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
     """チームメンバーを更新"""
     try:
-        member_service = TeamMemberService()
-        member = await member_service.update_team_member(
+        organization_service = OrganizationService()
+        member = await organization_service.update_member_role(
             db=db,
-            team_id=team_id,
-            member_id=member_id,
-            member_data=member_update,
-            updated_by=current_user
+            org_id=team_id,
+            user_id=member_id,
+            new_role=member_update.role or "member"
         )
         
         return member
@@ -265,12 +256,11 @@ async def remove_team_member(
 ):
     """チームからメンバーを削除"""
     try:
-        member_service = TeamMemberService()
-        await member_service.remove_team_member(
+        organization_service = OrganizationService()
+        await organization_service.remove_member(
             db=db,
-            team_id=team_id,
-            member_id=member_id,
-            removed_by=current_user
+            org_id=team_id,
+            user_id=member_id
         )
         
         return {"message": "チームメンバーが正常に削除されました"}
@@ -297,7 +287,7 @@ async def get_team_dynamics(
 ):
     """チームダイナミクス一覧を取得"""
     try:
-        dynamics_service = TeamDynamicsService()
+        dynamics_service = TeamDynamicsService(db)
         result = await dynamics_service.get_team_dynamics(
             db=db,
             team_id=team_id,
@@ -332,7 +322,7 @@ async def create_team_dynamics(
 ):
     """チームダイナミクスを作成"""
     try:
-        dynamics_service = TeamDynamicsService()
+        dynamics_service = TeamDynamicsService(db)
         dynamics = await dynamics_service.create_team_dynamics(
             db=db,
             team_id=team_id,
@@ -359,7 +349,7 @@ async def get_team_dynamics_detail(
 ):
     """チームダイナミクスの詳細を取得"""
     try:
-        dynamics_service = TeamDynamicsService()
+        dynamics_service = TeamDynamicsService(db)
         dynamics = await dynamics_service.get_team_dynamics_detail(
             db=db,
             team_id=team_id,
@@ -387,7 +377,7 @@ async def update_team_dynamics(
 ):
     """チームダイナミクスを更新"""
     try:
-        dynamics_service = TeamDynamicsService()
+        dynamics_service = TeamDynamicsService(db)
         dynamics = await dynamics_service.update_team_dynamics(
             db=db,
             team_id=team_id,
@@ -418,7 +408,7 @@ async def get_team_metrics(
 ):
     """チームメトリクスを取得"""
     try:
-        dynamics_service = TeamDynamicsService()
+        dynamics_service = TeamDynamicsService(db)
         metrics = await dynamics_service.get_team_metrics(
             db=db,
             team_id=team_id,
@@ -446,7 +436,7 @@ async def get_team_analytics(
 ):
     """チーム分析データを取得"""
     try:
-        team_service = TeamService()
+        team_service = OrganizationService()
         analytics = await team_service.get_team_analytics(
             db=db,
             team_id=team_id,
@@ -476,7 +466,7 @@ async def invite_to_team(
 ):
     """チームにユーザーを招待"""
     try:
-        team_service = TeamService()
+        team_service = OrganizationService()
         invitation = await team_service.invite_user_to_team(
             db=db,
             team_id=team_id,
@@ -487,7 +477,7 @@ async def invite_to_team(
         
         return {
             "message": "招待が送信されました",
-            "invitation_id": invitation.id,
+            "invitation_id": invitation.get("id", 0),
             "email": email
         }
         
@@ -508,7 +498,7 @@ async def join_team(
 ):
     """チームに参加"""
     try:
-        team_service = TeamService()
+        team_service = OrganizationService()
         member = await team_service.join_team(
             db=db,
             team_id=team_id,
@@ -519,7 +509,7 @@ async def join_team(
         return {
             "message": "チームに参加しました",
             "team_id": team_id,
-            "member_id": member.id
+            "member_id": member.get("id", 0)
         }
         
     except Exception as e:

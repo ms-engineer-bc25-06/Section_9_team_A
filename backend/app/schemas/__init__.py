@@ -22,10 +22,10 @@ from .team import (
     TeamCreate,
     TeamUpdate,
     TeamResponse,
-    TeamMemberCreate,
-    TeamMemberUpdate,
-    TeamMemberOut,
-    TeamMemberResponse,
+    OrganizationMemberCreate,
+    OrganizationMemberUpdate,
+    OrganizationMemberOut,
+    OrganizationMemberResponse,
 )
 
 # 音声セッション関連

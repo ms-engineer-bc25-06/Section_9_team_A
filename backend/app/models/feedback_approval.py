@@ -1,26 +1,38 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean, Enum
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Text,
+    DateTime,
+    ForeignKey,
+    Boolean,
+    Enum,
+)
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.models.base import Base
+from typing import Optional
 import enum
 
 
 class ApprovalStatus(str, enum.Enum):
     """承認ステータス"""
-    PENDING = "pending"           # 承認待ち
-    UNDER_REVIEW = "under_review" # レビュー中
-    APPROVED = "approved"         # 承認済み
-    REJECTED = "rejected"         # 却下
+
+    PENDING = "pending"  # 承認待ち
+    UNDER_REVIEW = "under_review"  # レビュー中
+    APPROVED = "approved"  # 承認済み
+    REJECTED = "rejected"  # 却下
     REQUIRES_CHANGES = "requires_changes"  # 修正要求
 
 
 class VisibilityLevel(str, enum.Enum):
     """可視性レベル"""
-    PRIVATE = "private"           # 本人のみ
-    TEAM = "team"                 # チーム内
-    ORGANIZATION = "organization" # 組織内
-    PUBLIC = "public"             # 公開
+
+    PRIVATE = "private"  # 本人のみ
+    TEAM = "team"  # チーム内
+    ORGANIZATION = "organization"  # 組織内
+    PUBLIC = "public"  # 公開
 
 
 class FeedbackApproval(Base):
@@ -29,40 +41,50 @@ class FeedbackApproval(Base):
     __tablename__ = "feedback_approvals"
 
     id = Column(Integer, primary_key=True, index=True)
-    
+
     # 分析結果との関連
     analysis_id = Column(Integer, ForeignKey("analyses.id"), nullable=False, index=True)
-    
+
     # 承認者・申請者
-    requester_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)  # 申請者
-    reviewer_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)   # レビュアー
-    
+    requester_id = Column(
+        Integer, ForeignKey("users.id"), nullable=False, index=True
+    )  # 申請者
+    reviewer_id = Column(
+        Integer, ForeignKey("users.id"), nullable=True, index=True
+    )  # レビュアー
+
     # 承認プロセス
-    approval_status = Column(Enum(ApprovalStatus), default=ApprovalStatus.PENDING, nullable=False)
-    visibility_level = Column(Enum(VisibilityLevel), default=VisibilityLevel.PRIVATE, nullable=False)
-    
+    approval_status = Column(
+        Enum(ApprovalStatus), default=ApprovalStatus.PENDING, nullable=False
+    )
+    visibility_level = Column(
+        Enum(VisibilityLevel), default=VisibilityLevel.PRIVATE, nullable=False
+    )
+
     # 申請・承認情報
     request_reason = Column(Text, nullable=True)  # 申請理由
-    review_notes = Column(Text, nullable=True)   # レビューコメント
+    review_notes = Column(Text, nullable=True)  # レビューコメント
     rejection_reason = Column(Text, nullable=True)  # 却下理由
-    
+
     # 段階的公開設定
     is_staged_publication = Column(Boolean, default=False)  # 段階的公開フラグ
     publication_stages = Column(Text, nullable=True)  # 公開段階（JSON文字列）
     current_stage = Column(Integer, default=0)  # 現在の公開段階
-    
+
     # 承認フロー
     requires_confirmation = Column(Boolean, default=True)  # 本人確認が必要か
     is_confirmed = Column(Boolean, default=False)  # 本人確認済みか
     confirmation_date = Column(DateTime(timezone=True), nullable=True)  # 本人確認日時
-    
+
     # タイムスタンプ
-    requested_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    requested_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
     reviewed_at = Column(DateTime(timezone=True), nullable=True)  # レビュー日時
     published_at = Column(DateTime(timezone=True), nullable=True)  # 公開日時
-    
-    # リレーションシップ（一時的に無効化）
-    # analysis = relationship("Analysis", back_populates="feedback_approvals")
+
+    # リレーションシップ
+    analysis = relationship("Analysis", back_populates="feedback_approvals")
     requester = relationship("User", foreign_keys=[requester_id])
     reviewer = relationship("User", foreign_keys=[reviewer_id])
 
@@ -87,12 +109,19 @@ class FeedbackApproval(Base):
     @property
     def can_be_published(self) -> bool:
         """公開可能かどうか"""
-        return (self.is_approved and 
-                self.is_confirmed and 
-                self.visibility_level != VisibilityLevel.PRIVATE)
+        return (
+            self.is_approved
+            and self.is_confirmed
+            and self.visibility_level != VisibilityLevel.PRIVATE
+        )
 
-    def request_approval(self, requester_id: int, visibility_level: VisibilityLevel, 
-                        request_reason: str = None, is_staged: bool = False):
+    def request_approval(
+        self,
+        requester_id: int,
+        visibility_level: VisibilityLevel,
+        request_reason: Optional[str] = None,
+        is_staged: bool = False,
+    ):
         """承認をリクエスト"""
         self.requester_id = requester_id
         self.visibility_level = visibility_level
@@ -106,7 +135,7 @@ class FeedbackApproval(Base):
         self.reviewer_id = reviewer_id
         self.approval_status = ApprovalStatus.UNDER_REVIEW
 
-    def approve(self, review_notes: str = None):
+    def approve(self, review_notes: Optional[str] = None):
         """承認"""
         self.approval_status = ApprovalStatus.APPROVED
         self.review_notes = review_notes
@@ -145,7 +174,15 @@ class FeedbackApproval(Base):
             return 1
         try:
             import json
+
             stages = json.loads(self.publication_stages)
             return len(stages)
         except:
             return 1
+
+
+# 循環参照を避けるための遅延インポート
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.analysis import Analysis

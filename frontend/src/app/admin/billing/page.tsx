@@ -126,17 +126,23 @@ export default function AdminBillingPage() {
 
   // 開発環境用: テストのためにユーザー数を強制的に15人に設定
   // ただし、セッションストレージに新しいユーザーがいる場合はそれを考慮
-  const pendingUsers = sessionStorage.getItem('pendingUsers')
-  let testUserCount = process.env.NODE_ENV === 'development' ? 15 : userCount
+  const [pendingUsers, setPendingUsers] = useState<string | null>(null)
+  const [testUserCount, setTestUserCount] = useState(process.env.NODE_ENV === 'development' ? 15 : userCount)
   
-  if (pendingUsers) {
+  // セッションストレージの読み込みをuseEffectで実行（クライアントサイドのみ）
+  useEffect(() => {
     try {
-      const newUsers = JSON.parse(pendingUsers)
-      testUserCount += newUsers.length
+      const stored = sessionStorage.getItem('pendingUsers')
+      setPendingUsers(stored)
+      
+      if (stored) {
+        const newUsers = JSON.parse(stored)
+        setTestUserCount(prev => prev + newUsers.length)
+      }
     } catch (error) {
       console.error('Error parsing pending users:', error)
     }
-  }
+  }, [])
   
   const isFreeTier = testUserCount <= 10
   const overLimit = testUserCount > 10

@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 import structlog
 
 from app.config import settings
@@ -44,6 +45,7 @@ async def lifespan(app: FastAPI):
     # 初期管理者の自動設定
     try:
         from app.core.startup import startup_events
+
         await startup_events()
     except Exception as e:
         logger.error(f"Failed to initialize admin user: {e}")
@@ -74,7 +76,7 @@ app.add_middleware(
         "http://127.0.0.1:3001",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "*"  # 開発環境ではすべてのオリジンを許可
+        "*",  # 開発環境ではすべてのオリジンを許可
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -82,6 +84,10 @@ app.add_middleware(
     expose_headers=["*"],
     max_age=86400,  # 24時間
 )
+
+
+# カスタムCORSミドルウェアは削除（FastAPIの標準CORS設定を使用）
+
 
 # Trusted Host設定（開発環境では無効化）
 if settings.ENVIRONMENT == "production":
@@ -101,21 +107,21 @@ async def health_check():
     """ヘルスチェック"""
     try:
         from app.core.database import test_database_connection
-        from datetime import datetime
-        
+
         db_status = await test_database_connection()
         return {
             "status": "healthy" if db_status else "unhealthy",
             "database": "connected" if db_status else "disconnected",
-            "timestamp": datetime.utcnow().isoformat() + "Z"
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
     except Exception as e:
         logger.error(f"Health check failed: {e}")
         return {
             "status": "unhealthy",
             "error": str(e),
-            "timestamp": datetime.utcnow().isoformat() + "Z"
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
+
 
 # APIルーターの追加
 app.include_router(api_router, prefix="/api/v1")

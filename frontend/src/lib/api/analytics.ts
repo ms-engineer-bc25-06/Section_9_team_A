@@ -1,5 +1,5 @@
 // AI分析APIクライアント
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+import { apiClient } from '@/lib/apiClient'
 
 export type AnalysisType = 
   | 'personality' 
@@ -66,103 +66,114 @@ export interface AnalysisListResponse {
 class AnalyticsAPI {
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {},
-    authToken?: string
+    options: RequestInit = {}
   ): Promise<T> {
-    const url = `${API_BASE_URL}/api/v1/analytics${endpoint}`
+    const response = await apiClient.get(`/api/v1/analytics${endpoint}`, options)
     
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    }
-
-    // 既存のヘッダーを追加
-    if (options.headers) {
-      if (options.headers instanceof Headers) {
-        options.headers.forEach((value, key) => {
-          headers[key] = value
-        })
-      } else if (typeof options.headers === 'object') {
-        Object.entries(options.headers).forEach(([key, value]) => {
-          if (typeof value === 'string') {
-            headers[key] = value
-          }
-        })
-      }
-    }
-
-    // 認証トークンがある場合はAuthorizationヘッダーを追加
-    if (authToken) {
-      headers['Authorization'] = `Bearer ${authToken}`
-    }
-    
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    })
-
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(errorData.detail || `API request failed: ${response.status}`)
+      const errorText = await response.text()
+      throw new Error(`Failed to fetch analyses: ${errorText}`)
     }
-
+    
     return response.json()
   }
 
-  // 分析結果一覧を取得
+  // 分析履歴を取得
   async getAnalyses(
     page: number = 1,
-    pageSize: number = 20,
-    analysisType?: string,
-    status?: string,
-    authToken?: string
+    page_size: number = 20,
+    analysis_type?: string
   ): Promise<AnalysisListResponse> {
     const params = new URLSearchParams({
       page: page.toString(),
-      page_size: pageSize.toString(),
+      page_size: page_size.toString(),
     })
-
-    if (analysisType) {
-      params.append('analysis_type', analysisType)
+    
+    if (analysis_type) {
+      params.append('analysis_type', analysis_type)
     }
-
-    if (status) {
-      params.append('status', status)
-    }
-
-    return this.request<AnalysisListResponse>(`/?${params.toString()}`, {}, authToken)
+    
+    return this.request<AnalysisListResponse>(`?${params.toString()}`)
   }
 
-  // 特定の分析結果を取得
-  async getAnalysis(analysisId: string, authToken?: string): Promise<AnalysisResponse> {
-    return this.request<AnalysisResponse>(`/${analysisId}`, {}, authToken)
+  // 特定の分析を取得
+  async getAnalysis(analysisId: string): Promise<AnalysisResponse> {
+    return this.request<AnalysisResponse>(`/${analysisId}`)
   }
 
   // 新しい分析を作成
-  async createAnalysis(request: AnalysisRequest, authToken?: string): Promise<AnalysisResponse[]> {
-    return this.request<AnalysisResponse[]>('/', {
-      method: 'POST',
-      body: JSON.stringify(request),
-    }, authToken)
+  async createAnalysis(request: AnalysisRequest): Promise<AnalysisResponse> {
+    const response = await apiClient.post('/api/v1/analytics', request)
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Failed to create analysis: ${errorText}`)
+    }
+    
+    return response.json()
   }
 
-  // 分析結果を更新
+  // 分析を更新
   async updateAnalysis(
     analysisId: string,
-    updates: Partial<AnalysisResponse>,
-    authToken?: string
+    updates: Partial<AnalysisRequest>
   ): Promise<AnalysisResponse> {
-    return this.request<AnalysisResponse>(`/${analysisId}`, {
-      method: 'PUT',
-      body: JSON.stringify(updates),
-    }, authToken)
+    const response = await apiClient.put(`/api/v1/analytics/${analysisId}`, updates)
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Failed to update analysis: ${errorText}`)
+    }
+    
+    return response.json()
   }
 
-  // 分析結果を削除
-  async deleteAnalysis(analysisId: string, authToken?: string): Promise<void> {
-    await this.request(`/${analysisId}`, {
-      method: 'DELETE',
-    }, authToken)
+  // 分析を削除
+  async deleteAnalysis(analysisId: string): Promise<void> {
+    const response = await apiClient.delete(`/api/v1/analytics/${analysisId}`)
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Failed to delete analysis: ${errorText}`)
+    }
+  }
+
+  // 分析結果をエクスポート
+  async exportAnalysis(
+    analysisId: string,
+    format: 'pdf' | 'csv' | 'json' = 'json'
+  ): Promise<Blob> {
+    const response = await apiClient.get(`/api/v1/analytics/${analysisId}/export?format=${format}`)
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Failed to export analysis: ${errorText}`)
+    }
+    
+    return response.blob()
+  }
+
+  // 分析統計を取得
+  async getAnalyticsStats(): Promise<{
+    total_analyses: number
+    analyses_this_month: number
+    average_confidence: number
+    most_common_type: string
+  }> {
+    return this.request('/stats')
+  }
+
+  // 分析タイプ別の統計を取得
+  async getAnalyticsByType(analysisType: string): Promise<{
+    type: string
+    count: number
+    average_score: number
+    trends: Array<{ date: string; count: number }>
+  }> {
+    return this.request(`/type/${analysisType}/stats`)
   }
 }
 
+// シングルトンインスタンスをエクスポート
 export const analyticsAPI = new AnalyticsAPI()
+export default analyticsAPI

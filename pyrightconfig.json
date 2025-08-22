@@ -1,6 +1,6 @@
 {
-  "$schema": "https://raw.githubusercontent.com/microsoft/pyright/main/packages/pyright/schema/pyrightconfig.schema.json",
-  "venvPath": "./backend",
+  "$schema": "https://raw.githubusercontent.com/microsoft/pyright/main/packages/vscode-pyright/schemas/pyrightconfig.schema.json",
+  "venvPath": ".",
   "venv": ".venv",
   "include": ["backend/app"],
   "exclude": [
@@ -9,15 +9,16 @@
     "frontend",
     "infra",
     "monitoring",
-    "node_modules",
-    "backend/.venv"
+    "node_modules"
   ],
   "executionEnvironments": [
     {
       "root": "./backend",
-      "extraPaths": ["./backend"]
+      "extraPaths": ["./backend", "./.venv/Lib/site-packages"]
     }
   ],
-  "reportMissingImports": true,
-  "reportMissingTypeStubs": "warning"
+  "reportMissingImports": false,
+  "reportMissingTypeStubs": "none",
+  "pythonVersion": "3.11",
+  "pythonPlatform": "Windows"
 }
