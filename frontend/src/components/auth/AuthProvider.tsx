@@ -9,6 +9,7 @@ interface AuthContextType {
   user: FirebaseUser | null
   backendToken: string | null
   login: (email: string, password: string) => Promise<string | null>
+  temporaryLogin: (email: string, password: string) => Promise<string | null>
   logout: () => Promise<void>
   isLoading: boolean
 }
@@ -133,6 +134,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // 仮パスワードログイン
+  const temporaryLogin = async (email: string, password: string): Promise<string | null> => {
+    setIsLoading(true)
+    try {
+      // 1. Firebaseで仮パスワード認証
+      console.log("🔥 Firebaseで仮パスワード認証を開始...")
+      console.log("📧 メールアドレス:", email)
+      console.log("🔑 パスワード:", password)
+      console.log("🌐 Firebase設定:", auth.app.options)
+      await signInWithEmailAndPassword(auth, email, password)
+      
+      // 2. Firebase認証が成功したら、バックエンドと連携
+      const user = auth.currentUser
+      if (user) {
+        try {
+          const idToken = await user.getIdToken()
+          console.log("バックエンド連携開始...")
+          const response = await fetch('http://localhost:8000/api/v1/auth/firebase-login', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              id_token: idToken,
+              display_name: user.displayName || user.email || "ユーザー"
+            })
+          })
+          
+          if (response.ok) {
+            const data = await response.json()
+            const token = data.access_token
+            setBackendToken(token)
+            console.log("✅ 仮パスワードログイン成功")
+            return token
+          } else {
+            const errorData = await response.json().catch(() => ({}))
+            console.warn(`バックエンド連携失敗 (ステータス: ${response.status}) - ${errorData.detail || 'Unknown error'}`)
+            throw new Error(errorData.detail || 'バックエンド連携に失敗しました')
+          }
+        } catch (backendError) {
+          console.error("❌ バックエンド連携エラー:", backendError)
+          // バックエンド認証が失敗した場合は、Firebase認証もロールバック
+          await signOut(auth)
+          throw new Error('バックエンド連携に失敗しました。しばらく待ってから再試行してください。')
+        }
+      }
+      return null
+    } catch (error: any) {
+      console.error("Temporary login failed:", error.code, error.message);
+      throw error;
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   // ログアウト
   const logout = async () => {
     await signOut(auth)
@@ -141,7 +197,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, backendToken, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, backendToken, login, temporaryLogin, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   )

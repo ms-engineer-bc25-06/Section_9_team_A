@@ -6,20 +6,24 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// 仮パスワード生成関数
+// 仮パスワード生成関数（Firebase認証に安全な文字のみ）
 export function generateTemporaryPassword(length: number = 12): string {
-  const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*"
+  // 大文字、小文字、数字のみ（特殊文字を完全に除外）
+  const uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  const lowercase = "abcdefghijklmnopqrstuvwxyz"
+  const digits = "0123456789"
+  const allChars = uppercase + lowercase + digits
+  
   let password = ""
   
-  // 最低1つの大文字、小文字、数字、記号を含むようにする
-  password += charset.charAt(Math.floor(Math.random() * 26)) // 大文字
-  password += charset.charAt(26 + Math.floor(Math.random() * 26)) // 小文字
-  password += charset.charAt(52 + Math.floor(Math.random() * 10)) // 数字
-  password += charset.charAt(62 + Math.floor(Math.random() * 8)) // 記号
+  // 最低1つの大文字、小文字、数字を含む
+  password += uppercase.charAt(Math.floor(Math.random() * uppercase.length))
+  password += lowercase.charAt(Math.floor(Math.random() * lowercase.length))
+  password += digits.charAt(Math.floor(Math.random() * digits.length))
   
-  // 残りの文字をランダムに生成
-  for (let i = 4; i < length; i++) {
-    password += charset.charAt(Math.floor(Math.random() * charset.length))
+  // 残りの文字をランダムに生成（特殊文字なし）
+  for (let i = 3; i < length; i++) {
+    password += allChars.charAt(Math.floor(Math.random() * allChars.length))
   }
   
   // パスワードをシャッフル

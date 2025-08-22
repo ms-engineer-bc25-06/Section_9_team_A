@@ -53,7 +53,7 @@ async def setup_initial_admin():
             if existing_admin:
                 # 既存管理者の情報を更新
                 existing_admin.email = admin_email
-                existing_admin.username = admin_email
+                existing_admin.username = admin_username
                 existing_admin.full_name = admin_display_name
                 existing_admin.is_admin = True
                 existing_admin.is_active = True

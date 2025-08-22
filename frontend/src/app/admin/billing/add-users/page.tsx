@@ -63,8 +63,8 @@ export default function AddUsersPage() {
       
       const token = await currentUser.getIdToken()
       
-      // バックエンドAPIにユーザー作成リクエストを送信（開発用エンドポイント）
-      const response = await fetch('/api/v1/admin/users/dev', {
+      // バックエンドAPIにユーザー作成リクエストを送信
+      const response = await fetch('http://localhost:8000/api/v1/admin/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -85,8 +85,8 @@ export default function AddUsersPage() {
       
       const createdUser = await response.json()
       
-      // 成功メッセージ
-      alert(`${user.name}さんを追加しました\n仮パスワード: ${createdUser.temporary_password}`)
+      // 成功メッセージ（仮パスワードは表示しない）
+      alert(`${user.name}さんを追加しました`)
       
       // 現在のユーザー数を更新
       setCurrentUserCount(prev => prev + 1)
@@ -133,9 +133,9 @@ export default function AddUsersPage() {
     const updatedUsers = [...newUsers]
     updatedUsers[index][field] = value
     
-    // メールアドレスが入力された場合、仮パスワードを自動生成
-    if (field === "email" && value && !updatedUsers[index].temporaryPassword) {
-      updatedUsers[index].temporaryPassword = generateTemporaryPassword()
+    // メールアドレスが入力された場合、仮パスワードは空にする（バックエンドで生成される）
+    if (field === "email" && value) {
+      updatedUsers[index].temporaryPassword = ""
     }
     
     setNewUsers(updatedUsers)
@@ -143,7 +143,7 @@ export default function AddUsersPage() {
 
   const regeneratePassword = (index: number) => {
     const updatedUsers = [...newUsers]
-    updatedUsers[index].temporaryPassword = generateTemporaryPassword()
+    updatedUsers[index].temporaryPassword = "" // バックエンドで生成されるため空にする
     setNewUsers(updatedUsers)
   }
 
@@ -347,7 +347,7 @@ export default function AddUsersPage() {
                             </div>
                           ) : (
                             <div className="text-sm text-gray-500 italic">
-                              メールアドレスを入力すると仮パスワードが自動生成されます
+                              仮パスワードはユーザー一覧画面で確認できます
                             </div>
                           )}
                           {user.temporaryPassword && (

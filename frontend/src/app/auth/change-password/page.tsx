@@ -44,7 +44,7 @@ export default function ChangePasswordPage() {
       const token = await auth.currentUser?.getIdToken()
       if (!token) return
 
-      const response = await fetch("/api/v1/auth/login-status", {
+      const response = await fetch("http://localhost:8000/api/v1/auth/login-status", {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -88,7 +88,7 @@ export default function ChangePasswordPage() {
         return
       }
 
-      const response = await fetch("/api/v1/auth/change-password", {
+      const response = await fetch("http://localhost:8000/api/v1/auth/change-password", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

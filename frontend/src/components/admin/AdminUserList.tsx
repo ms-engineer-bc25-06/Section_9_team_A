@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/Input"
 import { Badge } from "@/components/ui/Badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table"
-import { Search, Users, UserCheck, MoreHorizontal } from "lucide-react"
+import { Search, Users, UserCheck, MoreHorizontal, Copy } from "lucide-react"
 import { useState, useEffect } from "react"
 import Link from "next/link"
 
@@ -67,6 +67,7 @@ interface User {
   lastLogin: string
   role: string
   hasTemporaryPassword: boolean
+  temporaryPassword?: string
 }
 
 export function AdminUserList() {
@@ -98,7 +99,8 @@ export function AdminUserList() {
             joinDate: user.created_at ? new Date(user.created_at).toISOString().split('T')[0] : '未設定',
             lastLogin: "未ログイン", // バックエンドにlast_login_atフィールドがあれば使用
             role: user.role,
-            hasTemporaryPassword: user.has_temporary_password
+            hasTemporaryPassword: user.has_temporary_password,
+            temporaryPassword: user.temporary_password
           }))
           
           setUsers(formattedUsers)
@@ -193,10 +195,48 @@ export function AdminUserList() {
                     <TableCell>{user.department || '部署未設定'}</TableCell>
                     <TableCell>{getRoleBadge(user.role)}</TableCell>
                     <TableCell>
-                      {user.hasTemporaryPassword ? (
-                        <Badge variant="outline" className="border-orange-500 text-orange-700">
-                          仮パスワード
+                      {user.role === "admin" ? (
+                        <Badge variant="outline" className="border-green-500 text-green-700">
+                          設定済み
                         </Badge>
+                      ) : user.hasTemporaryPassword ? (
+                        <div className="space-y-2">
+                          <Badge variant="outline" className="border-orange-500 text-orange-700">
+                            仮パスワード
+                          </Badge>
+                          {user.temporaryPassword && (
+                            <div className="text-xs">
+                              <div className="font-mono bg-gray-100 p-1 rounded">
+                                {user.temporaryPassword}
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0"
+                                onClick={() => {
+                                  if (user.temporaryPassword) {
+                                    const password = user.temporaryPassword
+                                    navigator.clipboard.writeText(password).then(() => {
+                                      alert('パスワードをコピーしました')
+                                    }).catch(() => {
+                                      // フォールバック: 古いブラウザ対応
+                                      const textArea = document.createElement('textarea')
+                                      textArea.value = password
+                                      document.body.appendChild(textArea)
+                                      textArea.select()
+                                      document.execCommand('copy')
+                                      document.body.removeChild(textArea)
+                                      alert('パスワードをコピーしました')
+                                    })
+                                  }
+                                }}
+                                title="パスワードをコピー"
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                       ) : (
                         <Badge variant="outline" className="border-green-500 text-green-700">
                           設定済み

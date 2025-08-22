@@ -11,10 +11,19 @@ import uuid
 
 
 def generate_random_string(length: int = 32, include_special: bool = False) -> str:
-    """ランダムな文字列を生成"""
-    chars = string.ascii_letters + string.digits
+    """ランダムな文字列を生成（Firebase認証に安全な文字のみ）"""
+    # 大文字、小文字、数字のみ（特殊文字を完全に除外）
+    uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    lowercase = "abcdefghijklmnopqrstuvwxyz"
+    digits = "0123456789"
+    
+    chars = uppercase + lowercase + digits
+    
+    # 特殊文字が必要な場合のみ追加（Firebase認証では使用しない）
     if include_special:
-        chars += string.punctuation
+        # 安全な特殊文字のみ（Firebaseで問題になる文字を除外）
+        safe_special = "!@#$%^&*"
+        chars += safe_special
     
     return ''.join(secrets.choice(chars) for _ in range(length))
 

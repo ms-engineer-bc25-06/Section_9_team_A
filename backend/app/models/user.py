@@ -42,6 +42,7 @@ class User(Base):
 
     # 仮パスワード管理
     has_temporary_password = Column(Boolean, default=True)  # 仮パスワード使用中フラグ
+    temporary_password = Column(String(255), nullable=True)  # 仮パスワード
     temporary_password_expires_at = Column(DateTime(timezone=True), nullable=True)  # 仮パスワード有効期限
     is_first_login = Column(Boolean, default=True)  # 初回ログインフラグ
     last_password_change_at = Column(DateTime(timezone=True), nullable=True)  # 最終パスワード変更日
