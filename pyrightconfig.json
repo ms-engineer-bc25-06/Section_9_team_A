@@ -1,0 +1,23 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/pyright/main/packages/pyright/schema/pyrightconfig.schema.json",
+  "venvPath": "./backend",
+  "venv": ".venv",
+  "include": ["backend/app"],
+  "exclude": [
+    "**/__pycache__",
+    ".git",
+    "frontend",
+    "infra",
+    "monitoring",
+    "node_modules",
+    "backend/.venv"
+  ],
+  "executionEnvironments": [
+    {
+      "root": "./backend",
+      "extraPaths": ["./backend"]
+    }
+  ],
+  "reportMissingImports": true,
+  "reportMissingTypeStubs": "warning"
+}
