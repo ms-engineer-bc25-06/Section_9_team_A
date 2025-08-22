@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 import structlog
 
 from app.config import settings
@@ -44,6 +45,7 @@ async def lifespan(app: FastAPI):
     # 初期管理者の自動設定
     try:
         from app.core.startup import startup_events
+
         await startup_events()
     except Exception as e:
         logger.error(f"Failed to initialize admin user: {e}")
@@ -83,6 +85,30 @@ app.add_middleware(
     max_age=86400,  # 24時間
 )
 
+
+# カスタムCORSヘッダーを追加するミドルウェア
+@app.middleware("http")
+async def add_cors_headers(request, call_next):
+    """カスタムCORSヘッダーを追加"""
+    response = await call_next(request)
+
+    # プリフライトリクエストの処理
+    if request.method == "OPTIONS":
+        response.headers["Access-Control-Allow-Origin"] = "http://localhost:3000"
+        response.headers["Access-Control-Allow-Methods"] = (
+            "GET, POST, PUT, DELETE, OPTIONS, HEAD"
+        )
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Max-Age"] = "86400"
+
+    # 通常のリクエストにもCORSヘッダーを追加
+    response.headers["Access-Control-Allow-Origin"] = "http://localhost:3000"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+
+    return response
+
+
 # Trusted Host設定（開発環境では無効化）
 if settings.ENVIRONMENT == "production":
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=["localhost", "127.0.0.1"])
@@ -101,21 +127,21 @@ async def health_check():
     """ヘルスチェック"""
     try:
         from app.core.database import test_database_connection
-        from datetime import datetime
-        
+
         db_status = await test_database_connection()
         return {
             "status": "healthy" if db_status else "unhealthy",
             "database": "connected" if db_status else "disconnected",
-            "timestamp": datetime.utcnow().isoformat() + "Z"
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
     except Exception as e:
         logger.error(f"Health check failed: {e}")
         return {
             "status": "unhealthy",
             "error": str(e),
-            "timestamp": datetime.utcnow().isoformat() + "Z"
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
+
 
 # APIルーターの追加
 app.include_router(api_router, prefix="/api/v1")
