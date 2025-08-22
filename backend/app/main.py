@@ -76,7 +76,7 @@ app.add_middleware(
         "http://127.0.0.1:3001",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "*"  # 開発環境ではすべてのオリジンを許可
+        "*",  # 開発環境ではすべてのオリジンを許可
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -86,27 +86,7 @@ app.add_middleware(
 )
 
 
-# カスタムCORSヘッダーを追加するミドルウェア
-@app.middleware("http")
-async def add_cors_headers(request, call_next):
-    """カスタムCORSヘッダーを追加"""
-    response = await call_next(request)
-
-    # プリフライトリクエストの処理
-    if request.method == "OPTIONS":
-        response.headers["Access-Control-Allow-Origin"] = "http://localhost:3000"
-        response.headers["Access-Control-Allow-Methods"] = (
-            "GET, POST, PUT, DELETE, OPTIONS, HEAD"
-        )
-        response.headers["Access-Control-Allow-Headers"] = "*"
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Max-Age"] = "86400"
-
-    # 通常のリクエストにもCORSヘッダーを追加
-    response.headers["Access-Control-Allow-Origin"] = "http://localhost:3000"
-    response.headers["Access-Control-Allow-Credentials"] = "true"
-
-    return response
+# カスタムCORSミドルウェアは削除（FastAPIの標準CORS設定を使用）
 
 
 # Trusted Host設定（開発環境では無効化）
