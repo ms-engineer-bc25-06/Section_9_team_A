@@ -3,8 +3,9 @@ from sqlalchemy.pool import NullPool
 from sqlalchemy import text
 import structlog
 import os
+from fastapi import HTTPException, status
 
-from app.core.config import settings
+from app.config import settings
 
 logger = structlog.get_logger()
 
@@ -63,22 +64,16 @@ async def get_db() -> AsyncSession:
     if AsyncSessionLocal is None:
         logger.error("Database session factory is not initialized")
         raise RuntimeError("Database session factory is not initialized")
-    
+
+    session = AsyncSessionLocal()
     try:
-        async with AsyncSessionLocal() as session:
-            try:
-                # 接続テスト
-                await session.execute(text("SELECT 1"))
-                yield session
-            except Exception as e:
-                logger.error(f"Database session error: {e}")
-                await session.rollback()
-                raise
-            finally:
-                await session.close()
+        yield session
     except Exception as e:
-        logger.error(f"Failed to create database session: {e}")
-        raise RuntimeError(f"Database connection failed: {e}")
+        logger.error(f"Database session error: {e}")
+        await session.rollback()
+        raise
+    finally:
+        await session.close()
 
 
 # データベースセッション依存性（新しい名前）
@@ -104,7 +99,7 @@ async def test_database_connection():
         if engine is None:
             logger.error("Database engine is not initialized")
             return False
-            
+
         async with engine.begin() as conn:
             # 基本的な接続テスト
             result = await conn.execute(text("SELECT 1"))
@@ -120,13 +115,15 @@ async def test_database_connection():
 
             # テーブルの存在確認
             tables_result = await conn.execute(
-                text("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
+                text(
+                    "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+                )
             )
             tables = [row[0] for row in tables_result.fetchall()]
             logger.info(f"Available tables: {tables}")
-            
+
             # usersテーブルの存在確認
-            if 'users' not in tables:
+            if "users" not in tables:
                 logger.warning("Users table not found in database")
                 return False
 

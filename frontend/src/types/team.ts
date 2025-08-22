@@ -51,7 +51,7 @@ export type MemberProfile = {
   } | null;
 };
 
-export type TeamMember = {
+export type OrganizationMember = {
   id: string;
   display_name: string;
   avatar_url?: string | null;
@@ -64,7 +64,7 @@ export type TeamMember = {
 export type TeamDetailResponse = {
   id: string;
   name: string;
-  members: TeamMember[];
+  members: OrganizationMember[];
 };
 
 export type TeamsListResponse = {

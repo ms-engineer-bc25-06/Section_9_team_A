@@ -20,7 +20,7 @@ import {
   ArrowLeft
 } from 'lucide-react';
 
-interface TeamMemberProfile {
+interface OrganizationMemberProfile {
   user_id: number;
   team_id: number;
   communication_style: string;
@@ -29,10 +29,10 @@ interface TeamMemberProfile {
   interaction_patterns: Record<string, any>;
 }
 
-interface TeamMemberProfileFormProps {
+interface OrganizationMemberProfileFormProps {
   teamId: number;
   userId: number;
-  onSave?: (profile: TeamMemberProfile) => void;
+  onSave?: (profile: OrganizationMemberProfile) => void;
   onCancel?: () => void;
 }
 
@@ -60,13 +60,13 @@ const WORK_PREFERENCES = [
   { key: 'feedback_frequency', label: 'フィードバック頻度', type: 'select', options: ['毎日', '週1回', '月1回', '必要時のみ'] }
 ];
 
-export default function TeamMemberProfileForm({ 
+export default function OrganizationMemberProfileForm({ 
   teamId, 
   userId, 
   onSave, 
   onCancel 
-}: TeamMemberProfileFormProps) {
-  const [profile, setProfile] = useState<TeamMemberProfile>({
+}: OrganizationMemberProfileFormProps) {
+  const [profile, setProfile] = useState<OrganizationMemberProfile>({
     user_id: userId,
     team_id: teamId,
     communication_style: 'collaborative',
@@ -77,7 +77,7 @@ export default function TeamMemberProfileForm({
   
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [existingProfile, setExistingProfile] = useState<TeamMemberProfile | null>(null);
+  const [existingProfile, setExistingProfile] = useState<OrganizationMemberProfile | null>(null);
 
   useEffect(() => {
     fetchExistingProfile();

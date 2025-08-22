@@ -47,7 +47,7 @@ class ChatRoom(Base):
 
     # 外部キー
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
-    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
 
     # タイムスタンプ
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -55,11 +55,15 @@ class ChatRoom(Base):
     started_at = Column(DateTime(timezone=True), nullable=True)
     ended_at = Column(DateTime(timezone=True), nullable=True)
 
-    # リレーションシップ（循環参照を避けるため、back_populatesは使用しない）
+    # リレーションシップ
     messages = relationship(
         "ChatMessage", back_populates="chat_room", cascade="all, delete-orphan"
     )
     participants_rel = relationship("ChatRoomParticipant", back_populates="chat_room")
+    # Userモデルとのリレーションシップを一時的に無効化（循環参照回避）
+    # creator = relationship("User", back_populates="created_chat_rooms", foreign_keys=[created_by])
+    creator = relationship("User", foreign_keys=[created_by])
+    organization = relationship("Organization", back_populates="chat_rooms")
 
     def __repr__(self):
         return f"<ChatRoom(id={self.id}, name='{self.name}', room_id='{self.room_id}')>"
@@ -126,6 +130,9 @@ class ChatMessage(Base):
 
     # リレーションシップ（循環参照を避けるため、back_populatesは使用しない）
     chat_room = relationship("ChatRoom", back_populates="messages")
+    # Userモデルとのリレーションシップを一時的に無効化（循環参照回避）
+    # sender = relationship("User", back_populates="chat_messages", foreign_keys=[sender_id])
+    sender = relationship("User", foreign_keys=[sender_id])
 
     def __repr__(self):
         return f"<ChatMessage(id={self.id}, content='{self.content[:50]}...')>"
@@ -174,6 +181,9 @@ class ChatRoomParticipant(Base):
 
     # リレーションシップ（循環参照を避けるため、back_populatesは使用しない）
     chat_room = relationship("ChatRoom", back_populates="participants_rel")
+    # Userモデルとのリレーションシップを一時的に無効化（循環参照回避）
+    # user = relationship("User", back_populates="chat_room_participations", foreign_keys=[user_id])
+    user = relationship("User", foreign_keys=[user_id])
 
     def __repr__(self):
         return f"<ChatRoomParticipant(room_id={self.chat_room_id}, user_id={self.user_id})>"

@@ -3,23 +3,28 @@ from fastapi import APIRouter
 from app.api.v1 import (
     auth,
     users,
-    teams,
     voice_sessions,
     transcriptions,
-    analyses,
     chat_rooms,
-    team_dynamics,
     privacy,
     subscriptions,
     invitations,
     webhooks,
-    admin_role,
-    audio_enhancement,
+    # 統合されたAPI
+    analysis_unified,
+    admin_unified,
+    team_unified,
+    # 個別のAPI（統合されていないもの）
     participant_management,
     topic_generation,
-    admin_billing,
-    audit_logs,
-    billing,  
+    audio_enhancement,
+    personal_growth,
+    industry_management,
+    comparison_analysis,
+    report_management,
+    feedback_approvals,
+    admin_users,
+    admin_role,
 )
 
 api_router = APIRouter()
@@ -30,23 +35,14 @@ api_router.include_router(auth.router, prefix="/auth", tags=["認証"])
 # ユーザー管理
 api_router.include_router(users.router, prefix="/users", tags=["ユーザー"])
 
-# チーム管理
-api_router.include_router(teams.router, prefix="/teams", tags=["チーム"])
-
 # 音声セッション
 api_router.include_router(voice_sessions.router, prefix="/voice-sessions", tags=["音声セッション"])
 
 # 文字起こし
 api_router.include_router(transcriptions.router, prefix="/transcriptions", tags=["文字起こし"])
 
-# AI分析
-api_router.include_router(analyses.router, prefix="/analyses", tags=["AI分析"])
-
 # チャットルーム
 api_router.include_router(chat_rooms.router, prefix="/chat-rooms", tags=["チャットルーム"])
-
-# チームダイナミクス
-api_router.include_router(team_dynamics.router, prefix="/team-dynamics", tags=["チームダイナミクス"])
 
 # プライバシー制御
 api_router.include_router(privacy.router, prefix="/privacy", tags=["プライバシー制御"])
@@ -60,14 +56,41 @@ api_router.include_router(invitations.router, prefix="/invitations", tags=["招�
 # Webhooks
 api_router.include_router(webhooks.router, prefix="/webhooks", tags=["Webhooks"])
 
-# 管理者のルート
-api_router.include_router(admin_role.router, prefix="/admin-role", tags=["管理者"])
+# 統合された分析API
+api_router.include_router(analysis_unified.router, prefix="/analyses", tags=["統合分析"])
 
-# 管理者用決済・課金管理
-api_router.include_router(admin_billing.router, prefix="/admin", tags=["管理者決済"])
+# 統合された管理者API
+api_router.include_router(admin_unified.router, prefix="/admin", tags=["統合管理者"])
 
-# 請求管理（一般）
-api_router.include_router(billing.router, prefix="/billing", tags=["請求管理"])
+# 管理者用ユーザー管理API
+api_router.include_router(admin_users.router, prefix="/admin", tags=["管理者ユーザー管理"])
 
-# 監査ログ
-api_router.include_router(audit_logs.router, prefix="/audit-logs", tags=["監査ログ"])
+# 管理者権限チェックAPI
+api_router.include_router(admin_role.router, prefix="/admin-role", tags=["管理者権限"])
+
+# 統合されたチームAPI
+api_router.include_router(team_unified.router, prefix="/teams", tags=["統合チーム"])
+
+# 参加者管理
+api_router.include_router(participant_management.router, prefix="/participants", tags=["参加者管理"])
+
+# トピック生成
+api_router.include_router(topic_generation.router, prefix="/topics", tags=["トピック生成"])
+
+# 音声エンハンスメント
+api_router.include_router(audio_enhancement.router, prefix="/audio-enhancement", tags=["音声エンハンスメント"])
+
+# 個人成長
+api_router.include_router(personal_growth.router, prefix="/personal-growth", tags=["個人成長"])
+
+# 業界管理
+api_router.include_router(industry_management.router, prefix="/industry", tags=["業界管理"])
+
+# 比較分析
+api_router.include_router(comparison_analysis.router, prefix="/comparison", tags=["比較分析"])
+
+# レポート管理
+api_router.include_router(report_management.router, prefix="/reports", tags=["レポート管理"])
+
+# フィードバック承認
+api_router.include_router(feedback_approvals.router, prefix="/feedback-approvals", tags=["フィードバック承認"])

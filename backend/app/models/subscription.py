@@ -5,6 +5,14 @@ from .base import Base
 
 
 class Subscription(Base):
+    """サブスクリプション状態管理モデル
+    
+    役割:
+    - サブスクリプションの状態管理
+    - プラン情報の管理
+    - 更新・キャンセルの処理
+    - ユーザー数の管理
+    """
     __tablename__ = "subscriptions"
 
     id = Column(Integer, primary_key=True, index=True)

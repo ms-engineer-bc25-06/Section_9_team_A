@@ -4,8 +4,7 @@ import type React from "react"
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth/AuthProvider"
-import { LoginForm } from "@/components/auth/LoginForm"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card"
+import AccessPage from "@/components/auth/AccessPage"
 
 const HomePage: React.FC = () => {
   const { user, isLoading } = useAuth()
@@ -27,20 +26,8 @@ const HomePage: React.FC = () => {
     )
   }
 
-  // 未ログインユーザーにはログイン画面を表示
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Bridge LINE</CardTitle>
-          <CardDescription>チームの絆を深めるコミュニケーションプラットフォーム</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <LoginForm />
-        </CardContent>
-      </Card>
-    </div>
-  )
+  // 未ログインユーザーにはアクセスページを表示
+  return <AccessPage />
 }
 
 export default HomePage

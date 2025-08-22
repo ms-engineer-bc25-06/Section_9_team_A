@@ -6,7 +6,7 @@ from app.repositories import (
     voice_session_repository,
     chat_room_repository,
     subscription_repository,
-    team_repository,
+    organization_repository,
     billing_repository
 )
 from app.integrations.openai_client import openai_client
@@ -48,8 +48,8 @@ def get_subscription_repository():
     return subscription_repository
 
 def get_team_repository():
-    """チームリポジトリの依存関係を取得"""
-    return team_repository
+    """チームリポジトリの依存関係を取得（organization_repositoryに統合）"""
+    return organization_repository
 
 def get_billing_repository():
     """請求リポジトリの依存関係を取得"""

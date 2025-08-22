@@ -7,7 +7,7 @@ import numpy as np
 from typing import Optional, Dict, Any, List
 import structlog
 from openai import AsyncOpenAI
-from app.core.config import settings
+from app.config import settings
 
 logger = structlog.get_logger()
 
@@ -16,10 +16,22 @@ class OpenAIClient:
     """OpenAI APIクライアント"""
 
     def __init__(self):
-        self.client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+        # 環境に応じたAPIキーを取得
+        api_key = settings.get_openai_api_key
+        if not api_key:
+            raise ValueError(
+                f"OpenAI API key not found for environment: {settings.ENVIRONMENT}. "
+                f"Please set OPENAI_PERSONAL_API_KEY for production or OPENAI_EDUCATIONAL_API_KEY for development."
+            )
+
+        self.client = AsyncOpenAI(api_key=api_key)
         self.model = "whisper-1"
         self.max_retries = 3
         self.retry_delay = 1.0
+
+        logger.info(
+            f"OpenAI client initialized with environment: {settings.ENVIRONMENT}"
+        )
 
     async def transcribe_audio_file(
         self, audio_file_path: str, language: str = "ja"
@@ -150,5 +162,38 @@ class OpenAIClient:
             return {"sentiment": "neutral", "confidence": 0.5, "keywords": []}
 
 
-# グローバルインスタンス
-openai_client = OpenAIClient()
+# グローバルインスタンス（完全遅延初期化）
+_openai_client_instance = None
+
+
+def get_openai_client():
+    """OpenAIクライアントのインスタンスを取得（完全遅延初期化）"""
+    global _openai_client_instance
+    if _openai_client_instance is None:
+        try:
+            _openai_client_instance = OpenAIClient()
+        except Exception as e:
+            # 初期化に失敗した場合のフォールバック
+            logger.warning(f"OpenAI client initialization failed: {e}")
+
+            # ダミークライアントを作成（実際の使用時にはエラーが発生）
+            class DummyOpenAIClient:
+                def __init__(self, error_msg):
+                    self.client = None
+                    self.model = "whisper-1"
+                    self.max_retries = 3
+                    self.retry_delay = 1.0
+                    self.error_msg = error_msg
+
+                def __getattr__(self, name):
+                    raise RuntimeError(
+                        f"OpenAI client not properly initialized: {self.error_msg}"
+                    )
+
+            _openai_client_instance = DummyOpenAIClient(str(e))
+    return _openai_client_instance
+
+
+# 後方互換性のため（実際の使用時まで初期化を遅延）
+def openai_client():
+    return get_openai_client()

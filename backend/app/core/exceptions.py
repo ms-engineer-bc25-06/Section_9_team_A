@@ -91,3 +91,24 @@ class AccessDeniedError(BridgeLineException):
 
     def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
         super().__init__(message, "ACCESS_DENIED", details)
+
+
+class BusinessLogicException(BridgeLineException):
+    """ビジネスロジック例外"""
+
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+        super().__init__(message, "BUSINESS_LOGIC_ERROR", details)
+
+
+class DuplicateException(BridgeLineException):
+    """重複データ例外"""
+
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+        super().__init__(message, "DUPLICATE_DATA", details)
+
+
+class ConflictException(BridgeLineException):
+    """競合例外"""
+
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+        super().__init__(message, "CONFLICT", details)

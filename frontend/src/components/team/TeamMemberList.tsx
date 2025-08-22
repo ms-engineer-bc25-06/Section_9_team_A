@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiGet } from "@/lib/apiClient";
-import type { TeamDetailResponse, TeamsListResponse, TeamMember, UserDetailResponse } from "@/types/team";
+import type { TeamDetailResponse, TeamsListResponse, OrganizationMember, UserDetailResponse } from "@/types/team";
 
 // 必須条件を「名前＋部署」に変更（アイコンは任意）
-function hasRequired(m: TeamMember): boolean {
+function hasRequired(m: OrganizationMember): boolean {
   const nameOk = !!(m.display_name && m.display_name.trim());
   const deptOk = !!(m.profile?.department && m.profile?.department?.trim());
   return nameOk && deptOk;
@@ -17,8 +17,8 @@ function initialOf(name?: string) {
   return n ? n[0] : "？";
 }
 
-export function TeamMemberList() {
-  const [members, setMembers] = useState<TeamMember[]>([]);
+export function OrganizationMemberList() {
+  const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
@@ -32,11 +32,11 @@ export function TeamMemberList() {
 
         // チーム詳細から members を取得（無ければ /members をフォールバック）
         const detail = await apiGet<TeamDetailResponse>(`/teams/${firstTeamId}`);
-        let raw: TeamMember[] = Array.isArray(detail.members) ? detail.members : [];
+        let raw: OrganizationMember[] = Array.isArray(detail.members) ? detail.members : [];
 
         if (!raw.length) {
           try {
-            const res = await apiGet<{ members?: TeamMember[] }>(`/teams/${firstTeamId}/members`);
+            const res = await apiGet<{ members?: OrganizationMember[] }>(`/teams/${firstTeamId}/members`);
             raw = Array.isArray(res.members) ? res.members : (Array.isArray(res as any) ? (res as any) : []);
           } catch {}
         }
@@ -156,7 +156,7 @@ export function TeamMemberList() {
 //   },
 // ]
 
-// export function TeamMemberList() {
+// export function OrganizationMemberList() {
 //   const router = useRouter()
 
 //   const getStatusColor = (status: string) => {

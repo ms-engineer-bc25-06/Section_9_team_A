@@ -22,6 +22,10 @@ from .team import (
     TeamCreate,
     TeamUpdate,
     TeamResponse,
+    OrganizationMemberCreate,
+    OrganizationMemberUpdate,
+    OrganizationMemberOut,
+    OrganizationMemberResponse,
 )
 
 # 音声セッション関連
@@ -84,6 +88,10 @@ from .analysis import (
     AnalysisUpdate,
     AnalysisResponse,
     AnalysisListResponse,
+    AnalysisResult,
+    PersonalityTrait,
+    CommunicationPattern,
+    BehaviorScore,
 )
 
 # サブスクリプション関連
@@ -120,12 +128,10 @@ from .invitation import (
 from .audit_log import (
     AuditLogBase,
     AuditLogCreate,
+    AuditLogUpdate,
     AuditLogResponse,
-    AuditLogList,
+    AuditLogListResponse,
     AuditLogFilter,
-    AuditLogStats,
-    SystemAuditLogCreate,
-    UserAuditLogCreate,
 )
 
 # 認証関連
@@ -150,6 +156,9 @@ from .team_dynamics import (
     TeamDynamicsCreate,
     TeamDynamicsUpdate,
     TeamDynamicsResponse,
+    TeamDynamicsListResponse,
+    TeamDynamicsFilter,
+    TeamMetrics,
 )
 
 # 参加者管理関連

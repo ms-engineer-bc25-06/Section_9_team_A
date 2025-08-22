@@ -499,7 +499,7 @@ class AudioProcessingService:
         try:
             # セッション別ディレクトリを作成
             import os
-            from app.core.config import settings
+            from app.config import settings
 
             session_dir = f"recordings/{chunk.session_id}"
             os.makedirs(session_dir, exist_ok=True)

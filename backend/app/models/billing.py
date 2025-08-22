@@ -1,13 +1,31 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean, Float, JSON
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Text,
+    DateTime,
+    ForeignKey,
+    Boolean,
+    Float,
+    JSON,
+)
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import Optional
 
 from app.models.base import Base
 
 
 class Billing(Base):
-    """請求モデル"""
+    """請求書・請求管理モデル
+
+    役割:
+    - 請求書の作成・管理
+    - 請求金額の計算
+    - 支払い状態の追跡
+    - 請求履歴の管理
+    """
 
     __tablename__ = "billings"
 
@@ -16,17 +34,19 @@ class Billing(Base):
     # 請求情報
     billing_id = Column(String(255), unique=True, index=True, nullable=False)
     invoice_number = Column(String(255), unique=True, index=True, nullable=True)
-    
+
     # 料金情報
     amount = Column(Float, nullable=False)
     currency = Column(String(3), default="JPY")
     tax_amount = Column(Float, default=0.0)
     total_amount = Column(Float, nullable=False)
-    
+
     # 請求状態
     status = Column(String(50), default="pending")  # pending, paid, failed, refunded
-    payment_method = Column(String(50), nullable=True)  # credit_card, bank_transfer, etc.
-    
+    payment_method = Column(
+        String(50), nullable=True
+    )  # credit_card, bank_transfer, etc.
+
     # 外部サービス情報
     stripe_payment_intent_id = Column(String(255), nullable=True)
     stripe_invoice_id = Column(String(255), nullable=True)
@@ -34,20 +54,23 @@ class Billing(Base):
     # 請求詳細
     description = Column(Text, nullable=True)
     billing_metadata = Column(JSON, nullable=True)  # 追加情報
-    
+
     # 外部キー
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     subscription_id = Column(Integer, ForeignKey("subscriptions.id"), nullable=True)
-    
+
     # タイムスタンプ
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     paid_at = Column(DateTime(timezone=True), nullable=True)
     due_date = Column(DateTime(timezone=True), nullable=True)
-    
-    # リレーションシップ（循環参照を避けるため、back_populatesは使用しない）
-    user = relationship("User")
-    subscription = relationship("Subscription")
+
+    # リレーションシップ
+    user = relationship("User", back_populates="billing_records")
+    subscription = relationship("Subscription", back_populates="billing_records")
+    payment = relationship(
+        "Payment", back_populates="billing", uselist=False
+    )  # 1対1の関係
 
     def __repr__(self):
         return f"<Billing(id={self.id}, amount={self.amount}, status='{self.status}')>"
@@ -92,7 +115,9 @@ class Billing(Base):
         delta = datetime.utcnow() - self.due_date
         return delta.days
 
-    def mark_as_paid(self, payment_method: str = None, transaction_id: str = None):
+    def mark_as_paid(
+        self, payment_method: Optional[str] = None, transaction_id: Optional[str] = None
+    ):
         """支払い済みにマーク"""
         self.status = "paid"
         self.paid_at = datetime.utcnow()
@@ -102,14 +127,14 @@ class Billing(Base):
             self.billing_metadata = self.billing_metadata or {}
             self.billing_metadata["transaction_id"] = transaction_id
 
-    def mark_as_failed(self, failure_reason: str = None):
+    def mark_as_failed(self, failure_reason: Optional[str] = None):
         """支払い失敗にマーク"""
         self.status = "failed"
         if failure_reason:
             self.billing_metadata = self.billing_metadata or {}
             self.billing_metadata["failure_reason"] = failure_reason
 
-    def mark_as_refunded(self, refund_reason: str = None):
+    def mark_as_refunded(self, refund_reason: Optional[str] = None):
         """返金済みにマーク"""
         self.status = "refunded"
         if refund_reason:
@@ -118,7 +143,7 @@ class Billing(Base):
 
     def set_due_date(self, days_from_now: int = 30):
         """支払い期限を設定"""
-        self.due_date = datetime.utcnow() + datetime.timedelta(days=days_from_now)
+        self.due_date = datetime.utcnow() + timedelta(days=days_from_now)
 
     def get_billing_summary(self) -> dict:
         """請求サマリーを取得"""
@@ -136,5 +161,5 @@ class Billing(Base):
             "days_overdue": self.days_overdue,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "due_date": self.due_date.isoformat() if self.due_date else None,
-            "paid_at": self.paid_at.isoformat() if self.paid_at else None
+            "paid_at": self.paid_at.isoformat() if self.paid_at else None,
         }

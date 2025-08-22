@@ -17,6 +17,14 @@ class TokenData(BaseModel):
     email: Optional[str] = None
 
 
+class TokenResponse(BaseModel):
+    """JWTトークンレスポンススキーマ"""
+
+    access_token: str
+    token_type: str
+    expires_in: int
+
+
 class UserBase(BaseModel):
     """ユーザーベーススキーマ"""
 
@@ -33,7 +41,9 @@ class UserBase(BaseModel):
     hometown: Optional[str] = None  # 出身地
     residence: Optional[str] = None  # 居住地
     hobbies: Optional[str] = None  # 趣味・特技
-    student_activities: Optional[str] = None  # 学生時代の部活・サークル・力を入れていたこと
+    student_activities: Optional[str] = (
+        None  # 学生時代の部活・サークル・力を入れていたこと
+    )
     holiday_activities: Optional[str] = None  # 休日の過ごし方
     favorite_food: Optional[str] = None  # 好きな食べ物
     favorite_media: Optional[str] = None  # 好きな本・漫画・映画・ドラマ
@@ -79,7 +89,9 @@ class UserUpdate(BaseModel):
     hometown: Optional[str] = None  # 出身地
     residence: Optional[str] = None  # 居住地
     hobbies: Optional[str] = None  # 趣味・特技
-    student_activities: Optional[str] = None  # 学生時代の部活・サークル・力を入れていたこと
+    student_activities: Optional[str] = (
+        None  # 学生時代の部活・サークル・力を入れていたこと
+    )
     holiday_activities: Optional[str] = None  # 休日の過ごし方
     favorite_food: Optional[str] = None  # 好きな食べ物
     favorite_media: Optional[str] = None  # 好きな本・漫画・映画・ドラマ
@@ -90,23 +102,38 @@ class UserUpdate(BaseModel):
     future_goals: Optional[str] = None  # 将来の目標・生きてるうちにやってみたいこと
 
 
-class UserResponse(UserBase):
-    """ユーザー応答スキーマ"""
+class UserResponse(BaseModel):
+    """ユーザー応答スキーマ（JWT認証用）"""
 
     id: int
+    email: str
+    display_name: str
+    firebase_uid: Optional[str] = None
     is_active: bool
-    is_verified: bool
-    is_premium: bool
-    subscription_status: str
-    subscription_end_date: Optional[datetime] = None
-    monthly_voice_minutes: int
-    monthly_analysis_count: int
-    created_at: datetime
+    is_admin: bool
+    created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
-    last_login_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
+
+
+class LoginResponse(BaseModel):
+    """ログイン応答スキーマ"""
+
+    access_token: str
+    token_type: str
+    user_id: int
+    email: str
+    is_admin: bool
+    needs_password_setup: bool
+
+
+class LoginRequest(BaseModel):
+    """ログインリクエストスキーマ"""
+
+    email: str
+    password: str
 
 
 class FirebaseAuthRequest(BaseModel):
@@ -114,6 +141,15 @@ class FirebaseAuthRequest(BaseModel):
 
     id_token: str
     display_name: Optional[str] = None
+
+
+class FirebaseAuthResponse(BaseModel):
+    """Firebase認証レスポンススキーマ（JWTトークン付き）"""
+
+    access_token: str
+    token_type: str
+    expires_in: int
+    user: UserResponse
 
 
 class PasswordResetRequest(BaseModel):

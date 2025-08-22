@@ -1,6 +1,9 @@
 // 管理者用決済完了確認API
 import { NextRequest, NextResponse } from 'next/server'
 
+// 動的ルートとして明示的に設定（静的生成を無効化）
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
   try {
     // 認証チェック

@@ -2,16 +2,41 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/components/auth/AuthProvider"
-import { Bell, Settings, LogOut, User, ChevronDown, Home, Users, MessageSquare, BarChart3, Target } from "lucide-react"
+import { LogOut, User, ChevronDown, Home, Users, MessageSquare, BarChart3, Target } from "lucide-react"
+import { apiClient } from "@/lib/apiClient"
+
+interface UserProfile {
+  id: string
+  display_name: string
+  email: string
+  avatar_url?: string
+}
 
 const DashboardHeader: React.FC = () => {
   const router = useRouter()
   const pathname = usePathname()
-  const { user, logout } = useAuth()
+  const { user, logout, backendToken } = useAuth()
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+
+  // ユーザープロファイルを取得
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (backendToken) {
+        try {
+          const profile = await apiClient.get('/auth/me')
+          setUserProfile(profile)
+        } catch (error) {
+          console.error('ユーザープロファイル取得エラー:', error)
+        }
+      }
+    }
+
+    fetchUserProfile()
+  }, [backendToken])
 
   const handleLogout = () => {
     logout()
@@ -25,8 +50,11 @@ const DashboardHeader: React.FC = () => {
     return "こんばんは"
   }
 
-  // ユーザーのイニシャルを取得（メールアドレスの最初の文字）
+  // ユーザーのイニシャルを取得（display_nameまたはメールアドレスの最初の文字）
   const getUserInitial = () => {
+    if (userProfile?.display_name) {
+      return userProfile.display_name.charAt(0).toUpperCase()
+    }
     if (user?.email) {
       return user.email.charAt(0).toUpperCase()
     }
@@ -40,7 +68,6 @@ const DashboardHeader: React.FC = () => {
     { name: '分析', href: '/analytics', icon: BarChart3 },
     { name: 'チームダイナミクス', href: '/team-dynamics', icon: Target },
     { name: '個人成長支援', href: '/personal-growth', icon: Target },
-    { name: 'プライバシー設定', href: '/privacy', icon: Settings },
   ]
 
   return (
@@ -54,12 +81,7 @@ const DashboardHeader: React.FC = () => {
           </div>
 
           <div className="flex items-center space-x-4">
-            <button className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100">
-              <Bell className="h-5 w-5" />
-            </button>
-            <button className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100">
-              <Settings className="h-5 w-5" />
-            </button>
+            {/* 通知と歯車マークを削除 */}
             
             {/* ユーザーメニュー */}
             <div className="relative">
@@ -82,7 +104,9 @@ const DashboardHeader: React.FC = () => {
                         {getUserInitial()}
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-900">ログインユーザー</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {userProfile?.display_name || "ログインユーザー"}
+                        </p>
                         <p className="text-sm text-gray-500">{user?.email || "user@example.com"}</p>
                       </div>
                     </div>

@@ -96,7 +96,7 @@ class TeamsListResponse(BaseModel):
     total: int
     has_more: bool = False
 
-class TeamMemberOut(BaseModel):
+class OrganizationMemberOut(BaseModel):
     id: str
     display_name: str
     avatar_url: Optional[str] = None
@@ -106,10 +106,38 @@ class TeamMemberOut(BaseModel):
     if _V2:
         model_config = ConfigDict(from_attributes=True)
 
+
+class OrganizationMemberCreate(BaseModel):
+    """チームメンバー作成用スキーマ"""
+    user_id: str
+    role: Optional[str] = None
+    status: Optional[str] = "active"
+
+
+class OrganizationMemberUpdate(BaseModel):
+    """チームメンバー更新用スキーマ"""
+    role: Optional[str] = None
+    status: Optional[str] = None
+
+
+class OrganizationMemberResponse(BaseModel):
+    """チームメンバー応答用スキーマ"""
+    id: str
+    user_id: str
+    team_id: str
+    role: Optional[str] = None
+    status: Optional[str] = None
+    joined_at: Optional[str] = None
+    user: Optional[UserOut] = None
+
+    if _V2:
+        model_config = ConfigDict(from_attributes=True)
+
+
 class TeamDetailOut(BaseModel):
     id: str
     name: str
-    members: List[TeamMemberOut]
+    members: List[OrganizationMemberOut]
     if _V2:
         model_config = ConfigDict(from_attributes=True)
 
@@ -133,7 +161,7 @@ class TeamResponse(BaseModel):
     owner: Optional[OwnerMiniOut] = None
 
     # 一覧カードで使うため optional に（返らなくてもOK）
-    members: Optional[List[TeamMemberOut]] = None
+    members: Optional[List[OrganizationMemberOut]] = None
     member_count: Optional[int] = None
     max_members: Optional[int] = None
 

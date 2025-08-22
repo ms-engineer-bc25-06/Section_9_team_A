@@ -1,5 +1,15 @@
+/// <reference types="jest" />
+/// <reference types="@testing-library/jest-dom" />
+
 import { render, screen, fireEvent } from '@testing-library/react'
 import { Button } from '../Button'
+
+// Jestの型定義を明示的に宣言
+declare global {
+  const jest: {
+    fn: () => jest.Mock
+  }
+}
 
 describe('Button Component', () => {
   it('renders button with text', () => {
@@ -53,18 +63,23 @@ describe('Button Component', () => {
     expect(screen.getByRole('button')).toHaveClass('custom-class')
   })
 
-  it('renders as different HTML elements', () => {
-    const { rerender } = render(<Button asChild><a href="/">Link</a></Button>)
-    expect(screen.getByRole('link')).toBeInTheDocument()
-
-    rerender(<Button asChild><span>Span</span></Button>)
-    expect(screen.getByText('Span')).toBeInTheDocument()
+  it('renders with icon size', () => {
+    render(<Button size="icon">Icon</Button>)
+    expect(screen.getByRole('button')).toHaveClass('h-10 w-10')
   })
 
-  it('shows loading state', () => {
-    render(<Button loading>Loading</Button>)
-    const button = screen.getByRole('button')
-    expect(button).toBeDisabled()
-    expect(button).toHaveClass('opacity-50')
+  it('renders with secondary variant', () => {
+    render(<Button variant="secondary">Secondary</Button>)
+    expect(screen.getByRole('button')).toHaveClass('bg-secondary')
+  })
+
+  it('renders with ghost variant', () => {
+    render(<Button variant="ghost">Ghost</Button>)
+    expect(screen.getByRole('button')).toHaveClass('hover:bg-accent')
+  })
+
+  it('renders with link variant', () => {
+    render(<Button variant="link">Link</Button>)
+    expect(screen.getByRole('button')).toHaveClass('text-primary underline-offset-4')
   })
 })

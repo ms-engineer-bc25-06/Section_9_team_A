@@ -8,7 +8,7 @@ from datetime import datetime
 
 from app.core.database import get_db
 from app.core.auth import get_current_active_user
-from app.core.config import settings
+from app.config import settings
 from app.models.user import User
 from app.models.payment import Payment
 from app.models.subscription import Subscription

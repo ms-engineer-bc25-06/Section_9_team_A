@@ -118,7 +118,11 @@ class AuthService:
             # 更新フィールドを設定
             for field, value in update_data.items():
                 if hasattr(user, field):
-                    setattr(user, field, value)
+                    # 日付フィールドの特別処理
+                    if field in ["join_date", "birth_date"] and value == "":
+                        setattr(user, field, None)  # 空文字列の場合はNULLに設定
+                    else:
+                        setattr(user, field, value)
 
             user.updated_at = datetime.utcnow()
             await self.db.commit()
@@ -153,11 +157,18 @@ class AuthService:
             return False
 
     async def get_or_create_firebase_user(
-        self, firebase_uid: str, email: str, display_name: str = None
+        self, firebase_uid: str, email: str, display_name: str | None = None
     ) -> User:
         """Firebaseユーザーを取得または作成"""
         try:
+            logger.info(
+                f"Starting get_or_create_firebase_user for email: {email}, firebase_uid: {firebase_uid}"
+            )
+
             # 既存ユーザーを検索（firebase_uidまたはemailで）
+            logger.info(
+                f"Searching for existing user with firebase_uid: {firebase_uid} or email: {email}"
+            )
             result = await self.db.execute(
                 select(User).where(
                     (User.firebase_uid == firebase_uid) | (User.email == email)
@@ -166,6 +177,7 @@ class AuthService:
             user = result.scalar_one_or_none()
 
             if user:
+                logger.info(f"Found existing user: {user.id}, updating information")
                 # 既存ユーザーの情報を更新
                 if not user.firebase_uid:
                     user.firebase_uid = firebase_uid
@@ -175,18 +187,19 @@ class AuthService:
                     user.full_name = display_name
                 user.is_verified = True
                 user.is_active = True
-                
+
                 await self.db.commit()
                 await self.db.refresh(user)
                 logger.info(f"Existing Firebase user logged in: {email}")
                 return user
 
+            logger.info(f"No existing user found, creating new user for email: {email}")
             # 新しいユーザーを作成
             # ユーザー名の重複を避ける
-            username = email.split('@')[0]
+            username = email.split("@")[0]
             counter = 1
             original_username = username
-            
+
             while True:
                 result = await self.db.execute(
                     select(User).where(User.username == username)
@@ -196,18 +209,23 @@ class AuthService:
                 username = f"{original_username}{counter}"
                 counter += 1
 
+            logger.info(f"Creating new user with username: {username}")
             user = User(
                 firebase_uid=firebase_uid,
                 email=email,
                 username=username,
-                full_name=display_name or email,
+                full_name=display_name or email,  # Noneの場合はemailを使用
                 is_active=True,
                 is_verified=True,
-                last_login_at=datetime.utcnow()
+                last_login_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
             )
 
+            logger.info(f"Adding user to database: {user.email}")
             self.db.add(user)
+            logger.info(f"Committing user to database")
             await self.db.commit()
+            logger.info(f"Refreshing user object")
             await self.db.refresh(user)
 
             logger.info(f"New Firebase user created: {email} with username: {username}")
@@ -215,5 +233,10 @@ class AuthService:
 
         except Exception as e:
             logger.error(f"Firebase user creation/update failed: {e}")
+            logger.error(f"Error type: {type(e).__name__}")
+            logger.error(f"Error details: {str(e)}")
+            import traceback
+
+            logger.error(f"Traceback: {traceback.format_exc()}")
             await self.db.rollback()
             raise ValueError(f"Failed to create or update Firebase user: {str(e)}")

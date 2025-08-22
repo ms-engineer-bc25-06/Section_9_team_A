@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.models.base import Base
 
@@ -16,20 +16,22 @@ class Invitation(Base):
     # 招待情報
     invitation_id = Column(String(255), unique=True, index=True, nullable=False)
     email = Column(String(255), nullable=False, index=True)
-    
+
     # 招待内容
     invitation_type = Column(String(50), nullable=False)  # team, project, etc.
     role = Column(String(50), default="member")  # owner, admin, member, guest
-    
+
     # 招待状態
-    status = Column(String(50), default="pending")  # pending, accepted, declined, expired
+    status = Column(
+        String(50), default="pending"
+    )  # pending, accepted, declined, expired
     is_active = Column(Boolean, default=True)
-    
+
     # 招待メッセージ
     message = Column(Text, nullable=True)
-    
+
     # 外部キー
-    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    team_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
     invited_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     invited_user = Column(Integer, ForeignKey("users.id"), nullable=True)
 
@@ -38,14 +40,16 @@ class Invitation(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     expires_at = Column(DateTime(timezone=True), nullable=True)
     accepted_at = Column(DateTime(timezone=True), nullable=True)
-    
+
     # リレーションシップ（循環参照を避けるため、back_populatesは使用しない）
-    team = relationship("Team")
+    team = relationship("Organization")
     inviter = relationship("User", foreign_keys=[invited_by])
     invitee = relationship("User", foreign_keys=[invited_user])
 
     def __repr__(self):
-        return f"<Invitation(id={self.id}, email='{self.email}', status='{self.status}')>"
+        return (
+            f"<Invitation(id={self.id}, email='{self.email}', status='{self.status}')>"
+        )
 
     @property
     def is_expired(self) -> bool:
@@ -96,9 +100,9 @@ class Invitation(Base):
     def extend_expiry(self, additional_days: int):
         """有効期限を延長"""
         if self.expires_at:
-            self.expires_at = self.expires_at + datetime.timedelta(days=additional_days)
+            self.expires_at = self.expires_at + timedelta(days=additional_days)
         else:
-            self.expires_at = datetime.utcnow() + datetime.timedelta(days=additional_days)
+            self.expires_at = datetime.utcnow() + timedelta(days=additional_days)
 
     def get_invitation_summary(self) -> dict:
         """招待サマリーを取得"""
@@ -114,5 +118,5 @@ class Invitation(Base):
             "is_expired": self.is_expired,
             "days_until_expiry": self.days_until_expiry,
             "created_at": self.created_at.isoformat() if self.created_at else None,
-            "expires_at": self.expires_at.isoformat() if self.expires_at else None
+            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
         }

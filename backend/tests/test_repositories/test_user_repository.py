@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, and_, or_, func, desc
 
 from app.repositories.user_repository import UserRepository
 from app.models.user import User
@@ -69,7 +69,7 @@ class TestUserRepository:
         mock_db.execute.assert_called_once()
         # select文の検証
         call_args = mock_db.execute.call_args[0][0]
-        assert isinstance(call_args, select)
+        assert str(call_args).startswith("SELECT")
     
     @pytest.mark.asyncio
     async def test_get_by_email_not_found(self, user_repository, mock_db):
@@ -252,15 +252,13 @@ class TestUserRepository:
     
     @pytest.mark.asyncio
     async def test_update_last_login_user_not_found(self, user_repository, mock_db):
-        """最終ログイン時刻更新失敗テスト（ユーザー不存在）"""
+        """最終ログイン更新失敗テスト（ユーザー不存在）"""
         # モックの設定
-        user_repository.get.return_value = None
+        user_repository.get = MagicMock(return_value=None)
         
-        # 実行
-        result = await user_repository.update_last_login(mock_db, 999)
-        
-        # 検証
-        assert result is None
+        # 実行と検証
+        with pytest.raises(NotFoundException):
+            await user_repository.update_last_login(mock_db, 999)
     
     @pytest.mark.asyncio
     async def test_update_last_login_database_error(self, user_repository, mock_db, sample_user):
@@ -286,7 +284,7 @@ class TestUserRepository:
         mock_db.refresh.return_value = None
         
         # 実行
-        result = await user_repository.create(mock_db, sample_user_create)
+        result = await user_repository.create(mock_db, obj_in=sample_user_create)
         
         # 検証
         assert result is not None

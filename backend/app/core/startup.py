@@ -7,7 +7,7 @@ from sqlalchemy import select, text
 from app.core.database import async_session
 from app.models.user import User
 from app.models.role import Role, UserRole
-from app.core.config import settings
+from app.config import settings
 
 from app.integrations.firebase_client import get_firebase_client
 import structlog
@@ -53,7 +53,7 @@ async def setup_initial_admin():
             if existing_admin:
                 # 既存管理者の情報を更新
                 existing_admin.email = admin_email
-                existing_admin.username = admin_email
+                existing_admin.username = admin_username
                 existing_admin.full_name = admin_display_name
                 existing_admin.is_admin = True
                 existing_admin.is_active = True

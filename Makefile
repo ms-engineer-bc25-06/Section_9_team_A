@@ -77,6 +77,10 @@ start:
 	@echo ""
 	@echo "Checking service status..."
 	@docker compose ps
+	@echo ""
+	@echo "Checking backend health..."
+	@$(call wait,10)
+	@docker compose logs --tail=10 backend
 
 # Stop Docker environment
 stop:
@@ -336,14 +340,14 @@ define wait
 	@$(WAIT_CMD)
 endef
 
-# Windows環境でのwait関数の修正
+# クロスプラットフォーム対応のwait関数
 ifeq ($(OS),Windows_NT)
-    # Windows用のwait関数
+    # Windows用のwait関数（PowerShellを使用）
     define wait
-		@timeout /t $(1) /nobreak > nul 2>&1 || ping -n $(1) 127.0.0.1 > nul 2>&1
+		@powershell -Command "Start-Sleep -Seconds $(1)"
     endef
 else
-    # Unix系用のwait関数
+    # Unix系用のwait関数（MacOS、Linux対応）
     define wait
 		@sleep $(1)
     endef
