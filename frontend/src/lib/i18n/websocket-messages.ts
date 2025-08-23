@@ -14,6 +14,7 @@ export interface WebSocketMessageLocale {
     error: string
     authFailed: string
     serverError: string
+    maxAttemptsReached: string
   }
   errors: {
     connectionFailed: string
@@ -55,7 +56,8 @@ export const websocketMessages: WebSocketMessages = {
       timeout: "接続タイムアウト",
       error: "接続エラー",
       authFailed: "認証失敗",
-      serverError: "サーバーエラー"
+      serverError: "サーバーエラー",
+      maxAttemptsReached: "接続失敗"
     },
     errors: {
       connectionFailed: "接続に失敗しました",
@@ -95,7 +97,8 @@ export const websocketMessages: WebSocketMessages = {
       timeout: "Connection Timeout",
       error: "Connection Error",
       authFailed: "Authentication Failed",
-      serverError: "Server Error"
+      serverError: "Server Error",
+      maxAttemptsReached: "Connection Failed"
     },
     errors: {
       connectionFailed: "Connection failed",
@@ -221,6 +224,12 @@ export const getConnectionStatusMessage = (
         details: messages.errors.internalServerError,
         canRetry: true,
         retryAction: messages.actions.reconnect
+      }
+    case 'max_attempts_reached':
+      return {
+        message: messages.connection.maxAttemptsReached,
+        details: "接続試行回数上限に達しました",
+        canRetry: false
       }
     default:
       return {

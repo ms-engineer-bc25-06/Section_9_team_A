@@ -11,11 +11,13 @@ export interface UseWebSocketOptions {
   reconnectMaxDelayMs?: number
   heartbeatIntervalMs?: number
   connectionTimeoutMs?: number // 接続タイムアウトを追加
+  maxReconnectAttempts?: number // 最大再接続試行回数を追加
   skipAuth?: boolean // テスト用：認証をスキップ
   onOpen?: () => void
   onClose?: (ev: CloseEvent) => void
   onError?: (ev: Event) => void
   onMessage?: (data: any) => void
+  onMaxAttemptsReached?: () => void // 最大試行回数到達時のコールバックを追加
 }
 
 export interface UseWebSocketReturn {
@@ -38,7 +40,8 @@ export enum ConnectionState {
   ERROR = "error",
   TIMEOUT = "timeout",
   AUTH_FAILED = "auth_failed",
-  SERVER_ERROR = "server_error"
+  SERVER_ERROR = "server_error",
+  MAX_ATTEMPTS_REACHED = "max_attempts_reached" // 最大試行回数到達状態を追加
 }
 
 export interface ConnectionStatus {
@@ -71,11 +74,13 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
     reconnectMaxDelayMs = 10_000,
     heartbeatIntervalMs = 30_000,
     connectionTimeoutMs = 15_000, // デフォルト15秒
+    maxReconnectAttempts = 5, // デフォルト5回
     skipAuth = false, // テスト用：認証をスキップ
     onOpen,
     onClose,
     onError,
     onMessage,
+    onMaxAttemptsReached,
   } = options
 
   const wsRef = useRef<WebSocket | null>(null)
@@ -123,7 +128,7 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
         return {
           state: ConnectionState.RECONNECTING,
           message: "再接続中...",
-          details: `再接続を試行中です (試行回数: ${reconnectAttemptRef.current})`,
+          details: `再接続を試行中です (試行回数: ${reconnectAttemptRef.current}/${maxReconnectAttempts})`,
           canRetry: false
         }
       
@@ -163,6 +168,14 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
           retryAction: "再接続"
         }
       
+      case ConnectionState.MAX_ATTEMPTS_REACHED:
+        return {
+          state: ConnectionState.MAX_ATTEMPTS_REACHED,
+          message: "接続失敗",
+          details: `接続試行回数上限(${maxReconnectAttempts}回)に達しました`,
+          canRetry: false
+        }
+      
       default:
         return {
           state: ConnectionState.DISCONNECTED,
@@ -172,7 +185,7 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
           retryAction: "再接続"
         }
     }
-  }, [connectionState, connectError, connectionTimeoutMs])
+  }, [connectionState, connectError, connectionTimeoutMs, maxReconnectAttempts])
 
   const wsUrlBuilder = useMemo(() => {
     const base = resolveWsBaseUrl()
@@ -245,8 +258,18 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
 
   const scheduleReconnect = useCallback(() => {
     if (!autoReconnect) return
+    
     const attempt = reconnectAttemptRef.current + 1
     reconnectAttemptRef.current = attempt
+    
+    // 最大試行回数に達した場合
+    if (attempt >= maxReconnectAttempts) {
+      setConnectionState(ConnectionState.MAX_ATTEMPTS_REACHED)
+      setConnectError(`接続試行回数上限(${maxReconnectAttempts}回)に達しました`)
+      onMaxAttemptsReached?.()
+      return
+    }
+    
     const delay = Math.min(1000 * Math.pow(2, attempt - 1), reconnectMaxDelayMs)
     
     setConnectionState(ConnectionState.RECONNECTING)
@@ -255,7 +278,7 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
       void connect()
     }, delay)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoReconnect, reconnectMaxDelayMs])
+  }, [autoReconnect, reconnectMaxDelayMs, maxReconnectAttempts, onMaxAttemptsReached])
 
   const connect = useCallback(async () => {
     // 重複接続チェック

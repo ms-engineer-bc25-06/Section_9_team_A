@@ -10,12 +10,14 @@ import { useRouter } from "next/navigation"
 import { useVoiceChat } from "@/hooks/useVoiceChat"
 import { useAdvancedAudioOptimization } from "@/hooks/useAdvancedAudioOptimization"
 import { useRealTimeTranscription } from "@/hooks/useRealTimeTranscription"
+import { useWebSocket, ConnectionState } from "@/hooks/useWebSocket"
 import { AudioCapture } from "./AudioCapture"
 import { ParticipantsList } from "./ParticipantsList"
 import { AdvancedAudioQualityMonitor } from "./AdvancedAudioQualityMonitor"
 import { AdvancedAudioQualitySettings } from "./AdvancedAudioQualitySettings"
 import { RealTimeTranscription } from "./RealTimeTranscription"
 import { TranscriptionSettings } from "./TranscriptionSettings"
+import { ConnectionStatusDisplay } from "./ConnectionStatusDisplay"
 
 interface Props {
   roomId: string
@@ -71,6 +73,21 @@ export function ActiveVoiceChat({ roomId }: Props) {
   const [showAudioSettings, setShowAudioSettings] = useState(false)
   const [showTranscriptionSettings, setShowTranscriptionSettings] = useState(false)
   const router = useRouter()
+  
+  // WebSocket接続状態管理
+  const {
+    connectionState,
+    connectError,
+    isConnecting,
+    reconnect,
+    close: closeWebSocket
+  } = useWebSocket(`/api/v1/websocket/voice-sessions/${roomId}`, {
+    maxReconnectAttempts: 5,
+    onMaxAttemptsReached: () => {
+      // 最大試行回数到達時にルームを強制終了
+      handleForceClose()
+    }
+  })
   
   // WebRTC音声チャットフック
   const {
@@ -250,6 +267,13 @@ export function ActiveVoiceChat({ roomId }: Props) {
     }
   }
 
+  // 強制終了処理
+  const handleForceClose = () => {
+    closeWebSocket()
+    leaveRoom()
+    router.push('/voice-chat')
+  }
+
   // エラー表示
   if (optimizationError) {
     return (
@@ -265,6 +289,16 @@ export function ActiveVoiceChat({ roomId }: Props) {
 
   return (
     <div className="space-y-6">
+      {/* WebSocket接続状態表示 */}
+      <ConnectionStatusDisplay
+        connectionState={connectionState}
+        connectError={connectError}
+        isConnecting={isConnecting}
+        onReconnect={reconnect}
+        onRetry={reconnect}
+        className="mb-4"
+      />
+      
       {/* 接続状態表示 */}
       <Card>
         <CardHeader>
@@ -340,6 +374,19 @@ export function ActiveVoiceChat({ roomId }: Props) {
               <Phone className="h-5 w-5 mr-2" />
               通話終了
             </Button>
+            
+            {/* 接続エラー時の強制終了ボタン */}
+            {connectionState === ConnectionState.MAX_ATTEMPTS_REACHED && (
+              <Button
+                onClick={handleForceClose}
+                variant="destructive"
+                size="lg"
+                className="ml-2"
+              >
+                <AlertCircle className="h-5 w-5 mr-2" />
+                ルームを強制終了
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
