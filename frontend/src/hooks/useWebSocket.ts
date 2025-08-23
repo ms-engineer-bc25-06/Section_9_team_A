@@ -23,9 +23,30 @@ export interface UseWebSocketReturn {
   isConnecting: boolean // 接続中状態を追加
   lastMessage: any | null
   connectError: string | null
-  connectionState: string // 接続状態の詳細を追加
+  connectionState: ConnectionState // 接続状態の詳細を追加
   sendJson: (payload: JsonValue) => boolean
   close: () => void
+  reconnect: () => void // 手動再接続機能を追加
+  getConnectionStatus: () => ConnectionStatus // 接続状態詳細取得機能を追加
+}
+
+export enum ConnectionState {
+  DISCONNECTED = "disconnected",
+  CONNECTING = "connecting",
+  CONNECTED = "connected",
+  RECONNECTING = "reconnecting",
+  ERROR = "error",
+  TIMEOUT = "timeout",
+  AUTH_FAILED = "auth_failed",
+  SERVER_ERROR = "server_error"
+}
+
+export interface ConnectionStatus {
+  state: ConnectionState
+  message: string
+  details?: string
+  canRetry: boolean
+  retryAction?: string
 }
 
 function resolveWsBaseUrl(): string | null {
@@ -68,7 +89,90 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
   const [isConnecting, setIsConnecting] = useState(false) // 接続中状態を追加
   const [lastMessage, setLastMessage] = useState<any | null>(null)
   const [connectError, setConnectError] = useState<string | null>(null)
-  const [connectionState, setConnectionState] = useState<string>("disconnected") // 接続状態の詳細
+  const [connectionState, setConnectionState] = useState<ConnectionState>(ConnectionState.DISCONNECTED) // 接続状態の詳細
+
+  // 接続状態に基づく詳細情報を提供
+  const getConnectionStatus = useCallback((): ConnectionStatus => {
+    switch (connectionState) {
+      case ConnectionState.DISCONNECTED:
+        return {
+          state: ConnectionState.DISCONNECTED,
+          message: "接続されていません",
+          details: "WebSocket接続が確立されていません",
+          canRetry: true,
+          retryAction: "接続を開始"
+        }
+      
+      case ConnectionState.CONNECTING:
+        return {
+          state: ConnectionState.CONNECTING,
+          message: "接続中...",
+          details: "サーバーへの接続を試行中です",
+          canRetry: false
+        }
+      
+      case ConnectionState.CONNECTED:
+        return {
+          state: ConnectionState.CONNECTED,
+          message: "接続済み",
+          details: "WebSocket接続が確立されています",
+          canRetry: false
+        }
+      
+      case ConnectionState.RECONNECTING:
+        return {
+          state: ConnectionState.RECONNECTING,
+          message: "再接続中...",
+          details: `再接続を試行中です (試行回数: ${reconnectAttemptRef.current})`,
+          canRetry: false
+        }
+      
+      case ConnectionState.ERROR:
+        return {
+          state: ConnectionState.ERROR,
+          message: "接続エラー",
+          details: connectError || "不明なエラーが発生しました",
+          canRetry: true,
+          retryAction: "再接続"
+        }
+      
+      case ConnectionState.TIMEOUT:
+        return {
+          state: ConnectionState.TIMEOUT,
+          message: "接続タイムアウト",
+          details: `サーバーからの応答がありません (${connectionTimeoutMs / 1000}秒)`,
+          canRetry: true,
+          retryAction: "再接続"
+        }
+      
+      case ConnectionState.AUTH_FAILED:
+        return {
+          state: ConnectionState.AUTH_FAILED,
+          message: "認証失敗",
+          details: "認証トークンが無効です",
+          canRetry: true,
+          retryAction: "再認証"
+        }
+      
+      case ConnectionState.SERVER_ERROR:
+        return {
+          state: ConnectionState.SERVER_ERROR,
+          message: "サーバーエラー",
+          details: "サーバー側でエラーが発生しました",
+          canRetry: true,
+          retryAction: "再接続"
+        }
+      
+      default:
+        return {
+          state: ConnectionState.DISCONNECTED,
+          message: "不明な状態",
+          details: "接続状態が不明です",
+          canRetry: true,
+          retryAction: "再接続"
+        }
+    }
+  }, [connectionState, connectError, connectionTimeoutMs])
 
   const wsUrlBuilder = useMemo(() => {
     const base = resolveWsBaseUrl()
@@ -86,12 +190,16 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
         // トークンの妥当性チェック
         if (!token) {
           console.warn("WebSocket: 認証トークンが取得できません")
+          setConnectionState(ConnectionState.AUTH_FAILED)
+          setConnectError("認証トークンが取得できません")
           return `${base}${urlPath}`
         }
         
         // トークンの長さチェック（異常に長いトークンを防ぐ）
         if (token.length > 5000) {
           console.error("WebSocket: トークンが異常に長いです。認証に問題がある可能性があります")
+          setConnectionState(ConnectionState.AUTH_FAILED)
+          setConnectError("認証トークンが無効です")
           return `${base}${urlPath}`
         }
         
@@ -100,6 +208,8 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
         return `${base}${urlPath}?${search.toString()}`
       } catch (error) {
         console.error("WebSocket: トークン取得エラー", error)
+        setConnectionState(ConnectionState.AUTH_FAILED)
+        setConnectError("認証トークンの取得に失敗しました")
         return `${base}${urlPath}`
       }
     }
@@ -138,6 +248,9 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
     const attempt = reconnectAttemptRef.current + 1
     reconnectAttemptRef.current = attempt
     const delay = Math.min(1000 * Math.pow(2, attempt - 1), reconnectMaxDelayMs)
+    
+    setConnectionState(ConnectionState.RECONNECTING)
+    
     window.setTimeout(() => {
       void connect()
     }, delay)
@@ -168,7 +281,7 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
       // 接続状態を設定
       isConnectingRef.current = true
       setIsConnecting(true)
-      setConnectionState("connecting")
+      setConnectionState(ConnectionState.CONNECTING)
       setConnectError(null)
 
       const fullUrl = await wsUrlBuilder()
@@ -201,7 +314,7 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
           ws.close()
           isConnectingRef.current = false
           setIsConnecting(false)
-          setConnectionState("timeout")
+          setConnectionState(ConnectionState.TIMEOUT)
           setConnectError(`接続タイムアウト: サーバーからの応答がありません（${connectionTimeoutMs / 1000}秒）`)
         }
       }, connectionTimeoutMs)
@@ -212,7 +325,7 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
         isConnectingRef.current = false
         setIsConnecting(false)
         setIsConnected(true)
-        setConnectionState("connected")
+        setConnectionState(ConnectionState.CONNECTED)
         reconnectAttemptRef.current = 0
         startHeartbeat()
         onOpen?.()
@@ -235,7 +348,7 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
         cleanupConnectionTimeout()
         isConnectingRef.current = false
         setIsConnecting(false)
-        setConnectionState("error")
+        setConnectionState(ConnectionState.ERROR)
         setConnectError("WebSocket error")
         onError?.(ev)
       }
@@ -246,7 +359,48 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
         isConnectingRef.current = false
         setIsConnecting(false)
         setIsConnected(false)
-        setConnectionState("disconnected")
+        
+        // 閉じられた理由に基づいて状態を設定
+        let newState = ConnectionState.DISCONNECTED
+        let errorMessage = null
+        
+        switch (ev.code) {
+          case 1000: // 正常終了
+            newState = ConnectionState.DISCONNECTED
+            break
+          case 1001: // エンドポイントが離脱
+            newState = ConnectionState.DISCONNECTED
+            break
+          case 1002: // プロトコルエラー
+            newState = ConnectionState.ERROR
+            errorMessage = "プロトコルエラーが発生しました"
+            break
+          case 1003: // サポートされていないデータ型
+            newState = ConnectionState.ERROR
+            errorMessage = "サポートされていないデータ型です"
+            break
+          case 1006: // 異常終了
+            newState = ConnectionState.SERVER_ERROR
+            errorMessage = "サーバーとの接続が異常終了しました"
+            break
+          case 1008: // ポリシー違反
+            newState = ConnectionState.AUTH_FAILED
+            errorMessage = "認証に失敗しました"
+            break
+          case 1011: // サーバーエラー
+            newState = ConnectionState.SERVER_ERROR
+            errorMessage = "サーバーでエラーが発生しました"
+            break
+          default:
+            newState = ConnectionState.ERROR
+            errorMessage = `接続が閉じられました (コード: ${ev.code})`
+        }
+        
+        setConnectionState(newState)
+        if (errorMessage) {
+          setConnectError(errorMessage)
+        }
+        
         cleanupHeartbeat()
         onClose?.(ev)
         scheduleReconnect()
@@ -256,12 +410,21 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
       cleanupConnectionTimeout()
       isConnectingRef.current = false
       setIsConnecting(false)
-      setConnectionState("error")
+      setConnectionState(ConnectionState.ERROR)
       setConnectError(e?.message ?? "Failed to open WebSocket")
       scheduleReconnect()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wsUrlBuilder, onOpen, onClose, onError, onMessage, startHeartbeat, connectionTimeoutMs])
+
+  // 手動再接続機能
+  const reconnect = useCallback(() => {
+    if (wsRef.current) {
+      wsRef.current.close()
+    }
+    reconnectAttemptRef.current = 0
+    void connect()
+  }, [connect])
 
   useEffect(() => {
     void connect()
@@ -270,7 +433,7 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
         cleanupConnectionTimeout()
         isConnectingRef.current = false
         setIsConnecting(false)
-        setConnectionState("disconnected")
+        setConnectionState(ConnectionState.DISCONNECTED)
         wsRef.current?.close()
       } catch {}
       cleanupHeartbeat()
@@ -293,7 +456,7 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
       cleanupConnectionTimeout()
       isConnectingRef.current = false
       setIsConnecting(false)
-      setConnectionState("disconnected")
+      setConnectionState(ConnectionState.DISCONNECTED)
       wsRef.current?.close()
     } catch {}
   }, [autoReconnect])
@@ -305,7 +468,9 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
     connectError, 
     connectionState,
     sendJson, 
-    close 
+    close,
+    reconnect,
+    getConnectionStatus
   }
 }
 

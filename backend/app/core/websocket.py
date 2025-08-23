@@ -1,9 +1,11 @@
 import json
 import asyncio
+import time
 from typing import Dict, Set, Optional, Any
 from fastapi import WebSocket, HTTPException, status
 import structlog
 from datetime import datetime, timedelta
+from collections import defaultdict, deque
 
 from app.core.auth import verify_firebase_token
 from app.models.user import User
@@ -12,6 +14,111 @@ from app.core.database import AsyncSessionLocal
 from sqlalchemy import select
 
 logger = structlog.get_logger()
+
+
+class WebSocketPerformanceMonitor:
+    """WebSocketパフォーマンス監視クラス"""
+
+    def __init__(self):
+        self.connection_times = deque(maxlen=1000)  # 接続時間の履歴
+        self.message_processing_times = deque(maxlen=1000)  # メッセージ処理時間の履歴
+        self.error_counts = defaultdict(int)  # エラー種別別カウント
+        self.message_counts = defaultdict(int)  # メッセージ種別別カウント
+        self.peak_connections = 0  # ピーク接続数
+        self.total_connections = 0  # 総接続数
+        self.total_messages = 0  # 総メッセージ数
+        self.total_errors = 0  # 総エラー数
+        self.start_time = time.time()  # 監視開始時刻
+
+    def record_connection_time(self, connection_time: float):
+        """接続時間を記録"""
+        self.connection_times.append(connection_time)
+
+    def record_message_processing_time(self, processing_time: float):
+        """メッセージ処理時間を記録"""
+        self.message_processing_times.append(processing_time)
+
+    def record_error(self, error_type: str):
+        """エラーを記録"""
+        self.error_counts[error_type] += 1
+        self.total_errors += 1
+
+    def record_message(self, message_type: str):
+        """メッセージを記録"""
+        self.message_counts[message_type] += 1
+        self.total_messages += 1
+
+    def record_connection_count(self, current_count: int):
+        """接続数を記録"""
+        self.peak_connections = max(self.peak_connections, current_count)
+        self.total_connections += 1
+
+    def get_performance_stats(self) -> Dict[str, Any]:
+        """パフォーマンス統計を取得"""
+        current_time = time.time()
+        uptime = current_time - self.start_time
+
+        # 接続時間の統計
+        connection_times = list(self.connection_times)
+        avg_connection_time = (
+            sum(connection_times) / len(connection_times) if connection_times else 0
+        )
+        max_connection_time = max(connection_times) if connection_times else 0
+        min_connection_time = min(connection_times) if connection_times else 0
+
+        # メッセージ処理時間の統計
+        processing_times = list(self.message_processing_times)
+        avg_processing_time = (
+            sum(processing_times) / len(processing_times) if processing_times else 0
+        )
+        max_processing_time = max(processing_times) if processing_times else 0
+        min_processing_time = min(processing_times) if processing_times else 0
+
+        # エラー率の計算
+        error_rate = (
+            (self.total_errors / self.total_messages * 100)
+            if self.total_messages > 0
+            else 0
+        )
+
+        # 接続率の計算
+        connection_rate = (self.total_connections / uptime) if uptime > 0 else 0
+
+        return {
+            "uptime_seconds": uptime,
+            "total_connections": self.total_connections,
+            "peak_connections": self.peak_connections,
+            "total_messages": self.total_messages,
+            "total_errors": self.total_errors,
+            "error_rate_percent": round(error_rate, 2),
+            "connection_rate_per_second": round(connection_rate, 2),
+            "connection_times": {
+                "average_ms": round(avg_connection_time * 1000, 2),
+                "maximum_ms": round(max_connection_time * 1000, 2),
+                "minimum_ms": round(min_connection_time * 1000, 2),
+                "sample_count": len(connection_times),
+            },
+            "message_processing_times": {
+                "average_ms": round(avg_processing_time * 1000, 2),
+                "maximum_ms": round(max_processing_time * 1000, 2),
+                "minimum_ms": round(min_processing_time * 1000, 2),
+                "sample_count": len(processing_times),
+            },
+            "error_breakdown": dict(self.error_counts),
+            "message_breakdown": dict(self.message_counts),
+        }
+
+    def reset_stats(self):
+        """統計をリセット"""
+        self.connection_times.clear()
+        self.message_processing_times.clear()
+        self.error_counts.clear()
+        self.message_counts.clear()
+        self.peak_connections = 0
+        self.total_connections = 0
+        self.total_messages = 0
+        self.total_errors = 0
+        self.start_time = time.time()
 
 
 class ConnectionManager:
@@ -33,9 +140,13 @@ class ConnectionManager:
         self.connection_timeout = timedelta(hours=24)
         # ハートビート管理
         self.last_heartbeat: Dict[str, datetime] = {}
+        # パフォーマンス監視
+        self.performance_monitor = WebSocketPerformanceMonitor()
 
     async def connect(self, websocket: WebSocket, session_id: str, user: User) -> str:
         """WebSocket接続を確立"""
+        start_time = time.time()
+
         try:
             await websocket.accept()
 
@@ -69,6 +180,13 @@ class ConnectionManager:
             # ハートビート初期化
             self.last_heartbeat[connection_id] = datetime.now()
 
+            # パフォーマンス監視
+            connection_time = time.time() - start_time
+            self.performance_monitor.record_connection_time(connection_time)
+            self.performance_monitor.record_connection_count(
+                len(self.active_connections)
+            )
+
             logger.info(
                 "WebSocket connection established",
                 connection_id=connection_id,
@@ -79,11 +197,15 @@ class ConnectionManager:
                     self.session_connections.get(session_id, set())
                 ),
                 user_connections=len(self.user_connections.get(user.id, set())),
+                connection_time_ms=round(connection_time * 1000, 2),
             )
 
             return connection_id
 
         except Exception as e:
+            # パフォーマンス監視
+            self.performance_monitor.record_error("connection_failed")
+
             logger.error(
                 "Failed to establish WebSocket connection",
                 error_type=type(e).__name__,
@@ -98,6 +220,7 @@ class ConnectionManager:
         # ユーザー別接続数チェック
         user_connections = len(self.user_connections.get(user_id, set()))
         if user_connections >= self.max_connections_per_user:
+            self.performance_monitor.record_error("user_connection_limit_exceeded")
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="Maximum connections per user exceeded",
@@ -106,6 +229,7 @@ class ConnectionManager:
         # セッション別接続数チェック
         session_connections = len(self.session_connections.get(session_id, set()))
         if session_connections >= self.max_connections_per_session:
+            self.performance_monitor.record_error("session_connection_limit_exceeded")
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="Maximum connections per session exceeded",
@@ -147,16 +271,25 @@ class ConnectionManager:
                 logger.info(f"WebSocket disconnected: {connection_id}")
 
         except Exception as e:
+            self.performance_monitor.record_error("disconnect_error")
             logger.error(f"Error during disconnect: {e}")
 
     async def send_personal_message(self, message: dict, connection_id: str):
         """特定の接続にメッセージを送信"""
+        start_time = time.time()
+
         try:
             if connection_id in self.active_connections:
                 websocket = self.active_connections[connection_id]
                 await websocket.send_text(json.dumps(message))
+
+                # パフォーマンス監視
+                processing_time = time.time() - start_time
+                self.performance_monitor.record_message_processing_time(processing_time)
+
                 logger.debug(f"Personal message sent to {connection_id}")
         except Exception as e:
+            self.performance_monitor.record_error("send_message_failed")
             logger.error(f"Failed to send personal message to {connection_id}: {e}")
             await self.disconnect(connection_id)
 
@@ -164,6 +297,8 @@ class ConnectionManager:
         self, message: dict, session_id: str, exclude_connection: Optional[str] = None
     ):
         """セッション内の全接続にメッセージをブロードキャスト"""
+        start_time = time.time()
+
         try:
             if session_id in self.session_connections:
                 for connection_id in self.session_connections[session_id]:
@@ -172,8 +307,14 @@ class ConnectionManager:
                         and connection_id in self.active_connections
                     ):
                         await self.send_personal_message(message, connection_id)
+
+                # パフォーマンス監視
+                processing_time = time.time() - start_time
+                self.performance_monitor.record_message_processing_time(processing_time)
+
                 logger.debug(f"Broadcast message sent to session {session_id}")
         except Exception as e:
+            self.performance_monitor.record_error("broadcast_failed")
             logger.error(f"Failed to broadcast to session {session_id}: {e}")
 
     async def get_session_participants(self, session_id: str) -> list:
@@ -239,6 +380,14 @@ class ConnectionManager:
             },
         }
 
+    async def get_performance_stats(self) -> dict:
+        """パフォーマンス統計を取得"""
+        return self.performance_monitor.get_performance_stats()
+
+    async def reset_performance_stats(self):
+        """パフォーマンス統計をリセット"""
+        self.performance_monitor.reset_stats()
+
 
 # グローバルインスタンス
 manager = ConnectionManager()
@@ -250,6 +399,8 @@ class WebSocketAuth:
     @staticmethod
     async def authenticate_websocket(websocket: WebSocket) -> User:
         """WebSocket接続の認証（Firebase IDトークンのみ）"""
+        start_time = time.time()
+
         try:
             # クエリパラメータからトークンを取得
             query_params = websocket.query_params
@@ -257,6 +408,7 @@ class WebSocketAuth:
 
             if not token:
                 logger.warning("WebSocket authentication failed: No token provided")
+                manager.performance_monitor.record_error("no_token_provided")
                 raise AuthenticationException("No authentication token provided")
 
             logger.info(
@@ -269,6 +421,9 @@ class WebSocketAuth:
                 firebase_payload = await verify_firebase_token(token)
                 if not firebase_payload:
                     logger.warning("Firebase token verification returned None")
+                    manager.performance_monitor.record_error(
+                        "firebase_token_verification_failed"
+                    )
                     raise AuthenticationException("Invalid Firebase token")
 
                 uid = firebase_payload.get("uid")
@@ -279,6 +434,9 @@ class WebSocketAuth:
                         "Firebase token missing required fields",
                         has_uid=bool(uid),
                         has_email=bool(email),
+                    )
+                    manager.performance_monitor.record_error(
+                        "firebase_token_missing_fields"
                     )
                     raise AuthenticationException("Invalid token payload")
 
@@ -295,17 +453,24 @@ class WebSocketAuth:
                             firebase_uid=uid,
                             email=email,
                         )
+                        manager.performance_monitor.record_error("user_not_found")
                         raise AuthenticationException("User not found")
+
+                    # パフォーマンス監視
+                    auth_time = time.time() - start_time
+                    manager.performance_monitor.record_connection_time(auth_time)
 
                     logger.info(
                         "WebSocket authentication successful",
                         user_id=user.id,
                         firebase_uid=uid,
                         email=email,
+                        auth_time_ms=round(auth_time * 1000, 2),
                     )
                     return user
 
             except Exception as firebase_error:
+                manager.performance_monitor.record_error("firebase_verification_error")
                 logger.error(
                     "Firebase token verification failed",
                     error_type=type(firebase_error).__name__,
@@ -314,6 +479,7 @@ class WebSocketAuth:
                 raise AuthenticationException("Invalid authentication token")
 
         except Exception as e:
+            manager.performance_monitor.record_error("authentication_failed")
             logger.error(
                 "WebSocket authentication failed with unexpected error",
                 error_type=type(e).__name__,
@@ -327,65 +493,10 @@ class WebSocketMessageHandler:
     """WebSocketメッセージハンドラークラス"""
 
     @staticmethod
-    async def _check_permission(
-        user: User, session_id: str, required_permission: str
-    ) -> bool:
-        """ユーザーの権限をチェック"""
-        try:
-            # 基本的な権限チェック
-            if not user.is_active:
-                logger.warning(
-                    "Permission check failed: User is not active",
-                    user_id=user.id,
-                    session_id=session_id,
-                )
-                return False
-
-            # セッション参加者の権限チェック
-            if required_permission in ["manage_session", "moderate_participants"]:
-                # 実際のセッション権限をチェック
-                if await WebSocketMessageHandler._is_session_host_or_moderator(
-                    user, session_id
-                ):
-                    logger.debug(
-                        "Permission check passed for session management",
-                        user_id=user.id,
-                        session_id=session_id,
-                        permission=required_permission,
-                    )
-                    return True
-                else:
-                    logger.warning(
-                        "Permission denied: User is not session host or moderator",
-                        user_id=user.id,
-                        session_id=session_id,
-                        permission=required_permission,
-                    )
-                    return False
-
-            # 基本的な参加者権限
-            logger.debug(
-                "Basic participant permission granted",
-                user_id=user.id,
-                session_id=session_id,
-                permission=required_permission,
-            )
-            return True
-
-        except Exception as e:
-            logger.error(
-                "Permission check failed with error",
-                error_type=type(e).__name__,
-                error_message=str(e),
-                user_id=user.id,
-                session_id=session_id,
-                permission=required_permission,
-            )
-            return False
-
-    @staticmethod
     async def _is_session_host_or_moderator(user: User, session_id: str) -> bool:
         """ユーザーがセッションのホストまたはモデレーターかを判定"""
+        start_time = time.time()
+
         try:
             from app.services.voice_session_service import VoiceSessionService
 
@@ -402,6 +513,7 @@ class WebSocketMessageHandler:
                         user_id=user.id,
                         session_id=session_id,
                     )
+                    manager.performance_monitor.record_error("session_not_found")
                     return False
 
                 # セッションのホストかチェック
@@ -425,6 +537,7 @@ class WebSocketMessageHandler:
                 return False
 
         except Exception as e:
+            manager.performance_monitor.record_error("permission_check_failed")
             logger.error(
                 "Failed to check session host or moderator status",
                 error_type=type(e).__name__,
@@ -435,10 +548,74 @@ class WebSocketMessageHandler:
             return False
 
     @staticmethod
+    async def _check_permission(
+        user: User, session_id: str, required_permission: str
+    ) -> bool:
+        """ユーザーの権限をチェック"""
+        start_time = time.time()
+
+        try:
+            # 基本的な権限チェック
+            if not user.is_active:
+                logger.warning(
+                    "Permission check failed: User is not active",
+                    user_id=user.id,
+                    session_id=session_id,
+                )
+                manager.performance_monitor.record_error("user_not_active")
+                return False
+
+            # セッション参加者の権限チェック
+            if required_permission in ["manage_session", "moderate_participants"]:
+                # 実際のセッション権限をチェック
+                if await WebSocketMessageHandler._is_session_host_or_moderator(
+                    user, session_id
+                ):
+                    logger.debug(
+                        "Permission check passed for session management",
+                        user_id=user.id,
+                        session_id=session_id,
+                        permission=required_permission,
+                    )
+                    return True
+                else:
+                    logger.warning(
+                        "Permission denied: User is not session host or moderator",
+                        user_id=user.id,
+                        session_id=session_id,
+                        permission=required_permission,
+                    )
+                    manager.performance_monitor.record_error("permission_denied")
+                    return False
+
+            # 基本的な参加者権限
+            logger.debug(
+                "Basic participant permission granted",
+                user_id=user.id,
+                session_id=session_id,
+                permission=required_permission,
+            )
+            return True
+
+        except Exception as e:
+            manager.performance_monitor.record_error("permission_check_error")
+            logger.error(
+                "Permission check failed with error",
+                error_type=type(e).__name__,
+                error_message=str(e),
+                user_id=user.id,
+                session_id=session_id,
+                permission=required_permission,
+            )
+            return False
+
+    @staticmethod
     async def _check_participant_permission(
         user: User, session_id: str, target_user_id: int, action: str
     ) -> bool:
         """特定の参加者に対する操作権限をチェック"""
+        start_time = time.time()
+
         try:
             # 自分自身に対する操作は許可
             if user.id == target_user_id:
@@ -468,9 +645,13 @@ class WebSocketMessageHandler:
                 target_user_id=target_user_id,
                 action=action,
             )
+            manager.performance_monitor.record_error("insufficient_permission")
             return False
 
         except Exception as e:
+            manager.performance_monitor.record_error(
+                "participant_permission_check_failed"
+            )
             logger.error(
                 "Participant permission check failed",
                 error_type=type(e).__name__,
@@ -484,6 +665,8 @@ class WebSocketMessageHandler:
     @staticmethod
     async def handle_join_session(session_id: str, connection_id: str, user: User):
         """セッション参加処理"""
+        start_time = time.time()
+
         try:
             # 参加者一覧を取得
             participants = await manager.get_session_participants(session_id)
@@ -522,9 +705,15 @@ class WebSocketMessageHandler:
                 exclude_connection=connection_id,
             )
 
+            # パフォーマンス監視
+            processing_time = time.time() - start_time
+            manager.performance_monitor.record_message_processing_time(processing_time)
+            manager.performance_monitor.record_message("join_session")
+
             logger.info(f"User {user.id} joined session {session_id}")
 
         except Exception as e:
+            manager.performance_monitor.record_error("join_session_failed")
             logger.error(f"Failed to handle join session: {e}")
 
     @staticmethod
@@ -532,8 +721,20 @@ class WebSocketMessageHandler:
         websocket: WebSocket, message: dict, connection_id: str, user: User
     ):
         """WebSocketメッセージの処理"""
+        start_time = time.time()
+        message_type = message.get("type")
+
         try:
-            message_type = message.get("type")
+            if not message_type:
+                logger.warning(
+                    "Message processing failed: No message type",
+                    message=message,
+                    connection_id=connection_id,
+                    user_id=user.id,
+                )
+                manager.performance_monitor.record_error("no_message_type")
+                return
+
             session_id = message.get("roomId") or message.get("session_id")
 
             if not session_id:
@@ -543,6 +744,7 @@ class WebSocketMessageHandler:
                     connection_id=connection_id,
                     user_id=user.id,
                 )
+                manager.performance_monitor.record_error("no_session_id")
                 return
 
             logger.debug(
@@ -652,8 +854,15 @@ class WebSocketMessageHandler:
                     connection_id=connection_id,
                     user_id=user.id,
                 )
+                manager.performance_monitor.record_error("unknown_message_type")
+
+            # パフォーマンス監視
+            processing_time = time.time() - start_time
+            manager.performance_monitor.record_message_processing_time(processing_time)
+            manager.performance_monitor.record_message(message_type)
 
         except Exception as e:
+            manager.performance_monitor.record_error("message_processing_failed")
             logger.error(
                 "Failed to handle WebSocket message",
                 error_type=type(e).__name__,
@@ -673,6 +882,8 @@ class WebSocketMessageHandler:
         message: dict, session_id: str, connection_id: str, user: User
     ):
         """WebRTCシグナリングメッセージの処理"""
+        start_time = time.time()
+
         try:
             message_type = message.get("type")
             target_user_id = message.get("to")
@@ -747,7 +958,13 @@ class WebSocketMessageHandler:
                             f"ICE candidate forwarded from {user.id} to {target_user_id}"
                         )
 
+            # パフォーマンス監視
+            processing_time = time.time() - start_time
+            manager.performance_monitor.record_message_processing_time(processing_time)
+            manager.performance_monitor.record_message(f"webrtc_{message_type}")
+
         except Exception as e:
+            manager.performance_monitor.record_error("webrtc_signaling_failed")
             logger.error(f"Failed to handle WebRTC signaling: {e}")
 
     @staticmethod
@@ -768,6 +985,8 @@ class WebSocketMessageHandler:
     @staticmethod
     async def _handle_leave_session(session_id: str, connection_id: str, user: User):
         """セッション退出処理"""
+        start_time = time.time()
+
         try:
             # 参加者退出を全員に通知
             await manager.broadcast_to_session(
@@ -781,9 +1000,15 @@ class WebSocketMessageHandler:
                 exclude_connection=connection_id,
             )
 
+            # パフォーマンス監視
+            processing_time = time.time() - start_time
+            manager.performance_monitor.record_message_processing_time(processing_time)
+            manager.performance_monitor.record_message("leave_session")
+
             logger.info(f"User {user.id} left session {session_id}")
 
         except Exception as e:
+            manager.performance_monitor.record_error("leave_session_failed")
             logger.error(f"Failed to handle leave session: {e}")
 
     @staticmethod
@@ -791,6 +1016,8 @@ class WebSocketMessageHandler:
         message: dict, session_id: str, connection_id: str, user: User
     ):
         """参加者のミュート制御"""
+        start_time = time.time()
+
         try:
             participant_id = message.get("participant_id")
             muted = message.get("muted", False)
@@ -803,6 +1030,7 @@ class WebSocketMessageHandler:
                     user_id=user.id,
                     session_id=session_id,
                 )
+                manager.performance_monitor.record_error("missing_participant_id")
                 await manager.send_personal_message(
                     {"type": "error", "message": "Missing participant_id parameter"},
                     connection_id,
@@ -819,6 +1047,7 @@ class WebSocketMessageHandler:
                     target_participant_id=participant_id,
                     session_id=session_id,
                 )
+                manager.performance_monitor.record_error("mute_permission_denied")
                 await manager.send_personal_message(
                     {
                         "type": "error",
@@ -841,6 +1070,11 @@ class WebSocketMessageHandler:
                 session_id,
             )
 
+            # パフォーマンス監視
+            processing_time = time.time() - start_time
+            manager.performance_monitor.record_message_processing_time(processing_time)
+            manager.performance_monitor.record_message("mute_participant")
+
             logger.info(
                 "Participant mute operation successful",
                 user_id=user.id,
@@ -850,6 +1084,7 @@ class WebSocketMessageHandler:
             )
 
         except Exception as e:
+            manager.performance_monitor.record_error("mute_participant_failed")
             logger.error(
                 "Failed to handle mute participant",
                 error_type=type(e).__name__,
@@ -868,6 +1103,8 @@ class WebSocketMessageHandler:
         message: dict, session_id: str, connection_id: str, user: User
     ):
         """参加者の役割変更"""
+        start_time = time.time()
+
         try:
             participant_id = message.get("participant_id")
             new_role = message.get("new_role")
@@ -880,6 +1117,7 @@ class WebSocketMessageHandler:
                     user_id=user.id,
                     session_id=session_id,
                 )
+                manager.performance_monitor.record_error("missing_role_change_params")
                 await manager.send_personal_message(
                     {"type": "error", "message": "Missing required parameters"},
                     connection_id,
@@ -895,6 +1133,9 @@ class WebSocketMessageHandler:
                     user_id=user.id,
                     target_participant_id=participant_id,
                     session_id=session_id,
+                )
+                manager.performance_monitor.record_error(
+                    "role_change_permission_denied"
                 )
                 await manager.send_personal_message(
                     {
@@ -918,6 +1159,11 @@ class WebSocketMessageHandler:
                 session_id,
             )
 
+            # パフォーマンス監視
+            processing_time = time.time() - start_time
+            manager.performance_monitor.record_message_processing_time(processing_time)
+            manager.performance_monitor.record_message("change_role")
+
             logger.info(
                 "Participant role change successful",
                 user_id=user.id,
@@ -927,6 +1173,7 @@ class WebSocketMessageHandler:
             )
 
         except Exception as e:
+            manager.performance_monitor.record_error("change_role_failed")
             logger.error(
                 "Failed to handle change role",
                 error_type=type(e).__name__,
@@ -945,6 +1192,8 @@ class WebSocketMessageHandler:
         message: dict, session_id: str, connection_id: str, user: User
     ):
         """参加者の削除"""
+        start_time = time.time()
+
         try:
             participant_id = message.get("participant_id")
 
@@ -955,6 +1204,9 @@ class WebSocketMessageHandler:
                     message=message,
                     user_id=user.id,
                     session_id=session_id,
+                )
+                manager.performance_monitor.record_error(
+                    "missing_remove_participant_id"
                 )
                 await manager.send_personal_message(
                     {"type": "error", "message": "Missing participant_id parameter"},
@@ -971,6 +1223,9 @@ class WebSocketMessageHandler:
                     user_id=user.id,
                     target_participant_id=participant_id,
                     session_id=session_id,
+                )
+                manager.performance_monitor.record_error(
+                    "remove_participant_permission_denied"
                 )
                 await manager.send_personal_message(
                     {
@@ -992,6 +1247,11 @@ class WebSocketMessageHandler:
                 session_id,
             )
 
+            # パフォーマンス監視
+            processing_time = time.time() - start_time
+            manager.performance_monitor.record_message_processing_time(processing_time)
+            manager.performance_monitor.record_message("remove_participant")
+
             logger.info(
                 "Participant removal successful",
                 user_id=user.id,
@@ -1000,6 +1260,7 @@ class WebSocketMessageHandler:
             )
 
         except Exception as e:
+            manager.performance_monitor.record_error("remove_participant_failed")
             logger.error(
                 "Failed to handle remove participant",
                 error_type=type(e).__name__,

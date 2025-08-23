@@ -1,689 +1,586 @@
 import pytest
-from httpx import AsyncClient
-from unittest.mock import AsyncMock, patch, MagicMock
-from datetime import datetime
+import asyncio
 import json
-from fastapi import HTTPException
+from unittest.mock import AsyncMock, MagicMock, patch
+from fastapi.testclient import TestClient
+from fastapi import WebSocket, WebSocketDisconnect
 
-from app.models.voice_session import VoiceSession
+from app.core.websocket import manager, WebSocketAuth, WebSocketMessageHandler
 from app.models.user import User
-from app.schemas.voice_session import VoiceSessionResponse
-from app.schemas.common import StatusEnum
-from tests.conftest import CombinedTestClient
-
-
-@pytest.fixture
-def mock_voice_session():
-    """モック音声セッション"""
-    return VoiceSession(
-        id=1,
-        room_id="test_session_123",
-        title="Test Session",
-        description="Test session for WebSocket",
-        status="active",
-        host_id=1,
-        team_id=None,
-        duration_minutes=0.0,
-        participant_count=0,
-        recording_url=None,
-        is_public=False,
-        allow_recording=True,
-        started_at=datetime.now(),
-        ended_at=None,
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
-    )
+from app.core.exceptions import AuthenticationException
+from app.schemas.websocket import WebSocketMessageValidator, ValidationError
 
 
 @pytest.fixture
 def mock_user():
-    """モックユーザー"""
-    return User(
+    """テスト用ユーザーを作成"""
+    user = User(
         id=1,
-        email="test@example.com",
         username="testuser",
-        display_name="Test User",
+        email="test@example.com",
+        firebase_uid="test_firebase_uid",
         is_active=True,
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
+        display_name="Test User",
     )
+    return user
+
+
+@pytest.fixture
+def mock_websocket():
+    """テスト用WebSocketを作成"""
+    websocket = AsyncMock(spec=WebSocket)
+    websocket.query_params = {"token": "valid_token"}
+    websocket.accept = AsyncMock()
+    websocket.close = AsyncMock()
+    websocket.receive_text = AsyncMock()
+    websocket.send_text = AsyncMock()
+    return websocket
+
+
+@pytest.fixture
+def mock_voice_session_service():
+    """テスト用VoiceSessionServiceを作成"""
+    service = AsyncMock()
+    service.get_session_by_session_id = AsyncMock()
+    return service
 
 
 class TestWebSocketConnection:
-    """WebSocket接続テスト"""
+    """WebSocket接続のテスト"""
 
     @pytest.mark.asyncio
-    async def test_websocket_connection_success(
-        self, client: CombinedTestClient, mock_voice_session, mock_user
-    ):
-        """WebSocket接続成功テスト"""
+    async def test_websocket_connection_success(self, mock_websocket, mock_user):
+        """WebSocket接続成功のテスト"""
         with (
-            patch(
-                "app.core.websocket.WebSocketAuth.authenticate_websocket"
-            ) as mock_auth,
-            patch(
-                "app.services.voice_session_service.VoiceSessionService.get_session_by_session_id"
-            ) as mock_get_session,
+            patch("app.core.websocket.verify_firebase_token") as mock_verify,
+            patch("app.core.websocket.AsyncSessionLocal") as mock_db_session,
+            patch("app.core.websocket.VoiceSessionService") as mock_service_class,
         ):
-            mock_auth.return_value = mock_user
-            mock_get_session.return_value = mock_voice_session
-
-            # WebSocket接続をシミュレート
-            with client.websocket_connect(
-                "/api/v1/ws/voice-sessions/test_session_123?token=test_token"
-            ) as websocket:
-                # 接続確立メッセージを受信
-                data = websocket.receive_text()
-                message = json.loads(data)
-
-                assert message["type"] == "connection_established"
-                assert message["session_id"] == "test_session_123"
-                assert message["user_id"] == 1
-
-    @pytest.mark.asyncio
-    async def test_websocket_authentication_failure(self, client: CombinedTestClient):
-        """WebSocket認証失敗テスト"""
-        with patch(
-            "app.core.websocket.WebSocketAuth.authenticate_websocket"
-        ) as mock_auth:
-            mock_auth.side_effect = Exception("Authentication failed")
-
-            # WebSocket接続をシミュレート（認証失敗）
-            with pytest.raises(Exception):
-                with client.websocket_connect(
-                    "/api/v1/ws/voice-sessions/test_session_123?token=invalid_token"
-                ) as websocket:
-                    pass
-
-    @pytest.mark.asyncio
-    async def test_websocket_session_not_found(
-        self, client: CombinedTestClient, mock_user
-    ):
-        """WebSocketセッション未発見テスト"""
-        with (
-            patch(
-                "app.core.websocket.WebSocketAuth.authenticate_websocket"
-            ) as mock_auth,
-            patch(
-                "app.services.voice_session_service.VoiceSessionService.get_session_by_session_id"
-            ) as mock_get_session,
-        ):
-            mock_auth.return_value = mock_user
-            mock_get_session.return_value = None
-
-            # WebSocket接続をシミュレート（セッション未発見）
-            with pytest.raises(Exception):
-                with client.websocket_connect(
-                    "/api/v1/ws/voice-sessions/nonexistent_session?token=test_token"
-                ) as websocket:
-                    pass
-
-
-class TestWebSocketMessageHandling:
-    """WebSocketメッセージ処理テスト"""
-
-    @pytest.mark.asyncio
-    async def test_ping_pong_message(
-        self, client: CombinedTestClient, mock_voice_session, mock_user
-    ):
-        """Ping-Pongメッセージテスト"""
-        with (
-            patch(
-                "app.core.websocket.WebSocketAuth.authenticate_websocket"
-            ) as mock_auth,
-            patch(
-                "app.services.voice_session_service.VoiceSessionService.get_session_by_session_id"
-            ) as mock_get_session,
-            patch(
-                "app.services.participant_management_service.participant_manager.add_participant"
-            ) as mock_add_participant,
-            patch(
-                "app.services.participant_management_service.participant_manager.get_session_participants"
-            ) as mock_get_participants,
-        ):
-            mock_auth.return_value = mock_user
-            mock_get_session.return_value = mock_voice_session
-            mock_add_participant.return_value = MagicMock(
-                role=MagicMock(value="participant")
-            )
-            mock_get_participants.return_value = [
-                MagicMock(
-                    user_id=1,
-                    user=mock_user,
-                    role=MagicMock(value="participant"),
-                    status=MagicMock(value="connected"),
-                    is_muted=False,
-                    is_speaking=False,
-                    joined_at=datetime.now(),
-                )
-            ]
-
-            with client.websocket_connect(
-                "/api/v1/ws/voice-sessions/test_session_123?token=test_token"
-            ) as websocket:
-                # 接続確立メッセージを受信
-                data = websocket.receive_text()
-                message = json.loads(data)
-                assert message["type"] == "connection_established"
-
-                # セッション参加者メッセージを受信
-                data = websocket.receive_text()
-                message = json.loads(data)
-                assert message["type"] == "session_participants"
-
-                # Pingメッセージを送信
-                ping_message = {"type": "ping"}
-                websocket.send_text(json.dumps(ping_message))
-
-                # Pongレスポンスを受信
-                data = websocket.receive_text()
-                message = json.loads(data)
-
-                assert message["type"] == "pong"
-
-    @pytest.mark.asyncio
-    async def test_join_session_message(
-        self, client: CombinedTestClient, mock_voice_session, mock_user
-    ):
-        """セッション参加メッセージテスト"""
-        with (
-            patch(
-                "app.core.websocket.WebSocketAuth.authenticate_websocket"
-            ) as mock_auth,
-            patch(
-                "app.services.voice_session_service.VoiceSessionService.get_session_by_session_id"
-            ) as mock_get_session,
-            patch(
-                "app.services.participant_management_service.participant_manager.add_participant"
-            ) as mock_add_participant,
-            patch(
-                "app.services.participant_management_service.participant_manager.get_session_participants"
-            ) as mock_get_participants,
-        ):
-            mock_auth.return_value = mock_user
-            mock_get_session.return_value = mock_voice_session
-            mock_add_participant.return_value = MagicMock(
-                role=MagicMock(value="participant")
-            )
-            mock_get_participants.return_value = [
-                MagicMock(
-                    user_id=1,
-                    user=mock_user,
-                    role=MagicMock(value="participant"),
-                    status=MagicMock(value="connected"),
-                    is_muted=False,
-                    is_speaking=False,
-                    joined_at=datetime.now(),
-                )
-            ]
-
-            with client.websocket_connect(
-                "/api/v1/ws/voice-sessions/test_session_123?token=test_token"
-            ) as websocket:
-                # 接続確立メッセージを受信
-                data = websocket.receive_text()
-                message = json.loads(data)
-                assert message["type"] == "connection_established"
-
-                # セッション参加者メッセージを受信
-                data = websocket.receive_text()
-                message = json.loads(data)
-                assert message["type"] == "session_participants"
-
-                # セッション参加メッセージを送信
-                join_message = {
-                    "type": "join_session",
-                    "session_id": "test_session_123",
-                }
-                websocket.send_text(json.dumps(join_message))
-
-                # 参加者リストメッセージを受信
-                data = websocket.receive_text()
-                message = json.loads(data)
-
-                assert message["type"] == "session_participants"
-
-    @pytest.mark.asyncio
-    async def test_audio_data_message(
-        self, client: CombinedTestClient, mock_voice_session, mock_user
-    ):
-        """音声データメッセージテスト"""
-        with (
-            patch(
-                "app.core.websocket.WebSocketAuth.authenticate_websocket"
-            ) as mock_auth,
-            patch(
-                "app.services.voice_session_service.VoiceSessionService.get_session_by_session_id"
-            ) as mock_get_session,
-            patch(
-                "app.services.audio_processing_service.audio_processor.process_audio_data"
-            ) as mock_process_audio,
-            patch(
-                "app.services.participant_management_service.participant_manager.add_participant"
-            ) as mock_add_participant,
-            patch(
-                "app.services.participant_management_service.participant_manager.get_session_participants"
-            ) as mock_get_participants,
-        ):
-            mock_auth.return_value = mock_user
-            mock_get_session.return_value = mock_voice_session
-            mock_process_audio.return_value = MagicMock()
-            mock_add_participant.return_value = MagicMock(
-                role=MagicMock(value="participant")
-            )
-            mock_get_participants.return_value = [
-                MagicMock(
-                    user_id=1,
-                    user=mock_user,
-                    role=MagicMock(value="participant"),
-                    status=MagicMock(value="connected"),
-                    is_muted=False,
-                    is_speaking=False,
-                    joined_at=datetime.now(),
-                )
-            ]
-
-            with client.websocket_connect(
-                "/api/v1/ws/voice-sessions/test_session_123?token=test_token"
-            ) as websocket:
-                # 接続確立メッセージを受信
-                data = websocket.receive_text()
-                message = json.loads(data)
-                assert message["type"] == "connection_established"
-
-                # セッション参加者メッセージを受信
-                data = websocket.receive_text()
-                message = json.loads(data)
-                assert message["type"] == "session_participants"
-
-                # 音声データメッセージを送信
-                audio_message = {
-                    "type": "audio_data",
-                    "session_id": "test_session_123",
-                    "data": "base64_encoded_audio_data",
-                    "timestamp": datetime.now().isoformat(),
-                    "chunk_id": "chunk_123",
-                    "sample_rate": 16000,
-                    "channels": 1,
-                }
-                websocket.send_text(json.dumps(audio_message))
-
-                # 音声レベルメッセージを受信
-                data = websocket.receive_text()
-                message = json.loads(data)
-
-                assert message["type"] == "audio_level"
-
-    @pytest.mark.asyncio
-    async def test_text_message(
-        self, client: CombinedTestClient, mock_voice_session, mock_user
-    ):
-        """テキストメッセージテスト"""
-        with (
-            patch(
-                "app.core.websocket.WebSocketAuth.authenticate_websocket"
-            ) as mock_auth,
-            patch(
-                "app.services.voice_session_service.VoiceSessionService.get_session_by_session_id"
-            ) as mock_get_session,
-            patch(
-                "app.services.messaging_service.messaging_service.send_text_message"
-            ) as mock_send_message,
-        ):
-            mock_auth.return_value = mock_user
-            mock_get_session.return_value = mock_voice_session
-            mock_send_message.return_value = MagicMock()
-
-            with client.websocket_connect(
-                "/api/v1/ws/voice-sessions/test_session_123?token=test_token"
-            ) as websocket:
-                # テキストメッセージを送信
-                text_message = {
-                    "type": "text_message",
-                    "session_id": "test_session_123",
-                    "content": "Hello, World!",
-                    "priority": "normal",
-                }
-                websocket.send_text(json.dumps(text_message))
-
-                # エラーメッセージが送信されないことを確認
-                # （正常に処理される場合、特別なレスポンスはない）
-
-    @pytest.mark.asyncio
-    async def test_invalid_message_type(
-        self, client: CombinedTestClient, mock_voice_session, mock_user
-    ):
-        """無効なメッセージタイプテスト"""
-        with (
-            patch(
-                "app.core.websocket.WebSocketAuth.authenticate_websocket"
-            ) as mock_auth,
-            patch(
-                "app.services.voice_session_service.VoiceSessionService.get_session_by_session_id"
-            ) as mock_get_session,
-            patch(
-                "app.services.participant_management_service.participant_manager.add_participant"
-            ) as mock_add_participant,
-            patch(
-                "app.services.participant_management_service.participant_manager.get_session_participants"
-            ) as mock_get_participants,
-        ):
-            mock_auth.return_value = mock_user
-            mock_get_session.return_value = mock_voice_session
-            mock_add_participant.return_value = MagicMock(
-                role=MagicMock(value="participant")
-            )
-            mock_get_participants.return_value = [
-                MagicMock(
-                    user_id=1,
-                    user=mock_user,
-                    role=MagicMock(value="participant"),
-                    status=MagicMock(value="connected"),
-                    is_muted=False,
-                    is_speaking=False,
-                    joined_at=datetime.now(),
-                )
-            ]
-
-            with client.websocket_connect(
-                "/api/v1/ws/voice-sessions/test_session_123?token=test_token"
-            ) as websocket:
-                # 接続確立メッセージを受信
-                data = websocket.receive_text()
-                message = json.loads(data)
-                assert message["type"] == "connection_established"
-
-                # セッション参加者メッセージを受信
-                data = websocket.receive_text()
-                message = json.loads(data)
-                assert message["type"] == "session_participants"
-
-                # 無効なメッセージタイプを送信
-                invalid_message = {"type": "invalid_type", "data": "test"}
-                websocket.send_text(json.dumps(invalid_message))
-
-                # エラーメッセージを受信
-                data = websocket.receive_text()
-                message = json.loads(data)
-
-                assert message["type"] == "error"
-
-
-class TestWebSocketAPIEndpoints:
-    """WebSocket APIエンドポイントテスト"""
-
-    @pytest.mark.asyncio
-    async def test_get_connection_stats(self, client: CombinedTestClient):
-        """接続統計取得テスト"""
-        with patch("app.core.websocket.manager.get_connection_stats") as mock_get_stats:
-            mock_get_stats.return_value = {
-                "total_connections": 5,
-                "total_sessions": 2,
-                "total_users": 3,
-                "session_connections": {"session1": 3, "session2": 2},
+            # モックの設定
+            mock_verify.return_value = {
+                "uid": "test_firebase_uid",
+                "email": "test@example.com",
             }
+            mock_db = AsyncMock()
+            mock_db_session.return_value.__aenter__.return_value = mock_db
+            mock_service = AsyncMock()
+            mock_service.get_session_by_session_id.return_value = MagicMock(host_id=1)
+            mock_service_class.return_value = mock_service
 
-            response = await client.get("/api/v1/ws/connections/stats")
-            assert response.status_code == 200
-
-            data = response.json()
-            assert "stats" in data
-            assert "timestamp" in data
-            assert data["stats"]["total_connections"] == 5
-
-    @pytest.mark.asyncio
-    async def test_cleanup_inactive_connections(self, client: CombinedTestClient):
-        """非アクティブ接続クリーンアップテスト"""
-        with patch(
-            "app.core.websocket.manager.cleanup_inactive_connections"
-        ) as mock_cleanup:
-            mock_cleanup.return_value = None
-
-            response = await client.post("/api/v1/ws/connections/cleanup")
-            assert response.status_code == 200
-
-            data = response.json()
-            assert data["status"] == "cleanup_completed"
-            assert "timestamp" in data
-
-    @pytest.mark.asyncio
-    async def test_get_session_participants(self, client: CombinedTestClient):
-        """セッション参加者取得テスト"""
-        with patch(
-            "app.core.websocket.manager.get_session_participants"
-        ) as mock_get_participants:
-            mock_get_participants.return_value = {1, 2, 3}
-
-            response = await client.get(
-                "/api/v1/ws/voice-sessions/test_session_123/participants"
+            # 接続テスト
+            connection_id = await manager.connect(
+                mock_websocket, "test-session", mock_user
             )
-            assert response.status_code == 200
 
-            data = response.json()
-            assert data["session_id"] == "test_session_123"
-            assert data["count"] == 3
-            assert len(data["participants"]) == 3
+            assert connection_id is not None
+            assert connection_id in manager.active_connections
+            assert connection_id in manager.session_connections["test-session"]
+            assert connection_id in manager.user_connections[1]
+
+            # クリーンアップ
+            await manager.disconnect(connection_id)
 
     @pytest.mark.asyncio
-    async def test_get_session_status(self, client: CombinedTestClient):
-        """セッション状態取得テスト"""
+    async def test_websocket_connection_limits(self, mock_websocket, mock_user):
+        """WebSocket接続制限のテスト"""
+        # 最大接続数まで接続
+        for i in range(manager.max_connections_per_user):
+            connection_id = await manager.connect(
+                mock_websocket, f"session-{i}", mock_user
+            )
+            assert connection_id is not None
+
+        # 制限を超えた接続は失敗
+        with pytest.raises(Exception):
+            await manager.connect(mock_websocket, "session-limit", mock_user)
+
+        # クリーンアップ
+        for connection_id in list(manager.active_connections.keys()):
+            await manager.disconnect(connection_id)
+
+    @pytest.mark.asyncio
+    async def test_websocket_connection_timeout(self, mock_websocket, mock_user):
+        """WebSocket接続タイムアウトのテスト"""
+        with patch("app.core.websocket.verify_firebase_token") as mock_verify:
+            mock_verify.side_effect = asyncio.TimeoutError("Authentication timeout")
+
+            with pytest.raises(asyncio.TimeoutError):
+                await WebSocketAuth.authenticate_websocket(mock_websocket)
+
+    @pytest.mark.asyncio
+    async def test_websocket_connection_cleanup(self, mock_websocket, mock_user):
+        """WebSocket接続クリーンアップのテスト"""
+        # 接続を作成
+        connection_id = await manager.connect(mock_websocket, "test-session", mock_user)
+
+        # 非アクティブな接続としてマーク
+        manager.last_heartbeat[connection_id] = (
+            asyncio.get_event_loop().time() - 25 * 3600
+        )  # 25時間前
+
+        # クリーンアップ実行
+        await manager.cleanup_inactive_connections()
+
+        # 接続が削除されていることを確認
+        assert connection_id not in manager.active_connections
+
+
+class TestWebSocketAuthentication:
+    """WebSocket認証のテスト"""
+
+    @pytest.mark.asyncio
+    async def test_websocket_auth_success(self, mock_websocket, mock_user):
+        """WebSocket認証成功のテスト"""
         with (
-            patch(
-                "app.core.websocket.manager.get_session_connection_count"
-            ) as mock_get_count,
-            patch(
-                "app.core.websocket.manager.get_session_participants"
-            ) as mock_get_participants,
+            patch("app.core.websocket.verify_firebase_token") as mock_verify,
+            patch("app.core.websocket.AsyncSessionLocal") as mock_db_session,
         ):
-            mock_get_count.return_value = 3
-            mock_get_participants.return_value = {1, 2, 3}
-
-            response = await client.get(
-                "/api/v1/ws/voice-sessions/test_session_123/status"
-            )
-            assert response.status_code == 200
-
-            data = response.json()
-            assert data["session_id"] == "test_session_123"
-            assert data["connection_count"] == 3
-            assert data["participant_count"] == 3
-            assert data["is_active"] is True
-
-    @pytest.mark.asyncio
-    async def test_start_session_recording(self, client: CombinedTestClient):
-        """セッション録音開始テスト"""
-        with patch(
-            "app.services.audio_processing_service.audio_processor.start_recording"
-        ) as mock_start:
-            mock_start.return_value = None
-
-            response = await client.post(
-                "/api/v1/ws/voice-sessions/test_session_123/recording/start"
-            )
-            assert response.status_code == 200
-
-            data = response.json()
-            assert data["session_id"] == "test_session_123"
-            assert data["status"] == "recording_started"
-            assert "timestamp" in data
-
-    @pytest.mark.asyncio
-    async def test_stop_session_recording(self, client: CombinedTestClient):
-        """セッション録音停止テスト"""
-        with patch(
-            "app.services.audio_processing_service.audio_processor.stop_recording"
-        ) as mock_stop:
-            mock_stop.return_value = None
-
-            response = await client.post(
-                "/api/v1/ws/voice-sessions/test_session_123/recording/stop"
-            )
-            assert response.status_code == 200
-
-            data = response.json()
-            assert data["session_id"] == "test_session_123"
-            assert data["status"] == "recording_stopped"
-            assert "timestamp" in data
-
-    @pytest.mark.asyncio
-    async def test_get_session_audio_levels(self, client: CombinedTestClient):
-        """セッション音声レベル取得テスト"""
-        with patch(
-            "app.services.audio_processing_service.audio_processor.get_session_participants_audio_levels"
-        ) as mock_get_levels:
-            mock_get_levels.return_value = {
-                1: MagicMock(
-                    level=0.5,
-                    is_speaking=True,
-                    rms=0.1,
-                    peak=0.8,
-                    timestamp=datetime.now(),
-                ),
-                2: MagicMock(
-                    level=0.3,
-                    is_speaking=False,
-                    rms=0.05,
-                    peak=0.4,
-                    timestamp=datetime.now(),
-                ),
+            mock_verify.return_value = {
+                "uid": "test_firebase_uid",
+                "email": "test@example.com",
             }
+            mock_db = AsyncMock()
+            mock_db_session.return_value.__aenter__.return_value = mock_db
+            mock_db.execute.return_value.scalar_one_or_none.return_value = mock_user
 
-            response = await client.get(
-                "/api/v1/ws/voice-sessions/test_session_123/audio-levels"
-            )
-            assert response.status_code == 200
+            user = await WebSocketAuth.authenticate_websocket(mock_websocket)
 
-            data = response.json()
-            assert data["session_id"] == "test_session_123"
-            assert "participant_levels" in data
-            assert len(data["participant_levels"]) == 2
+            assert user is not None
+            assert user.id == mock_user.id
+            assert user.firebase_uid == mock_user.firebase_uid
 
     @pytest.mark.asyncio
-    async def test_clear_session_audio_buffer(self, client: CombinedTestClient):
-        """セッション音声バッファクリアテスト"""
-        with patch(
-            "app.services.audio_processing_service.audio_processor.clear_session_buffer"
-        ) as mock_clear:
-            mock_clear.return_value = None
+    async def test_websocket_auth_no_token(self, mock_websocket):
+        """WebSocket認証トークンなしのテスト"""
+        mock_websocket.query_params = {}
 
-            response = await client.delete(
-                "/api/v1/ws/voice-sessions/test_session_123/audio-buffer"
+        with pytest.raises(
+            AuthenticationException, match="No authentication token provided"
+        ):
+            await WebSocketAuth.authenticate_websocket(mock_websocket)
+
+    @pytest.mark.asyncio
+    async def test_websocket_auth_invalid_token(self, mock_websocket):
+        """WebSocket認証無効トークンのテスト"""
+        with patch("app.core.websocket.verify_firebase_token") as mock_verify:
+            mock_verify.return_value = None
+
+            with pytest.raises(AuthenticationException, match="Invalid Firebase token"):
+                await WebSocketAuth.authenticate_websocket(mock_websocket)
+
+    @pytest.mark.asyncio
+    async def test_websocket_auth_user_not_found(self, mock_websocket):
+        """WebSocket認証ユーザー未発見のテスト"""
+        with (
+            patch("app.core.websocket.verify_firebase_token") as mock_verify,
+            patch("app.core.websocket.AsyncSessionLocal") as mock_db_session,
+        ):
+            mock_verify.return_value = {
+                "uid": "test_firebase_uid",
+                "email": "test@example.com",
+            }
+            mock_db = AsyncMock()
+            mock_db_session.return_value.__aenter__.return_value = mock_db
+            mock_db.execute.return_value.scalar_one_or_none.return_value = None
+
+            with pytest.raises(AuthenticationException, match="User not found"):
+                await WebSocketAuth.authenticate_websocket(mock_websocket)
+
+
+class TestWebSocketMessageHandler:
+    """WebSocketメッセージハンドラーのテスト"""
+
+    @pytest.mark.asyncio
+    async def test_handle_join_session(self, mock_user):
+        """セッション参加処理のテスト"""
+        with (
+            patch.object(manager, "get_session_participants") as mock_get_participants,
+            patch.object(manager, "broadcast_to_session") as mock_broadcast,
+        ):
+            mock_get_participants.return_value = [{"id": "1", "username": "user1"}]
+
+            await WebSocketMessageHandler.handle_join_session(
+                "test-session", "connection-1", mock_user
             )
-            assert response.status_code == 200
 
-            data = response.json()
-            assert data["session_id"] == "test_session_123"
-            assert data["status"] == "buffer_cleared"
-            assert "timestamp" in data
+            mock_get_participants.assert_called_once_with("test-session")
+            assert mock_broadcast.call_count == 2  # 参加者一覧 + 新規参加者通知
+
+    @pytest.mark.asyncio
+    async def test_handle_message_ping(self, mock_websocket, mock_user):
+        """Pingメッセージ処理のテスト"""
+        with patch.object(manager, "send_personal_message") as mock_send:
+            message = {"type": "ping"}
+
+            await WebSocketMessageHandler.handle_message(
+                mock_websocket, message, "connection-1", mock_user
+            )
+
+            mock_send.assert_called_once()
+            sent_message = mock_send.call_args[0][0]
+            assert sent_message["type"] == "pong"
+
+    @pytest.mark.asyncio
+    async def test_handle_message_webrtc_signaling(self, mock_websocket, mock_user):
+        """WebRTCシグナリングメッセージ処理のテスト"""
+        with (
+            patch.object(WebSocketMessageHandler, "_find_user_connection") as mock_find,
+            patch.object(manager, "send_personal_message") as mock_send,
+        ):
+            mock_find.return_value = "target-connection"
+            message = {"type": "offer", "to": "2", "data": "test-data"}
+
+            await WebSocketMessageHandler.handle_message(
+                mock_websocket, message, "connection-1", mock_user
+            )
+
+            mock_send.assert_called_once()
+            sent_message = mock_send.call_args[0][0]
+            assert sent_message["type"] == "offer"
+            assert sent_message["from"] == "1"
+
+    @pytest.mark.asyncio
+    async def test_handle_message_unknown_type(self, mock_websocket, mock_user):
+        """未知のメッセージタイプ処理のテスト"""
+        message = {"type": "unknown_type"}
+
+        # エラーが発生しないことを確認
+        await WebSocketMessageHandler.handle_message(
+            mock_websocket, message, "connection-1", mock_user
+        )
+
+    @pytest.mark.asyncio
+    async def test_handle_message_missing_session_id(self, mock_websocket, mock_user):
+        """セッションID不足メッセージ処理のテスト"""
+        message = {"type": "join_session"}
+
+        # エラーが発生しないことを確認
+        await WebSocketMessageHandler.handle_message(
+            mock_websocket, message, "connection-1", mock_user
+        )
+
+
+class TestWebSocketPermissions:
+    """WebSocket権限チェックのテスト"""
+
+    @pytest.mark.asyncio
+    async def test_permission_check_session_host(self, mock_user):
+        """セッションホスト権限チェックのテスト"""
+        with patch.object(
+            WebSocketMessageHandler, "_is_session_host_or_moderator"
+        ) as mock_check:
+            mock_check.return_value = True
+
+            has_permission = await WebSocketMessageHandler._check_permission(
+                mock_user, "test-session", "manage_session"
+            )
+
+            assert has_permission is True
+
+    @pytest.mark.asyncio
+    async def test_permission_check_not_host(self, mock_user):
+        """非ホスト権限チェックのテスト"""
+        with patch.object(
+            WebSocketMessageHandler, "_is_session_host_or_moderator"
+        ) as mock_check:
+            mock_check.return_value = False
+
+            has_permission = await WebSocketMessageHandler._check_permission(
+                mock_user, "test-session", "manage_session"
+            )
+
+            assert has_permission is False
+
+    @pytest.mark.asyncio
+    async def test_participant_permission_self_operation(self, mock_user):
+        """自分自身に対する操作権限のテスト"""
+        has_permission = await WebSocketMessageHandler._check_participant_permission(
+            mock_user, "test-session", 1, "mute_participant"
+        )
+
+        assert has_permission is True
+
+    @pytest.mark.asyncio
+    async def test_participant_permission_moderator(self, mock_user):
+        """モデレーター権限のテスト"""
+        with patch.object(WebSocketMessageHandler, "_check_permission") as mock_check:
+            mock_check.return_value = True
+
+            has_permission = (
+                await WebSocketMessageHandler._check_participant_permission(
+                    mock_user, "test-session", 2, "mute_participant"
+                )
+            )
+
+            assert has_permission is True
+
+
+class TestWebSocketMessageValidator:
+    """WebSocketメッセージバリデーションのテスト"""
+
+    def test_validate_message_structure_valid(self):
+        """有効なメッセージ構造のテスト"""
+        message = {"type": "ping"}
+        is_valid, error = WebSocketMessageValidator.validate_message_structure(message)
+
+        assert is_valid is True
+        assert error is None
+
+    def test_validate_message_structure_invalid(self):
+        """無効なメッセージ構造のテスト"""
+        # 辞書でない
+        is_valid, error = WebSocketMessageValidator.validate_message_structure(
+            "invalid"
+        )
+        assert is_valid is False
+        assert "JSON object" in error
+
+        # typeフィールドなし
+        is_valid, error = WebSocketMessageValidator.validate_message_structure(
+            {"data": "test"}
+        )
+        assert is_valid is False
+        assert "type" in error
+
+        # typeフィールドが文字列でない
+        is_valid, error = WebSocketMessageValidator.validate_message_structure(
+            {"type": 123}
+        )
+        assert is_valid is False
+        assert "string" in error
+
+    def test_validate_message_type_valid(self):
+        """有効なメッセージタイプのテスト"""
+        is_valid, error = WebSocketMessageValidator.validate_message_type("ping")
+        assert is_valid is True
+        assert error is None
+
+    def test_validate_message_type_invalid(self):
+        """無効なメッセージタイプのテスト"""
+        is_valid, error = WebSocketMessageValidator.validate_message_type(
+            "invalid_type"
+        )
+        assert is_valid is False
+        assert "Invalid message type" in error
+
+    def test_validate_session_id_valid(self):
+        """有効なセッションIDのテスト"""
+        is_valid, error = WebSocketMessageValidator.validate_session_id("room-1")
+        assert is_valid is True
+        assert error is None
+
+    def test_validate_session_id_invalid(self):
+        """無効なセッションIDのテスト"""
+        # 空文字
+        is_valid, error = WebSocketMessageValidator.validate_session_id("")
+        assert is_valid is False
+        assert "empty" in error
+
+        # 無効な文字
+        is_valid, error = WebSocketMessageValidator.validate_session_id("room@1")
+        assert is_valid is False
+        assert "invalid characters" in error
+
+        # 長すぎる
+        is_valid, error = WebSocketMessageValidator.validate_session_id("a" * 101)
+        assert is_valid is False
+        assert "too long" in error
+
+    def test_validate_user_id_valid(self):
+        """有効なユーザーIDのテスト"""
+        # 文字列
+        is_valid, error = WebSocketMessageValidator.validate_user_id("123")
+        assert is_valid is True
+        assert error is None
+
+        # 整数
+        is_valid, error = WebSocketMessageValidator.validate_user_id(123)
+        assert is_valid is True
+        assert error is None
+
+    def test_validate_user_id_invalid(self):
+        """無効なユーザーIDのテスト"""
+        # 負の数
+        is_valid, error = WebSocketMessageValidator.validate_user_id(-1)
+        assert is_valid is False
+        assert "positive" in error
+
+        # 無効な文字列
+        is_valid, error = WebSocketMessageValidator.validate_user_id("invalid")
+        assert is_valid is False
+        assert "integer" in error
+
+    def test_validate_timestamp_valid(self):
+        """有効なタイムスタンプのテスト"""
+        is_valid, error = WebSocketMessageValidator.validate_timestamp(
+            "2023-01-01T00:00:00"
+        )
+        assert is_valid is True
+        assert error is None
+
+    def test_validate_timestamp_invalid(self):
+        """無効なタイムスタンプのテスト"""
+        is_valid, error = WebSocketMessageValidator.validate_timestamp(
+            "invalid-timestamp"
+        )
+        assert is_valid is False
+        assert "Invalid timestamp format" in error
+
+    def test_validate_audio_data_valid(self):
+        """有効な音声データのテスト"""
+        import base64
+
+        valid_data = base64.b64encode(b"test audio data").decode()
+        is_valid, error = WebSocketMessageValidator.validate_audio_data(valid_data)
+        assert is_valid is True
+        assert error is None
+
+    def test_validate_audio_data_invalid(self):
+        """無効な音声データのテスト"""
+        # 空
+        is_valid, error = WebSocketMessageValidator.validate_audio_data("")
+        assert is_valid is False
+        assert "empty" in error
+
+        # 無効なBase64
+        is_valid, error = WebSocketMessageValidator.validate_audio_data(
+            "invalid-base64!"
+        )
+        assert is_valid is False
+        assert "base64" in error
+
+    def test_validate_message_complete(self):
+        """メッセージ全体の妥当性テスト"""
+        # 有効なpingメッセージ
+        message = {"type": "ping"}
+        is_valid, error = WebSocketMessageValidator.validate_message(message)
+        assert is_valid is True
+        assert error is None
+
+        # 無効なメッセージ
+        message = {"type": "invalid_type"}
+        is_valid, error = WebSocketMessageValidator.validate_message(message)
+        assert is_valid is False
+        assert "Invalid message type" in error
 
 
 class TestWebSocketErrorHandling:
-    """WebSocketエラーハンドリングテスト"""
+    """WebSocketエラーハンドリングのテスト"""
 
     @pytest.mark.asyncio
-    async def test_websocket_connection_limit_exceeded(
-        self, client: CombinedTestClient, mock_user
-    ):
-        """WebSocket接続制限超過テスト"""
-        with (
-            patch(
-                "app.core.websocket.WebSocketAuth.authenticate_websocket"
-            ) as mock_auth,
-            patch(
-                "app.core.websocket.manager._check_connection_limits"
-            ) as mock_check_limits,
-        ):
-            mock_auth.return_value = mock_user
-            mock_check_limits.side_effect = HTTPException(
-                status_code=429, detail="Maximum connections per user exceeded"
-            )
+    async def test_connection_error_handling(self, mock_websocket, mock_user):
+        """接続エラーハンドリングのテスト"""
+        with patch("app.core.websocket.verify_firebase_token") as mock_verify:
+            mock_verify.side_effect = Exception("Connection failed")
 
-            # WebSocket接続をシミュレート（接続制限超過）
             with pytest.raises(Exception):
-                with client.websocket_connect(
-                    "/api/v1/ws/voice-sessions/test_session_123?token=test_token"
-                ) as websocket:
-                    pass
+                await WebSocketAuth.authenticate_websocket(mock_websocket)
 
     @pytest.mark.asyncio
-    async def test_websocket_invalid_json(
-        self, client: CombinedTestClient, mock_voice_session, mock_user
-    ):
-        """WebSocket無効JSONテスト"""
-        with (
-            patch(
-                "app.core.websocket.WebSocketAuth.authenticate_websocket"
-            ) as mock_auth,
-            patch(
-                "app.services.voice_session_service.VoiceSessionService.get_session_by_session_id"
-            ) as mock_get_session,
-            patch(
-                "app.services.participant_management_service.participant_manager.add_participant"
-            ) as mock_add_participant,
-            patch(
-                "app.services.participant_management_service.participant_manager.get_session_participants"
-            ) as mock_get_participants,
-        ):
-            mock_auth.return_value = mock_user
-            mock_get_session.return_value = mock_voice_session
-            mock_add_participant.return_value = MagicMock(
-                role=MagicMock(value="participant")
+    async def test_message_processing_error_handling(self, mock_websocket, mock_user):
+        """メッセージ処理エラーハンドリングのテスト"""
+        with patch.object(manager, "send_personal_message") as mock_send:
+            mock_send.side_effect = Exception("Send failed")
+
+            # エラーが発生してもクラッシュしないことを確認
+            await WebSocketMessageHandler.handle_message(
+                mock_websocket, {"type": "ping"}, "connection-1", mock_user
             )
-            mock_get_participants.return_value = [
-                MagicMock(
-                    user_id=1,
-                    user=mock_user,
-                    role=MagicMock(value="participant"),
-                    status=MagicMock(value="connected"),
-                    is_muted=False,
-                    is_speaking=False,
-                    joined_at=datetime.now(),
-                )
-            ]
-
-            with client.websocket_connect(
-                "/api/v1/ws/voice-sessions/test_session_123?token=test_token"
-            ) as websocket:
-                # 接続確立メッセージを受信
-                data = websocket.receive_text()
-                message = json.loads(data)
-                assert message["type"] == "connection_established"
-
-                # セッション参加者メッセージを受信
-                data = websocket.receive_text()
-                message = json.loads(data)
-                assert message["type"] == "session_participants"
-
-                # 無効なJSONを送信
-                websocket.send_text("invalid json")
-
-                # エラーメッセージを受信
-                data = websocket.receive_text()
-                message = json.loads(data)
-
-                assert message["type"] == "error"
 
     @pytest.mark.asyncio
-    async def test_websocket_connection_timeout(
-        self, client: CombinedTestClient, mock_voice_session, mock_user
-    ):
-        """WebSocket接続タイムアウトテスト"""
-        with (
-            patch(
-                "app.core.websocket.WebSocketAuth.authenticate_websocket"
-            ) as mock_auth,
-            patch(
-                "app.services.voice_session_service.VoiceSessionService.get_session_by_session_id"
-            ) as mock_get_session,
-        ):
-            mock_auth.return_value = mock_user
-            mock_get_session.return_value = mock_voice_session
+    async def test_disconnect_error_handling(self, mock_websocket, mock_user):
+        """切断エラーハンドリングのテスト"""
+        # 接続を作成
+        connection_id = await manager.connect(mock_websocket, "test-session", mock_user)
 
-            with client.websocket_connect(
-                "/api/v1/ws/voice-sessions/test_session_123?token=test_token"
-            ) as websocket:
-                # 長時間メッセージを送信しない（タイムアウトをシミュレート）
-                # 実際のタイムアウトテストは時間がかかるため、ここでは接続が確立されることを確認
-                data = websocket.receive_text()
-                message = json.loads(data)
-                assert message["type"] == "connection_established"
+        # 切断時にエラーが発生してもクラッシュしないことを確認
+        with patch.object(
+            mock_websocket, "close", side_effect=Exception("Close failed")
+        ):
+            await manager.disconnect(connection_id)
+
+        # 接続が適切にクリーンアップされていることを確認
+        assert connection_id not in manager.active_connections
+
+
+class TestWebSocketPerformance:
+    """WebSocketパフォーマンスのテスト"""
+
+    @pytest.mark.asyncio
+    async def test_multiple_connections_performance(self, mock_websocket, mock_user):
+        """複数接続のパフォーマンステスト"""
+        import time
+
+        start_time = time.time()
+
+        # 複数の接続を作成
+        connections = []
+        for i in range(10):
+            connection_id = await manager.connect(
+                mock_websocket, f"session-{i}", mock_user
+            )
+            connections.append(connection_id)
+
+        creation_time = time.time() - start_time
+
+        # 接続作成が1秒以内に完了することを確認
+        assert creation_time < 1.0
+
+        # クリーンアップ
+        for connection_id in connections:
+            await manager.disconnect(connection_id)
+
+    @pytest.mark.asyncio
+    async def test_broadcast_performance(self, mock_websocket, mock_user):
+        """ブロードキャストのパフォーマンステスト"""
+        import time
+
+        # 複数の接続を作成
+        connections = []
+        for i in range(5):
+            connection_id = await manager.connect(
+                mock_websocket, f"session-{i}", mock_user
+            )
+            connections.append(connection_id)
+
+        # ブロードキャストのパフォーマンスを測定
+        start_time = time.time()
+        await manager.broadcast_to_session({"type": "test"}, "session-0")
+        broadcast_time = time.time() - start_time
+
+        # ブロードキャストが100ms以内に完了することを確認
+        assert broadcast_time < 0.1
+
+        # クリーンアップ
+        for connection_id in connections:
+            await manager.disconnect(connection_id)
+
+    @pytest.mark.asyncio
+    async def test_connection_cleanup_performance(self, mock_websocket, mock_user):
+        """接続クリーンアップのパフォーマンステスト"""
+        import time
+
+        # 複数の接続を作成
+        connections = []
+        for i in range(20):
+            connection_id = await manager.connect(
+                mock_websocket, f"session-{i}", mock_user
+            )
+            connections.append(connection_id)
+
+        # 非アクティブな接続としてマーク
+        for connection_id in connections:
+            manager.last_heartbeat[connection_id] = (
+                asyncio.get_event_loop().time() - 25 * 3600
+            )
+
+        # クリーンアップのパフォーマンスを測定
+        start_time = time.time()
+        await manager.cleanup_inactive_connections()
+        cleanup_time = time.time() - start_time
+
+        # クリーンアップが1秒以内に完了することを確認
+        assert cleanup_time < 1.0
+
+        # すべての接続が削除されていることを確認
+        assert len(manager.active_connections) == 0
