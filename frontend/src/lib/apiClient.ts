@@ -22,8 +22,33 @@ export async function getAuthToken(): Promise<string | null> {
   try {
     const auth = getAuth();
     const user = auth.currentUser;
-    if (!user) return null;
-    return await user.getIdToken();
+    if (!user) {
+      console.warn("getAuthToken: ユーザーが認証されていません")
+      return null;
+    }
+    
+    const token = await user.getIdToken();
+    
+    // トークンの妥当性チェック
+    if (!token || typeof token !== 'string') {
+      console.warn("getAuthToken: 無効なトークンが取得されました")
+      return null;
+    }
+    
+    // トークンの長さチェック（異常に長いトークンを防ぐ）
+    if (token.length > 5000) {
+      console.error("getAuthToken: トークンが異常に長いです。認証に問題がある可能性があります")
+      return null;
+    }
+    
+    // JWTトークンの形式チェック（基本的な検証）
+    if (!token.includes('.') || token.split('.').length !== 3) {
+      console.error("getAuthToken: トークンの形式が不正です")
+      return null;
+    }
+    
+    console.log("getAuthToken: 有効なFirebase IDトークンを取得しました（長さ:", token.length, "文字）")
+    return token;
   } catch (error) {
     console.error("Firebaseトークン取得エラー:", error);
     return null;

@@ -80,10 +80,28 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
         return `${base}${urlPath}`
       }
       
-      const token = await getAuthToken()
-      const search = new URLSearchParams()
-      if (token) search.set("token", token)
-      return `${base}${urlPath}?${search.toString()}`
+      try {
+        const token = await getAuthToken()
+        
+        // トークンの妥当性チェック
+        if (!token) {
+          console.warn("WebSocket: 認証トークンが取得できません")
+          return `${base}${urlPath}`
+        }
+        
+        // トークンの長さチェック（異常に長いトークンを防ぐ）
+        if (token.length > 5000) {
+          console.error("WebSocket: トークンが異常に長いです。認証に問題がある可能性があります")
+          return `${base}${urlPath}`
+        }
+        
+        const search = new URLSearchParams()
+        search.set("token", token)
+        return `${base}${urlPath}?${search.toString()}`
+      } catch (error) {
+        console.error("WebSocket: トークン取得エラー", error)
+        return `${base}${urlPath}`
+      }
     }
   }, [urlPath, skipAuth])
 
@@ -154,6 +172,23 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
       setConnectError(null)
 
       const fullUrl = await wsUrlBuilder()
+      
+      // デバッグ用：URLの詳細情報をログ出力
+      try {
+        const url = new URL(fullUrl)
+        const token = url.searchParams.get('token')
+        if (token) {
+          console.log("WebSocket: トークン情報 - 長さ:", token.length, "文字")
+          if (token.length > 5000) {
+            console.error("WebSocket: 警告 - トークンが異常に長いです")
+          }
+        } else {
+          console.log("WebSocket: トークンなしで接続を試行")
+        }
+      } catch (e) {
+        console.warn("WebSocket: URL解析エラー", e)
+      }
+      
       console.log("WebSocket: 接続を開始します:", fullUrl)
       
       const ws = new WebSocket(fullUrl)

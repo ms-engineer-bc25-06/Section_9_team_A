@@ -35,9 +35,15 @@ def get_firebase_app():
         if not firebase_admin._apps:
             # GOOGLE_APPLICATION_CREDENTIALSを使用して初期化
             cred = credentials.ApplicationDefault()
-            _firebase_app = firebase_admin.initialize_app(cred)
+
+            # プロジェクトIDを明示的に設定
+            app_options = {
+                "projectId": "section9-teama"  # 明示的にプロジェクトIDを設定
+            }
+
+            _firebase_app = firebase_admin.initialize_app(cred, options=app_options)
             logger.info(
-                "Firebase initialized successfully using GOOGLE_APPLICATION_CREDENTIALS"
+                "Firebase initialized successfully using GOOGLE_APPLICATION_CREDENTIALS with explicit project ID"
             )
         else:
             # 既に初期化済み
