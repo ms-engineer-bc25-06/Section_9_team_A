@@ -77,9 +77,7 @@ api_router.include_router(
 api_router.include_router(admin_unified.router, prefix="/admin", tags=["統合管理者"])
 
 # 管理者用ユーザー管理API
-api_router.include_router(
-    admin_users.router, prefix="/admin", tags=["管理者ユーザー管理"]
-)
+api_router.include_router(admin_users.router, tags=["管理者ユーザー管理"])
 
 # 管理者権限チェックAPI
 api_router.include_router(admin_role.router, prefix="/admin-role", tags=["管理者権限"])
