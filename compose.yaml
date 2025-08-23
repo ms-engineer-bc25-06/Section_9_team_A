@@ -57,6 +57,7 @@ services:
       - LOG_LEVEL=DEBUG
       - OPENAI_PERSONAL_API_KEY=${OPENAI_PERSONAL_API_KEY:-}
       - WEBSOCKET_URL=ws://localhost:8000/ws
+        # Firebase秘密鍵はfirebase-admin-key.jsonファイルから読み込み
     depends_on:
       postgres:
         condition: service_healthy
