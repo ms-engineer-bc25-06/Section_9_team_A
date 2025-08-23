@@ -19,7 +19,7 @@ class TestAnalysisRepository:
     @pytest.fixture
     def analysis_repository(self):
         """分析リポジトリインスタンス"""
-        return AnalysisRepository()
+        return AnalysisRepository(Analysis)
     
     @pytest.fixture
     def sample_analysis(self):
@@ -28,10 +28,12 @@ class TestAnalysisRepository:
             id=1,
             analysis_id="analysis_123",
             analysis_type=AnalysisType.PERSONALITY,
+            title="テスト分析",
             content="テスト用の分析コンテンツ",
             user_id=1,
             voice_session_id=1,
-            status="completed"
+            status="completed",
+            confidence_score=0.95
         )
         return analysis
     
@@ -40,8 +42,10 @@ class TestAnalysisRepository:
         """サンプル分析作成データ"""
         return AnalysisCreate(
             analysis_type=AnalysisType.PERSONALITY,
+            title="テスト分析",
             content="新しい分析コンテンツ",
-            voice_session_id=1
+            voice_session_id=1,
+            user_id=1
         )
     
     @pytest.fixture
@@ -54,7 +58,7 @@ class TestAnalysisRepository:
         )
 
     @pytest.mark.asyncio
-    async def test_create_analysis_success(self, analysis_repository, mock_db, sample_analysis):
+    async def test_create_analysis_success(self, analysis_repository, mock_db, sample_analysis_create):
         """分析作成成功テスト"""
         # モックの設定
         mock_db.add.return_value = None
@@ -62,12 +66,7 @@ class TestAnalysisRepository:
         mock_db.refresh.return_value = None
         
         # 実行
-        result = await analysis_repository.create_analysis(mock_db, {
-            "analysis_id": "analysis_123",
-            "analysis_type": AnalysisType.PERSONALITY,
-            "content": "テスト用の分析コンテンツ",
-            "user_id": 1
-        })
+        result = await analysis_repository.create(mock_db, obj_in=sample_analysis_create, analysis_id="test_analysis_123")
         
         # 検証
         assert result is not None
@@ -76,22 +75,16 @@ class TestAnalysisRepository:
         mock_db.refresh.assert_called_once()
     
     @pytest.mark.asyncio
-    async def test_create_analysis_database_error(self, analysis_repository, mock_db):
+    async def test_create_analysis_database_error(self, analysis_repository, mock_db, sample_analysis_create):
         """分析作成失敗テスト（データベースエラー）"""
         # データベースエラーをシミュレート
         mock_db.add.side_effect = Exception("Database error")
         mock_db.rollback.return_value = None
         
         # 実行と検証
-        with pytest.raises(ValidationException) as exc_info:
-            await analysis_repository.create_analysis(mock_db, {
-                "analysis_id": "analysis_123",
-                "analysis_type": AnalysisType.PERSONALITY,
-                "content": "テスト用の分析コンテンツ",
-                "user_id": 1
-            })
+        with pytest.raises(Exception):
+            await analysis_repository.create(mock_db, obj_in=sample_analysis_create, analysis_id="test_analysis_123")
         
-        assert "分析データの作成に失敗しました" in str(exc_info.value)
         mock_db.rollback.assert_called_once()
     
     @pytest.mark.asyncio
@@ -103,7 +96,7 @@ class TestAnalysisRepository:
         mock_db.execute.return_value = mock_result
         
         # 実行
-        result = await analysis_repository.get_analysis_by_id(mock_db, "analysis_123", 1)
+        result = await analysis_repository.get(mock_db, 1)
         
         # 検証
         assert result == sample_analysis

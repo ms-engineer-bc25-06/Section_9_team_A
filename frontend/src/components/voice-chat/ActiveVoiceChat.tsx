@@ -273,6 +273,7 @@ export function ActiveVoiceChat({ roomId }: Props) {
             <Badge 
               variant={connectionState === 'connected' ? 'default' : 'secondary'}
               className={getConnectionStatusColor()}
+              data-testid="connection-status"
             >
               {getConnectionStatusText()}
             </Badge>

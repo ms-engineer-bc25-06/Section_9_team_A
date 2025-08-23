@@ -40,9 +40,10 @@ class Transcription(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     processed_at = Column(DateTime(timezone=True), nullable=True)
 
-    # リレーションシップ（循環参照を避けるため、back_populatesは使用しない）
-    voice_session = relationship("VoiceSession")
-    user = relationship("User")
+    # リレーションシップ
+    voice_session = relationship("VoiceSession", back_populates="transcriptions")
+    user = relationship("User", back_populates="transcriptions")
+    analyses = relationship("Analysis", back_populates="transcription")
 
     def __repr__(self):
         return f"<Transcription(id={self.id}, content='{self.content[:50]}...')>"

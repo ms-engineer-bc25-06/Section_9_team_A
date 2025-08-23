@@ -1,7 +1,7 @@
 // 課金成功後の確認ページ
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
@@ -14,7 +14,7 @@ interface PaymentResult {
   receipt_url?: string;
 }
 
-export default function BillingSuccessPage() {
+function BillingSuccessContent() {
   const [paymentResult, setPaymentResult] = useState<PaymentResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -217,5 +217,20 @@ export default function BillingSuccessPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function BillingSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">読み込み中...</p>
+        </div>
+      </div>
+    }>
+      <BillingSuccessContent />
+    </Suspense>
   );
 }

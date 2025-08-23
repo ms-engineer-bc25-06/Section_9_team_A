@@ -12,7 +12,9 @@ class InvitationRepository(BaseRepository[Any, Any, Any]):
     """招待リポジトリ"""
 
     def __init__(self):
-        super().__init__(None)  # モデルは後で実装
+        from app.models.invitation import Invitation
+
+        super().__init__(Invitation)
 
     async def create_invitation(
         self, db: AsyncSession, invitation_data: Dict[str, Any]
@@ -28,7 +30,7 @@ class InvitationRepository(BaseRepository[Any, Any, Any]):
                 "role": invitation_data.get("role"),
                 "token": invitation_data.get("token"),
                 "status": invitation_data.get("status"),
-                "expires_at": invitation_data.get("expires_at")
+                "expires_at": invitation_data.get("expires_at"),
             }
         except Exception as e:
             logger.error(f"Failed to create invitation: {str(e)}")
@@ -46,7 +48,7 @@ class InvitationRepository(BaseRepository[Any, Any, Any]):
                 "invitee_email": "test@example.com",
                 "team_id": 1,
                 "role": "member",
-                "status": "pending"
+                "status": "pending",
             }
         except Exception as e:
             logger.error(f"Failed to get invitation: {str(e)}")
@@ -65,7 +67,7 @@ class InvitationRepository(BaseRepository[Any, Any, Any]):
                 "team_id": 1,
                 "role": "member",
                 "status": "pending",
-                "expires_at": "2025-12-31T23:59:59Z"
+                "expires_at": "2025-12-31T23:59:59Z",
             }
         except Exception as e:
             logger.error(f"Failed to get invitation by token: {str(e)}")
@@ -96,10 +98,7 @@ class InvitationRepository(BaseRepository[Any, Any, Any]):
             return False
 
     async def get_user_invitations(
-        self,
-        db: AsyncSession,
-        user_id: int,
-        status: Optional[str] = None
+        self, db: AsyncSession, user_id: int, status: Optional[str] = None
     ) -> List[Any]:
         """ユーザーの招待一覧を取得"""
         try:
@@ -109,9 +108,7 @@ class InvitationRepository(BaseRepository[Any, Any, Any]):
             logger.error(f"Failed to get user invitations: {str(e)}")
             return []
 
-    async def get_pending_invitations(
-        self, db: AsyncSession, email: str
-    ) -> List[Any]:
+    async def get_pending_invitations(self, db: AsyncSession, email: str) -> List[Any]:
         """保留中の招待を取得"""
         try:
             # 仮実装 - 実際のモデルが実装されたら更新
@@ -120,9 +117,7 @@ class InvitationRepository(BaseRepository[Any, Any, Any]):
             logger.error(f"Failed to get pending invitations: {str(e)}")
             return []
 
-    async def delete_invitation(
-        self, db: AsyncSession, invitation_id: int
-    ) -> bool:
+    async def delete_invitation(self, db: AsyncSession, invitation_id: int) -> bool:
         """招待を削除"""
         try:
             # 仮実装 - 実際のモデルが実装されたら更新

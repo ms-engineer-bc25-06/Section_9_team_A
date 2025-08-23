@@ -59,9 +59,9 @@ class EncryptedData(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
-    # リレーションシップ（循環参照を避けるため、back_populatesは使用しない）
-    owner = relationship("User")
-    access_permissions = relationship("DataAccessPermission", cascade="all, delete-orphan")
+    # リレーションシップ
+    owner = relationship("User", back_populates="encrypted_data")
+    access_permissions = relationship("DataAccessPermission", back_populates="encrypted_data", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<EncryptedData(id={self.id}, type='{self.data_type}', category='{self.data_category}')>"
@@ -131,10 +131,10 @@ class DataAccessPermission(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
-    # リレーションシップ（循環参照を避けるため、back_populatesは使用しない）
-    encrypted_data = relationship("EncryptedData")
-    user = relationship("User", foreign_keys=[user_id])
-    granter = relationship("User", foreign_keys=[granted_by])
+    # リレーションシップ
+    encrypted_data = relationship("EncryptedData", back_populates="access_permissions")
+    user = relationship("User", foreign_keys=[user_id], back_populates="data_access_permissions")
+    granter = relationship("User", foreign_keys=[granted_by], back_populates="granted_permissions")
 
     def __repr__(self):
         return f"<DataAccessPermission(user_id={self.user_id}, data_id={self.encrypted_data_id})>"

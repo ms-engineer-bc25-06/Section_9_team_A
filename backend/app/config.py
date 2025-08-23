@@ -58,7 +58,12 @@ class Settings(BaseSettings):
 
     # OpenAI設定
     OPENAI_API_KEY: Optional[str] = None
+    OPENAI_PERSONAL_API_KEY: Optional[str] = None
     OPENAI_MODEL: str = "gpt-4"
+    
+    def get_openai_api_key(self) -> str:
+        """OpenAI APIキーを取得（個人APIキーを優先）"""
+        return self.OPENAI_PERSONAL_API_KEY or self.OPENAI_API_KEY or ""
 
     # Redis設定
     REDIS_URL: str = "redis://redis:6379"
@@ -90,10 +95,11 @@ class Settings(BaseSettings):
     INITIAL_ADMIN_EMAIL: Optional[str] = None         # 現在: admin@example.com
     INITIAL_ADMIN_DISPLAY_NAME: Optional[str] = None  # 現在: 管理者1
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
-        extra = "ignore"  # 環境変数の追加フィールドを無視（トラブルシューティング用）
+    model_config = {
+        "env_file": ".env",
+        "case_sensitive": True,
+        "extra": "ignore"  # 環境変数の追加フィールドを無視（トラブルシューティング用）
+    }
 
 
 # 設定インスタンス

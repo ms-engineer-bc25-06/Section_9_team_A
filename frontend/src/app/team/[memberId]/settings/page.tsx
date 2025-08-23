@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/Switch"
 import { ArrowLeft, Save, User, Shield, Bell } from "lucide-react"
 import Link from "next/link"
 
-export default function TeamMemberSettingsPage() {
+export default function OrganizationMemberSettingsPage() {
   const params = useParams()
   const memberId = params.memberId as string
   

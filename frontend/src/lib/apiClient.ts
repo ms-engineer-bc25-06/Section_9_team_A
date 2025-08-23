@@ -1,100 +1,141 @@
 "use client";
 
 import { getAuth } from "firebase/auth";
+import { AuthHeaders, ApiResponse, ApiError } from "../types";
 
-const RAW_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
-const API_BASE = RAW_BASE.replace(/\/+$/, ""); 
+// APIクライアントの設定
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 const API_PREFIX = "/api/v1";
 
-function buildUrl(path: string) {
+// URLビルダー関数
+function buildUrl(path: string): string {
   const p = path.startsWith("/") ? path : `/${path}`;
-  return `${API_BASE}${API_PREFIX}${p}`;
+  // パスが既にAPI_PREFIXを含んでいる場合は重複を避ける
+  if (p.startsWith(API_PREFIX)) {
+    return `${API_BASE_URL}${p}`;
+  }
+  return `${API_BASE_URL}${API_PREFIX}${p}`;
 }
 
 // Firebase トークン取得関数
 export async function getAuthToken(): Promise<string | null> {
-  const auth = getAuth();
-  const user = auth.currentUser;
-  if (!user) return null;
-  return await user.getIdToken();
+  try {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) return null;
+    return await user.getIdToken();
+  } catch (error) {
+    console.error("Firebaseトークン取得エラー:", error);
+    return null;
+  }
 }
 
-async function getIdToken(): Promise<string> {
-  const token = await getAuthToken();
-  if (!token) throw new Error("未ログインのためAPIを呼び出せません。");
-  return token;
+// JWTトークンを取得する関数（フォールバック用）
+function getJWTToken(): string | null {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('jwt_token');
+  }
+  return null;
+}
+
+// 認証トークンを取得する関数（優先順位付き）
+async function getToken(): Promise<string | null> {
+  // まずJWTトークンを試行（バックエンド認証済みの場合）
+  const jwtToken = getJWTToken();
+  if (jwtToken) return jwtToken;
+  
+  // フォールバックとしてFirebaseトークンを試行
+  const firebaseToken = await getAuthToken();
+  if (firebaseToken) return firebaseToken;
+  
+  return null;
 }
 
 // 認証付きfetch関数
-export async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
-  const token = await getAuthToken();
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+export async function fetchWithAuth(
+  endpoint: string, 
+  options: RequestInit = {}
+): Promise<Response> {
+  const token = await getToken();
   
-  return fetch(`${baseUrl}${endpoint}`, {
+  const headers: AuthHeaders = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const url = endpoint.startsWith('http') ? endpoint : buildUrl(endpoint);
+  
+  const response = await fetch(url, {
     ...options,
-    headers: {
-      ...options.headers,
-      Authorization: token ? `Bearer ${token}` : "",
-      "Content-Type": "application/json",
-    },
+    headers,
   });
+
+  // 401エラーの場合、JWTトークンを削除（Firebaseトークンは自動更新される）
+  if (response.status === 401) {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('jwt_token');
+    }
+  }
+
+  return response;
 }
 
-async function handle<T>(res: Response, label: string): Promise<T> {
+// レスポンス処理ヘルパー関数
+async function handleResponse<T>(res: Response, label: string): Promise<T> {
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`${label} failed: ${res.status} ${text}`);
   }
-  return res.json() as Promise<T>;
+  
+  try {
+    return await res.json();
+  } catch {
+    return res.text() as T;
+  }
 }
 
-export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = await getIdToken();
-  const url = buildUrl(path);
-  // console.debug("[api:get]", url);
-  const res = await fetch(url, {
-    ...init,
-    method: "GET",
-    headers: {
-      ...(init?.headers || {}),
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    cache: "no-store",
-  });
-  return handle<T>(res, `GET ${path}`);
-}
+// 基本的なAPI関数
+export const apiClient = {
+  get: async <T = any>(url: string, options?: RequestInit): Promise<T> => {
+    const response = await fetchWithAuth(url, { ...options, method: 'GET' });
+    return handleResponse<T>(response, `GET ${url}`);
+  },
+  
+  post: async <T = any>(url: string, data?: any, options?: RequestInit): Promise<T> => {
+    const response = await fetchWithAuth(url, { 
+      ...options, 
+      method: 'POST', 
+      body: data ? JSON.stringify(data) : undefined 
+    });
+    return handleResponse<T>(response, `POST ${url}`);
+  },
+  
+  put: async <T = any>(url: string, data?: any, options?: RequestInit): Promise<T> => {
+    const response = await fetchWithAuth(url, { 
+      ...options, 
+      method: 'PUT', 
+      body: data ? JSON.stringify(data) : undefined 
+    });
+    return handleResponse<T>(response, `PUT ${url}`);
+  },
+  
+  delete: async <T = any>(url: string, options?: RequestInit): Promise<T> => {
+    const response = await fetchWithAuth(url, { ...options, method: 'DELETE' });
+    return handleResponse<T>(response, `DELETE ${url}`);
+  },
+  
+  patch: async <T = any>(url: string, data?: any, options?: RequestInit): Promise<T> => {
+    const response = await fetchWithAuth(url, { 
+      ...options, 
+      method: 'PATCH', 
+      body: data ? JSON.stringify(data) : undefined 
+    });
+    return handleResponse<T>(response, `PATCH ${url}`);
+  },
+};
 
-export async function apiPut<T>(path: string, body: unknown, init?: RequestInit): Promise<T> {
-  const token = await getIdToken();
-  const url = buildUrl(path);
-  // console.debug("[api:put]", url, body);
-  const res = await fetch(url, {
-    ...init,
-    method: "PUT",
-    headers: {
-      ...(init?.headers || {}),
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(body ?? {}),
-  });
-  return handle<T>(res, `PUT ${path}`);
-}
-
-export async function apiPost<T>(path: string, body: unknown, init?: RequestInit): Promise<T> {
-  const token = await getIdToken();
-  const url = buildUrl(path);
-  // console.debug("[api:post]", url, body);
-  const res = await fetch(url, {
-    ...init,
-    method: "POST",
-    headers: {
-      ...(init?.headers || {}),
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(body ?? {}),
-  });
-  return handle<T>(res, `POST ${path}`);
-}
+export default apiClient;

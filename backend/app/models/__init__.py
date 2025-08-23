@@ -7,9 +7,9 @@ from .user import User
 # ロール関連
 from .role import Role, UserRole
 
-# チーム関連
-from .team import Team
-from .team_member import TeamMember
+# 組織関連（チーム機能を統合）
+from .organization import Organization
+from .organization_member import OrganizationMember
 
 # 音声セッション関連
 from .voice_session import VoiceSession
@@ -24,7 +24,7 @@ from .analysis import Analysis
 from .chat_room import ChatRoom, ChatMessage, ChatRoomParticipant
 
 # チームダイナミクス関連
-from .team_dynamics import TeamInteraction, TeamCompatibility, TeamCohesion, TeamMemberProfile
+from .team_dynamics import TeamInteraction, TeamCompatibility, TeamCohesion, OrganizationMemberProfile
 
 # プライバシー関連
 from .privacy import (
@@ -43,9 +43,7 @@ from .subscription import Subscription
 # 決済関連
 from .billing import Billing
 
-# 組織・課金関連
-from .organization import Organization
-from .organization_member import OrganizationMember
+# 課金関連
 from .payment import Payment
 
 # 招待関連
@@ -59,8 +57,8 @@ __all__ = [
     "User",
     "Role",
     "UserRole",
-    "Team",
-    "TeamMember",
+    "Organization",
+    "OrganizationMember",
     "VoiceSession",
     "Transcription",
     "Analysis",
@@ -70,9 +68,7 @@ __all__ = [
     "TeamInteraction",
     "TeamCompatibility",
     "TeamCohesion",
-    "TeamMemberProfile",
-    "Organization",
-    "OrganizationMember",
+    "OrganizationMemberProfile",
     "Payment",
     "PrivacyLevel",
     "DataCategory",

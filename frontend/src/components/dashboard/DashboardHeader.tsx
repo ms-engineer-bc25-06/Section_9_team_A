@@ -7,6 +7,7 @@ import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/components/auth/AuthProvider"
 import { LogOut, User, ChevronDown, Home, Users, MessageSquare, BarChart3, Target } from "lucide-react"
 import { useProfile } from "@/hooks/useProfile"
+import { apiClient } from "@/lib/apiClient"
 
 interface UserProfile {
   id: string
@@ -28,17 +29,8 @@ const DashboardHeader: React.FC = () => {
     const fetchUserProfile = async () => {
       if (backendToken) {
         try {
-          const response = await fetch('http://localhost:8000/api/v1/users/me', {
-            headers: {
-              'Authorization': `Bearer ${backendToken}`,
-              'Content-Type': 'application/json'
-            }
-          })
-          
-          if (response.ok) {
-            const profile = await response.json()
-            setUserProfile(profile)
-          }
+          const profile = await apiClient.get('/auth/me')
+          setUserProfile(profile)
         } catch (error) {
           console.error('ユーザープロファイル取得エラー:', error)
         }

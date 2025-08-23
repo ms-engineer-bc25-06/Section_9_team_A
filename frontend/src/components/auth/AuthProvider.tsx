@@ -47,6 +47,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const token = data.access_token
             setBackendToken(token)
             console.log("✅ バックエンドユーザー登録・同期完了")
+            
+            // JWTトークンをローカルストレージに保存
+            localStorage.setItem('jwt_token', token)
           } else {
             const errorData = await response.json().catch(() => ({}))
             console.warn(`バックエンド連携に失敗 (ステータス: ${response.status}) - ${errorData.detail || 'Unknown error'}`)
@@ -57,13 +60,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
             
             setBackendToken(null)
+            localStorage.removeItem('jwt_token')
           }
         } catch (error) {
           console.warn("バックエンド連携エラー:", error)
           setBackendToken(null)
+          localStorage.removeItem('jwt_token')
         }
       } else {
         setBackendToken(null) // ユーザーがログアウトした場合、バックエンドトークンもクリア
+        localStorage.removeItem('jwt_token')
       }
       
       setIsLoading(false) // 読み込み完了
@@ -99,6 +105,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const data = await response.json()
             const token = data.access_token
             setBackendToken(token)
+            
+            // JWTトークンをローカルストレージに保存
+            localStorage.setItem('jwt_token', token)
+            
             console.log("✅ バックエンドユーザー登録・同期完了")
             return token
           } else {
@@ -194,6 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await signOut(auth)
     setUser(null)
     setBackendToken(null)
+    localStorage.removeItem('jwt_token')
   }
 
   return (

@@ -7,8 +7,8 @@ from .voice_session_repository import VoiceSessionRepository, voice_session_repo
 # ユーザー関連
 from .user_repository import UserRepository, user_repository
 
-# チーム関連
-from .team_repository import TeamRepository, team_repository
+# 組織関連（チーム機能を統合）
+from .organization_repository import OrganizationRepository, organization_repository
 
 # 文字起こし関連
 from .transcription_repository import TranscriptionRepository, transcription_repository
@@ -23,6 +23,9 @@ from .chat_room_participant_repository import ChatRoomParticipantRepository, cha
 
 # チームダイナミクス関連
 from .team_dynamics_repository import TeamDynamicsRepository, team_dynamics_repository
+
+# 組織ダイナミクス関連
+from .organization_dynamics_repository import OrganizationDynamicsRepository, organization_dynamics_repository
 
 # プライバシー関連
 from .privacy_repository import PrivacyRepository, privacy_repository
@@ -45,8 +48,8 @@ __all__ = [
     "voice_session_repository",
     "UserRepository",
     "user_repository",
-    "TeamRepository",
-    "team_repository",
+    "OrganizationRepository",
+    "organization_repository",
     "TranscriptionRepository",
     "transcription_repository",
     "AnalysisRepository",
@@ -59,6 +62,8 @@ __all__ = [
     "chat_room_participant_repository",
     "TeamDynamicsRepository",
     "team_dynamics_repository",
+    "OrganizationDynamicsRepository",
+    "organization_dynamics_repository",
     "PrivacyRepository",
     "privacy_repository",
     "SubscriptionRepository",
