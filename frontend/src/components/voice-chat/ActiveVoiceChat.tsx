@@ -210,27 +210,44 @@ export function ActiveVoiceChat({ roomId }: Props) {
 
   // 接続状態の管理
   useEffect(() => {
-    if (localStream) {
+    // WebSocket接続が確立されている場合のみ音声処理を開始
+    if (localStream && wsConnectionState === ConnectionState.CONNECTED) {
+      console.log("音声処理を開始します")
+      
       // MediaStreamから音声データを取得して処理
       const audioContext = new AudioContext()
       const source = audioContext.createMediaStreamSource(localStream)
       const processor = audioContext.createScriptProcessor(4096, 1, 1)
       
       processor.onaudioprocess = (event) => {
-        const inputData = event.inputBuffer.getChannelData(0)
-        processAudio(inputData)
+        try {
+          const inputData = event.inputBuffer.getChannelData(0)
+          processAudio(inputData)
+        } catch (error) {
+          console.error("音声処理エラー:", error)
+          // エラーが発生した場合は音声処理を停止
+          source.disconnect()
+          processor.disconnect()
+          audioContext.close()
+        }
       }
       
       source.connect(processor)
       processor.connect(audioContext.destination)
       
       return () => {
-        source.disconnect()
-        processor.disconnect()
-        audioContext.close()
+        try {
+          source.disconnect()
+          processor.disconnect()
+          audioContext.close()
+        } catch (error) {
+          console.warn("音声処理のクリーンアップエラー:", error)
+        }
       }
+    } else if (localStream && wsConnectionState !== ConnectionState.CONNECTED) {
+      console.log("WebSocket接続が確立されていないため、音声処理を開始しません")
     }
-  }, [localStream, processAudio])
+  }, [localStream, processAudio, wsConnectionState])
 
   // 接続状態に基づく表示
   const getConnectionStatusText = () => {
@@ -274,11 +291,24 @@ export function ActiveVoiceChat({ roomId }: Props) {
     router.push('/voice-chat')
   }
 
-  // エラー表示
+  // 認証エラー表示
+  if (wsConnectionState === ConnectionState.AUTH_FAILED) {
+    return (
+      <div className="text-center py-8">
+        <div className="text-red-600 text-lg font-semibold mb-4">認証エラー</div>
+        <div className="text-gray-600 mb-4">ログインが必要です</div>
+        <Button onClick={() => router.push('/auth/login')} variant="outline">
+          ログインページへ
+        </Button>
+      </div>
+    )
+  }
+
+  // 音声最適化エラー表示
   if (optimizationError) {
     return (
       <div className="text-center py-8">
-        <div className="text-red-600 text-lg font-semibold mb-4">エラーが発生しました</div>
+        <div className="text-red-600 text-lg font-semibold mb-4">音声最適化エラー</div>
         <div className="text-gray-600 mb-4">{optimizationError}</div>
         <Button onClick={clearOptimizationError} variant="outline">
           エラーをクリア

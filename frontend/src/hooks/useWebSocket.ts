@@ -281,9 +281,21 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
   }, [autoReconnect, reconnectMaxDelayMs, maxReconnectAttempts, onMaxAttemptsReached])
 
   const connect = useCallback(async () => {
-    // 重複接続チェック
-    if (isConnectingRef.current) {
+    // 重複接続チェック - 接続状態とrefの両方をチェック
+    if (isConnectingRef.current || isConnecting || connectionState === ConnectionState.CONNECTING) {
       console.log("WebSocket: 既に接続中です。重複接続をスキップします。")
+      return
+    }
+
+    // 再接続中の場合は何もしない
+    if (connectionState === ConnectionState.RECONNECTING) {
+      console.log("WebSocket: 再接続中です。重複接続をスキップします。")
+      return
+    }
+
+    // 最大試行回数に達している場合は何もしない
+    if (connectionState === ConnectionState.MAX_ATTEMPTS_REACHED) {
+      console.log("WebSocket: 最大試行回数に達しています。再接続を停止します。")
       return
     }
 
@@ -301,6 +313,24 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
     if (typeof window === "undefined") return
 
     try {
+      // 認証トークンの事前チェック
+      if (!skipAuth) {
+        try {
+          const token = await getAuthToken()
+          if (!token) {
+            console.error("WebSocket: 認証トークンが取得できません。接続を中止します。")
+            setConnectionState(ConnectionState.AUTH_FAILED)
+            setConnectError("認証トークンが取得できません。ログインしてください。")
+            return
+          }
+        } catch (authError) {
+          console.error("WebSocket: 認証エラーが発生しました。接続を中止します。", authError)
+          setConnectionState(ConnectionState.AUTH_FAILED)
+          setConnectError("認証に失敗しました。ログインしてください。")
+          return
+        }
+      }
+
       // 接続状態を設定
       isConnectingRef.current = true
       setIsConnecting(true)
@@ -371,8 +401,19 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
         cleanupConnectionTimeout()
         isConnectingRef.current = false
         setIsConnecting(false)
-        setConnectionState(ConnectionState.ERROR)
-        setConnectError("WebSocket error")
+        
+        // エラーの詳細を分析して適切な状態を設定
+        let errorState = ConnectionState.ERROR
+        let errorMessage = "WebSocket接続エラー"
+        
+        // WebSocketの状態をチェック
+        if (ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
+          errorState = ConnectionState.SERVER_ERROR
+          errorMessage = "サーバーとの接続が切断されました"
+        }
+        
+        setConnectionState(errorState)
+        setConnectError(errorMessage)
         onError?.(ev)
       }
 
@@ -403,7 +444,7 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
             errorMessage = "サポートされていないデータ型です"
             break
           case 1006: // 異常終了
-            newState = ConnectionState.SERVER_ERROR
+            newState = ConnectionState.ERROR
             errorMessage = "サーバーとの接続が異常終了しました"
             break
           case 1008: // ポリシー違反
@@ -426,7 +467,11 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
         
         cleanupHeartbeat()
         onClose?.(ev)
-        scheduleReconnect()
+        
+        // 自動再接続の条件を改善
+        if (autoReconnect && ev.code !== 1000) { // 正常終了以外の場合のみ再接続
+          scheduleReconnect()
+        }
       }
     } catch (e: any) {
       console.error("WebSocket: 接続エラー", e)
@@ -442,10 +487,19 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
 
   // 手動再接続機能
   const reconnect = useCallback(() => {
+    // 現在の接続を閉じる
     if (wsRef.current) {
       wsRef.current.close()
     }
+    
+    // 再接続試行回数をリセット
     reconnectAttemptRef.current = 0
+    
+    // 接続状態をリセット
+    setConnectionState(ConnectionState.DISCONNECTED)
+    setConnectError(null)
+    
+    // 接続を開始
     void connect()
   }, [connect])
 
@@ -462,6 +516,20 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
       cleanupHeartbeat()
     }
   }, [connect])
+
+  // 接続状態の整合性チェック
+  useEffect(() => {
+    // 接続状態とrefの整合性を確保
+    if (connectionState === ConnectionState.CONNECTED && !isConnected) {
+      console.warn("WebSocket: 状態の不整合を検出。接続状態を修正します。")
+      setIsConnected(true)
+    }
+    
+    if (connectionState === ConnectionState.DISCONNECTED && isConnected) {
+      console.warn("WebSocket: 状態の不整合を検出。接続状態を修正します。")
+      setIsConnected(false)
+    }
+  }, [connectionState, isConnected])
 
   const sendJson = useCallback((payload: JsonValue): boolean => {
     try {
