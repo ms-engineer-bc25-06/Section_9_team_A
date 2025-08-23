@@ -153,23 +153,23 @@ export default function AdminBillingPage() {
 
     return (
     <div className="min-h-screen bg-slate-50">
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-gradient-to-br from-orange-50 to-amber-50 shadow-sm border-b border-orange-200">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center justify-between">
             <Link href="/admin/dashboard">
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 ダッシュボードに戻る
               </Button>
             </Link>
-            <h1 className="text-2xl font-bold text-gray-900">利用状況・課金管理</h1>
+            <h1 className="text-2xl font-bold text-orange-900 flex-1 text-center">利用状況・課金管理</h1>
+            <div className="w-32"></div>
         </div>
       </div>
       </header>
 
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">利用状況・課金管理</h1>
           <p className="text-gray-600">システムの利用状況と決済履歴を確認できます</p>
           
           {/* 開発環境用の注意書き */}

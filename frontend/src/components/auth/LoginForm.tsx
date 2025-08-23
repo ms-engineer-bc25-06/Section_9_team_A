@@ -146,6 +146,15 @@ export function LoginForm() {
           </div>
         </div>
 
+        <Button 
+          type="submit" 
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 text-lg font-medium rounded-lg transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 cursor-pointer" 
+          disabled={isLoading}
+        >
+          <LogIn className="mr-2 h-4 w-4" />
+          {isLoading ? "ログイン中..." : "ログイン"}
+        </Button>
+
         <div className="flex items-center space-x-2">
           <input
             type="checkbox"
@@ -159,15 +168,6 @@ export function LoginForm() {
             仮パスワードでログイン（初回ログイン時）
           </Label>
         </div>
-
-        <Button 
-          type="submit" 
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 text-lg font-medium rounded-lg transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 cursor-pointer" 
-          disabled={isLoading}
-        >
-          <LogIn className="mr-2 h-4 w-4" />
-          {isLoading ? "ログイン中..." : "ログイン"}
-        </Button>
       </form>
 
       <Separator />
