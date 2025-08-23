@@ -25,7 +25,7 @@ _firebase_app = None
 
 
 def get_firebase_app():
-    """Firebaseアプリケーションを取得（必要に応じて初期化）"""
+    """Firebaseアプリケーションを取得（GOOGLE_APPLICATION_CREDENTIALS使用）"""
     global _firebase_initialized, _firebase_app
 
     if _firebase_initialized and _firebase_app:
@@ -33,79 +33,17 @@ def get_firebase_app():
 
     try:
         if not firebase_admin._apps:
-            # 設定ファイルから直接読み込み
-            import json
-            import os
-
-            # 現在のディレクトリからfirebase-admin-key.jsonを読み込み
-            current_dir = os.path.dirname(
-                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            # GOOGLE_APPLICATION_CREDENTIALSを使用して初期化
+            cred = credentials.ApplicationDefault()
+            _firebase_app = firebase_admin.initialize_app(cred)
+            logger.info(
+                "Firebase initialized successfully using GOOGLE_APPLICATION_CREDENTIALS"
             )
-            firebase_key_path = os.path.join(current_dir, "firebase-admin-key.json")
-
-            if os.path.exists(firebase_key_path):
-                with open(firebase_key_path, "r") as f:
-                    firebase_config = json.load(f)
-
-                # 秘密鍵の改行文字を正しく処理
-                if "private_key" in firebase_config:
-                    firebase_config["private_key"] = firebase_config[
-                        "private_key"
-                    ].replace("\\n", "\n")
-
-                cred = credentials.Certificate(firebase_config)
-                _firebase_app = firebase_admin.initialize_app(cred)
-                logger.info("Firebase initialized successfully from config file")
-            else:
-                # 環境変数から読み込み（フォールバック）
-                if settings.FIREBASE_PROJECT_ID and settings.FIREBASE_PRIVATE_KEY:
-                    # 秘密鍵の改行文字を正しく処理
-                    private_key = settings.FIREBASE_PRIVATE_KEY
-                    if private_key:
-                        # 文字列としての\nを実際の改行に変換
-                        private_key = private_key.replace("\\n", "\n")
-                        # 秘密鍵の開始・終了マーカーを確認
-                        if not private_key.startswith("-----BEGIN PRIVATE KEY-----"):
-                            logger.error(
-                                "Invalid private key format: missing BEGIN marker"
-                            )
-                            return None
-                        if not private_key.endswith("-----END PRIVATE KEY-----"):
-                            logger.error(
-                                "Invalid private key format: missing END marker"
-                            )
-                            return None
-
-                    cred = credentials.Certificate(
-                        {
-                            "type": "service_account",
-                            "project_id": settings.FIREBASE_PROJECT_ID,
-                            "private_key_id": settings.FIREBASE_PRIVATE_KEY_ID,
-                            "private_key": private_key,
-                            "client_email": settings.FIREBASE_CLIENT_EMAIL,
-                            "client_id": settings.FIREBASE_CLIENT_ID,
-                            "auth_uri": settings.FIREBASE_AUTH_URI,
-                            "token_uri": settings.FIREBASE_TOKEN_URI,
-                            "auth_provider_x509_cert_url": settings.FIREBASE_AUTH_PROVIDER_X509_CERT_URL,
-                            "client_x509_cert_url": settings.FIREBASE_CLIENT_X509_CERT_URL,
-                        }
-                    )
-                    _firebase_app = firebase_admin.initialize_app(cred)
-                    logger.info(
-                        "Firebase initialized successfully from environment variables"
-                    )
-                else:
-                    logger.warning(
-                        "Firebase configuration not found, Firebase features will be disabled"
-                    )
-                    return None
-
-            _firebase_initialized = True
         else:
             # 既に初期化済み
             _firebase_app = firebase_admin.get_app()
-            _firebase_initialized = True
 
+        _firebase_initialized = True
         return _firebase_app
 
     except Exception as e:

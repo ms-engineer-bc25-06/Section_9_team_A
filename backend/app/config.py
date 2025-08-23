@@ -42,25 +42,8 @@ class Settings(BaseSettings):
     ]
 
     # Firebase設定
-    FIREBASE_PROJECT_ID: Optional[str] = "section9-teama"
-    FIREBASE_PRIVATE_KEY_ID: Optional[str] = "d6f06fd341432d73a00075f0cf2cef42dfefe998"
-    FIREBASE_PRIVATE_KEY: Optional[str] = None  # firebase-admin-key.jsonから読み込み
-    FIREBASE_SERVICE_ACCOUNT_PATH: str = (
-        "firebase-admin-key.json"  # サービスアカウントファイルのパス
-    )
-
-    FIREBASE_CLIENT_EMAIL: Optional[str] = (
-        "firebase-adminsdk-fbsvc@section9-teama.iam.gserviceaccount.com"
-    )
-    FIREBASE_CLIENT_ID: Optional[str] = "105025232353434627915"
-    FIREBASE_AUTH_URI: str = "https://accounts.google.com/o/oauth2/auth"
-    FIREBASE_TOKEN_URI: str = "https://oauth2.googleapis.com/token"
-    FIREBASE_AUTH_PROVIDER_X509_CERT_URL: str = (
-        "https://www.googleapis.com/oauth2/v1/certs"
-    )
-    FIREBASE_CLIENT_X509_CERT_URL: Optional[str] = (
-        "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40section9-teama.iam.gserviceaccount.com"
-    )
+    # GOOGLE_APPLICATION_CREDENTIALS環境変数でfirebase-admin-key.jsonを指定
+    # 詳細設定はfirebase-admin-key.jsonファイル内に含まれている
 
     # Stripe設定
     STRIPE_SECRET_KEY: Optional[str] = None
