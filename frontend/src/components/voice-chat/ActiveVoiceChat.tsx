@@ -76,7 +76,7 @@ export function ActiveVoiceChat({ roomId }: Props) {
   
   // WebSocket接続状態管理
   const {
-    connectionState,
+    connectionState: wsConnectionState,
     connectError,
     isConnecting,
     reconnect,
@@ -94,7 +94,7 @@ export function ActiveVoiceChat({ roomId }: Props) {
     localStream,
     remoteStreams,
     participants,
-    connectionState,
+    connectionState: rtcConnectionState,
     joinRoom,
     leaveRoom,
     isMuted,
@@ -234,7 +234,7 @@ export function ActiveVoiceChat({ roomId }: Props) {
 
   // 接続状態に基づく表示
   const getConnectionStatusText = () => {
-    switch (connectionState) {
+    switch (rtcConnectionState) {
       case 'new':
         return '初期化中...'
       case 'connecting':
@@ -254,7 +254,7 @@ export function ActiveVoiceChat({ roomId }: Props) {
 
   // 接続状態に基づく色
   const getConnectionStatusColor = () => {
-    switch (connectionState) {
+    switch (rtcConnectionState) {
       case 'connected':
         return 'text-green-600'
       case 'connecting':
@@ -291,7 +291,7 @@ export function ActiveVoiceChat({ roomId }: Props) {
     <div className="space-y-6">
       {/* WebSocket接続状態表示 */}
       <ConnectionStatusDisplay
-        connectionState={connectionState}
+        connectionState={wsConnectionState}
         connectError={connectError}
         isConnecting={isConnecting}
         onReconnect={reconnect}
@@ -305,7 +305,7 @@ export function ActiveVoiceChat({ roomId }: Props) {
           <CardTitle className="flex items-center justify-between">
             <span>接続状態</span>
             <Badge 
-              variant={connectionState === 'connected' ? 'default' : 'secondary'}
+              variant={rtcConnectionState === 'connected' ? 'default' : 'secondary'}
               className={getConnectionStatusColor()}
               data-testid="connection-status"
             >
@@ -376,7 +376,7 @@ export function ActiveVoiceChat({ roomId }: Props) {
             </Button>
             
             {/* 接続エラー時の強制終了ボタン */}
-            {connectionState === ConnectionState.MAX_ATTEMPTS_REACHED && (
+            {wsConnectionState === ConnectionState.MAX_ATTEMPTS_REACHED && (
               <Button
                 onClick={handleForceClose}
                 variant="destructive"
