@@ -206,16 +206,17 @@ export default function AddUsersPage() {
 
     return (
     <div className="min-h-screen bg-slate-50">
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-gradient-to-br from-orange-50 to-amber-50 shadow-sm border-b border-orange-200">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center justify-between">
             <Link href="/admin/dashboard">
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 ダッシュボードに戻る
               </Button>
             </Link>
-            <h1 className="text-2xl font-bold text-gray-900">ユーザー追加・決済</h1>
+            <h1 className="text-2xl font-bold text-orange-900 flex-1 text-center">使用人数追加</h1>
+            <div className="w-32"></div>
           </div>
       </div>
       </header>
@@ -234,7 +235,7 @@ export default function AddUsersPage() {
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   {newUsers.map((user, index) => (
-                    <div key={index} className="space-y-4 p-4 border rounded-lg">
+                    <div key={index} className="space-y-4 p-4 border border-gray-300 rounded-lg bg-white shadow-sm">
                       {/* 1行目: 名前、部署、権限 */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
@@ -373,19 +374,10 @@ export default function AddUsersPage() {
                           alert("すべての必須項目を入力してください")
                         }
                       }}
-                      className="flex-[8]"
+                      className="w-full hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-colors duration-200"
                     >
                       <Plus className="h-4 w-4 mr-2" />
                       追加する
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={addUser}
-                      className="flex-[2]"
-                    >
-                      <Users className="h-4 w-4 mr-2" />
-                      他のメンバーも追加する
                     </Button>
                   </div>
                 </form>
@@ -395,23 +387,23 @@ export default function AddUsersPage() {
 
           {/* 追加料金通知 */}
           {currentUserCount > freeUserLimit && (
-            <Card className="bg-orange-50 border-orange-200">
+            <Card className="bg-yellow-50 border-yellow-200">
               <CardContent className="pt-6">
-                <div className="text-sm text-orange-800">
+                <div className="text-sm text-yellow-800">
                   <h4 className="font-semibold mb-2 flex items-center">
-                    <span className="text-orange-600 mr-2">💰</span>
+                    <span className="text-yellow-600 mr-2">💰</span>
                     追加料金が発生しています
                   </h4>
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
                       <span>追加料金対象ユーザー:</span>
-                      <span className="font-semibold text-orange-700">
+                      <span className="font-semibold text-yellow-700">
                         {currentUserCount - freeUserLimit}人
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span>追加料金:</span>
-                      <span className="font-semibold text-orange-700">
+                      <span className="font-semibold text-yellow-700">
                         {(currentUserCount - freeUserLimit) * costPerUser}円
                       </span>
                     </div>

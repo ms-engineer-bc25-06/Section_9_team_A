@@ -7,55 +7,9 @@ import { Input } from "@/components/ui/Input"
 import { Badge } from "@/components/ui/Badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table"
-import { Search, Users, UserCheck, MoreHorizontal, Copy } from "lucide-react"
+import { Search, Users, UserCheck, MoreHorizontal, Copy, ArrowUpDown } from "lucide-react"
 import { useState, useEffect } from "react"
 import Link from "next/link"
-
-// モックデータ（開発環境用）- コメントアウト
-/*
-const mockUsers = [
-  {
-    id: 1,
-    name: "田中太郎",
-    email: "tanaka@company.com",
-    department: "開発部",
-    joinDate: "2023-04-01",
-    lastLogin: "2024-01-15 14:30",
-    role: "member",
-    hasTemporaryPassword: false,
-  },
-  {
-    id: 2,
-    name: "佐藤花子",
-    email: "sato@company.com",
-    department: "デザイン部",
-    joinDate: "2023-03-15",
-    lastLogin: "2024-01-15 10:15",
-    role: "member",
-    hasTemporaryPassword: false,
-  },
-  {
-    id: 3,
-    name: "鈴木一郎",
-    email: "suzuki@company.com",
-    department: "営業部",
-    joinDate: "2023-02-01",
-    lastLogin: "2024-01-14 16:45",
-    role: "member",
-    hasTemporaryPassword: false,
-  },
-  {
-    id: 4,
-    name: "高橋美咲",
-    email: "takahashi@company.com",
-    department: "マーケティング部",
-    joinDate: "2023-01-10",
-    lastLogin: "2024-01-15 09:20",
-    role: "admin",
-    hasTemporaryPassword: false,
-  },
-]
-*/
 
 // ユーザーの型定義
 interface User {
@@ -70,9 +24,15 @@ interface User {
   temporaryPassword?: string
 }
 
+// ソートの種類
+type SortField = 'name' | 'department' | 'passwordStatus'
+type SortDirection = 'asc' | 'desc'
+
 export function AdminUserList() {
   const [searchTerm, setSearchTerm] = useState("")
   const [users, setUsers] = useState<User[]>([])
+  const [sortField, setSortField] = useState<SortField>('name')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
   // バックエンドAPIからユーザー一覧を取得
   useEffect(() => {
@@ -115,12 +75,81 @@ export function AdminUserList() {
     fetchUsers()
   }, [])
 
+  // ソート処理
+  const sortUsers = (users: User[], field: SortField, direction: SortDirection) => {
+    return [...users].sort((a, b) => {
+      let aValue: string | number
+      let bValue: string | number
+
+      switch (field) {
+        case 'name':
+          aValue = a.name || ''
+          bValue = b.name || ''
+          break
+        case 'department':
+          aValue = a.department || ''
+          bValue = b.department || ''
+          break
+        case 'passwordStatus':
+          // パスワード状態の優先順位: 仮パスワード > 設定済み
+          aValue = a.hasTemporaryPassword ? 1 : 0
+          bValue = b.hasTemporaryPassword ? 1 : 0
+          break
+        default:
+          aValue = a.name || ''
+          bValue = b.name || ''
+      }
+
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        // 文字列の場合はAIUEO順でソート
+        const aHiragana = aValue.toLowerCase()
+        const bHiragana = bValue.toLowerCase()
+        
+        if (direction === 'asc') {
+          return aHiragana.localeCompare(bHiragana, 'ja')
+        } else {
+          return bHiragana.localeCompare(aHiragana, 'ja')
+        }
+      } else {
+        // 数値の場合は数値順でソート
+        if (direction === 'asc') {
+          return (aValue as number) - (bValue as number)
+        } else {
+          return (bValue as number) - (aValue as number)
+        }
+      }
+    })
+  }
+
+  // ソートフィールドを変更
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortDirection('asc')
+    }
+  }
+
+  // ソートアイコンを取得
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="h-4 w-4" />
+    }
+    return sortDirection === 'asc' ? 
+      <ArrowUpDown className="h-4 w-4 text-blue-600" /> : 
+      <ArrowUpDown className="h-4 w-4 text-blue-600 rotate-180" />
+  }
+
   const filteredUsers = users.filter(
     (user) =>
       (user.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
       (user.email?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
       (user.department?.toLowerCase() || '').includes(searchTerm.toLowerCase()),
   )
+
+  // ソートされたユーザーリスト
+  const sortedUsers = sortUsers(filteredUsers, sortField, sortDirection)
 
   const getRoleBadge = (role: string) => {
     switch (role) {
@@ -169,16 +198,40 @@ export function AdminUserList() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ユーザー</TableHead>
-                <TableHead>部署</TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleSort('name')}
+                    className="h-auto p-0 font-semibold hover:bg-transparent"
+                  >
+                    ユーザー {getSortIcon('name')}
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleSort('department')}
+                    className="h-auto p-0 font-semibold hover:bg-transparent"
+                  >
+                    部署 {getSortIcon('department')}
+                  </Button>
+                </TableHead>
                 <TableHead>権限</TableHead>
-                <TableHead>パスワード状態</TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleSort('passwordStatus')}
+                    className="h-auto p-0 font-semibold hover:bg-transparent"
+                  >
+                    パスワード状態 {getSortIcon('passwordStatus')}
+                  </Button>
+                </TableHead>
                 <TableHead>操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredUsers.length > 0 ? (
-                filteredUsers.map((user: User) => (
+              {sortedUsers.length > 0 ? (
+                sortedUsers.map((user: User) => (
                   <TableRow key={user.id}>
                     <TableCell>
                       <div className="flex items-center space-x-3">
@@ -187,7 +240,9 @@ export function AdminUserList() {
                           <AvatarFallback>{(user.name || 'U').slice(0, 2)}</AvatarFallback>
                         </Avatar>
                         <div>
-                          <div className="font-medium">{user.name || '名前未設定'}</div>
+                          <div className="font-medium">
+                            {user.email === 'admin@example.com' ? '管理者' : (user.name || '名前未設定')}
+                          </div>
                           <div className="text-sm text-gray-600">{user.email || 'メール未設定'}</div>
                         </div>
                       </div>

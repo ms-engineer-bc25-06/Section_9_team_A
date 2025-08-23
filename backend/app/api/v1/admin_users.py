@@ -128,7 +128,7 @@ async def _create_user_with_temporary_password(
         created_at=new_user.created_at
     )
 
-@router.post("/users", response_model=UserResponse)
+@router.post("/admin/users", response_model=UserResponse)
 async def create_user(
     user_data: UserCreate,
     db: AsyncSession = Depends(get_db)
@@ -137,7 +137,7 @@ async def create_user(
     """管理者がユーザーを作成（仮パスワード付き）"""
     return await _create_user_with_temporary_password(user_data, db)
 
-@router.post("/users/dev", response_model=UserResponse)
+@router.post("/admin/users/dev", response_model=UserResponse)
 async def create_user_dev(
     user_data: UserCreate,
     db: AsyncSession = Depends(get_db)
@@ -146,7 +146,7 @@ async def create_user_dev(
     """開発用：管理者がユーザーを作成（仮パスワード付き）- 認証不要"""
     return await _create_user_with_temporary_password(user_data, db)
 
-@router.get("/users", response_model=List[UserResponse])
+@router.get("/admin/users", response_model=List[UserResponse])
 async def get_users(
     db: AsyncSession = Depends(get_db)
 ):
@@ -170,7 +170,7 @@ async def get_users(
         for user in user_list
     ]
 
-@router.get("/users/{user_id}/temporary-password")
+@router.get("/admin/users/{user_id}/temporary-password")
 async def get_user_temporary_password(
     user_id: int,
     db: AsyncSession = Depends(get_db)
