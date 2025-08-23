@@ -1,14 +1,12 @@
 import json
 import asyncio
-from typing import Optional
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, status
 import structlog
 from datetime import datetime
 
 from app.core.websocket import manager, WebSocketAuth, WebSocketMessageHandler
 from app.services.voice_session_service import VoiceSessionService
-from app.core.database import AsyncSessionLocal
-from app.core.exceptions import AuthenticationException, NotFoundException
+from app.core.exceptions import AuthenticationException
 
 router = APIRouter()
 logger = structlog.get_logger()
@@ -22,9 +20,6 @@ WEBSOCKET_SESSION_CHECK_TIMEOUT = 5.0  # セッション確認タイムアウト
 @router.websocket("/voice-sessions/{session_id}")
 async def websocket_voice_session(websocket: WebSocket, session_id: str):
     """音声セッション用WebSocketエンドポイント"""
-    connection_id = None
-    connection_established = False
-
     try:
         # 接続全体のタイムアウト設定
         connection_task = asyncio.create_task(
@@ -77,11 +72,10 @@ async def _handle_voice_session_connection(websocket: WebSocket, session_id: str
 
         # セッション存在確認（タイムアウト付き）
         try:
-            # データベースセッションを直接作成
+            # データベースセッションを適切に管理
             from app.core.database import AsyncSessionLocal
 
-            db = AsyncSessionLocal()
-            try:
+            async with AsyncSessionLocal() as db:
                 voice_session_service = VoiceSessionService(db)
                 session = await asyncio.wait_for(
                     voice_session_service.get_session_by_session_id(session_id),
@@ -93,8 +87,6 @@ async def _handle_voice_session_connection(websocket: WebSocket, session_id: str
                         code=status.WS_1008_POLICY_VIOLATION, reason="Session not found"
                     )
                     return
-            finally:
-                await db.close()
         except asyncio.TimeoutError:
             logger.warning(f"Session check timeout for session {session_id}")
             await websocket.close(
@@ -138,6 +130,8 @@ async def _handle_voice_session_connection(websocket: WebSocket, session_id: str
             )
         except Exception as e:
             logger.error(f"Failed to send connection established message: {e}")
+            # 接続成功通知の失敗は致命的ではないが、ログに記録
+            # 接続自体は継続する
 
         # セッション参加通知
         try:
@@ -146,6 +140,15 @@ async def _handle_voice_session_connection(websocket: WebSocket, session_id: str
             )
         except Exception as e:
             logger.error(f"Failed to handle join session: {e}")
+            # クライアントにエラーを通知
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to join session"}, connection_id
+            )
+            # エラーが発生した場合は接続を切断
+            await websocket.close(
+                code=status.WS_1011_INTERNAL_ERROR, reason="Session join failed"
+            )
+            return
 
         # メッセージ受信ループ
         while True:
@@ -169,9 +172,17 @@ async def _handle_voice_session_connection(websocket: WebSocket, session_id: str
                 )
             except Exception as e:
                 logger.error(f"Error processing message from {connection_id}: {e}")
-                await manager.send_personal_message(
-                    {"type": "error", "message": "Internal server error"}, connection_id
-                )
+                try:
+                    await manager.send_personal_message(
+                        {"type": "error", "message": "Internal server error"},
+                        connection_id,
+                    )
+                except Exception as send_error:
+                    logger.error(
+                        f"Failed to send error message to {connection_id}: {send_error}"
+                    )
+                    # エラーメッセージの送信に失敗した場合は接続を切断
+                    break
 
     except Exception as e:
         logger.error(f"Error in voice session connection handler: {e}")
@@ -195,9 +206,6 @@ async def _handle_voice_session_connection(websocket: WebSocket, session_id: str
 @router.websocket("/chat-rooms/{room_id}")
 async def websocket_chat_room(websocket: WebSocket, room_id: str):
     """チャットルーム用WebSocketエンドポイント"""
-    connection_id = None
-    connection_established = False
-
     try:
         # 接続全体のタイムアウト設定
         connection_task = asyncio.create_task(
@@ -286,6 +294,15 @@ async def _handle_chat_room_connection(websocket: WebSocket, room_id: str):
             )
         except Exception as e:
             logger.error(f"Failed to handle join session: {e}")
+            # クライアントにエラーを通知
+            await manager.send_personal_message(
+                {"type": "error", "message": "Failed to join room"}, connection_id
+            )
+            # エラーが発生した場合は接続を切断
+            await websocket.close(
+                code=status.WS_1011_INTERNAL_ERROR, reason="Room join failed"
+            )
+            return
 
         # メッセージ受信ループ
         while True:
@@ -309,9 +326,17 @@ async def _handle_chat_room_connection(websocket: WebSocket, room_id: str):
                 )
             except Exception as e:
                 logger.error(f"Error processing message from {connection_id}: {e}")
-                await manager.send_personal_message(
-                    {"type": "error", "message": "Internal server error"}, connection_id
-                )
+                try:
+                    await manager.send_personal_message(
+                        {"type": "error", "message": "Internal server error"},
+                        connection_id,
+                    )
+                except Exception as send_error:
+                    logger.error(
+                        f"Failed to send error message to {connection_id}: {send_error}"
+                    )
+                    # エラーメッセージの送信に失敗した場合は接続を切断
+                    break
 
     except Exception as e:
         logger.error(f"Error in chat room connection handler: {e}")

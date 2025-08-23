@@ -1,14 +1,13 @@
 import json
 import asyncio
 from typing import Dict, Set, Optional, Any
-from fastapi import WebSocket, WebSocketDisconnect, HTTPException, status
-from fastapi.security import HTTPBearer
+from fastapi import WebSocket, HTTPException, status
 import structlog
 from datetime import datetime, timedelta
 
-from app.core.auth import get_current_user_from_token, verify_firebase_token
+from app.core.auth import verify_firebase_token
 from app.models.user import User
-from app.core.exceptions import AuthenticationException, PermissionException
+from app.core.exceptions import AuthenticationException
 from app.core.database import AsyncSessionLocal
 from sqlalchemy import select
 
@@ -344,16 +343,25 @@ class WebSocketMessageHandler:
 
             # セッション参加者の権限チェック
             if required_permission in ["manage_session", "moderate_participants"]:
-                # ホストまたはモデレーター権限が必要
-                # TODO: 実際の権限システムと連携
-                # 現在は基本的なチェックのみ
-                logger.debug(
-                    "Permission check passed for session management",
-                    user_id=user.id,
-                    session_id=session_id,
-                    permission=required_permission,
-                )
-                return True
+                # 実際のセッション権限をチェック
+                if await WebSocketMessageHandler._is_session_host_or_moderator(
+                    user, session_id
+                ):
+                    logger.debug(
+                        "Permission check passed for session management",
+                        user_id=user.id,
+                        session_id=session_id,
+                        permission=required_permission,
+                    )
+                    return True
+                else:
+                    logger.warning(
+                        "Permission denied: User is not session host or moderator",
+                        user_id=user.id,
+                        session_id=session_id,
+                        permission=required_permission,
+                    )
+                    return False
 
             # 基本的な参加者権限
             logger.debug(
@@ -372,6 +380,57 @@ class WebSocketMessageHandler:
                 user_id=user.id,
                 session_id=session_id,
                 permission=required_permission,
+            )
+            return False
+
+    @staticmethod
+    async def _is_session_host_or_moderator(user: User, session_id: str) -> bool:
+        """ユーザーがセッションのホストまたはモデレーターかを判定"""
+        try:
+            from app.services.voice_session_service import VoiceSessionService
+
+            # データベースからセッション情報を取得
+            async with AsyncSessionLocal() as db:
+                voice_session_service = VoiceSessionService(db)
+                session = await voice_session_service.get_session_by_session_id(
+                    session_id
+                )
+
+                if not session:
+                    logger.warning(
+                        "Session not found for permission check",
+                        user_id=user.id,
+                        session_id=session_id,
+                    )
+                    return False
+
+                # セッションのホストかチェック
+                if session.host_id == user.id:
+                    logger.debug(
+                        "User is session host",
+                        user_id=user.id,
+                        session_id=session_id,
+                        host_id=session.host_id,
+                    )
+                    return True
+
+                # TODO: モデレーター権限のチェックを追加
+                # 現在はホストのみが管理権限を持つ
+                logger.debug(
+                    "User is not session host or moderator",
+                    user_id=user.id,
+                    session_id=session_id,
+                    host_id=session.host_id,
+                )
+                return False
+
+        except Exception as e:
+            logger.error(
+                "Failed to check session host or moderator status",
+                error_type=type(e).__name__,
+                error_message=str(e),
+                user_id=user.id,
+                session_id=session_id,
             )
             return False
 
