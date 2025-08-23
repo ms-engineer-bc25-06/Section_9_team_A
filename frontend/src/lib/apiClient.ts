@@ -125,6 +125,7 @@ async function handleResponse<T>(res: Response, label: string): Promise<T> {
 
 // 基本的なAPI関数
 export const apiClient = {
+  // 個別の関数としてもエクスポート
   get: async <T = any>(url: string, options?: RequestInit): Promise<T> => {
     const response = await fetchWithAuth(url, { ...options, method: 'GET' });
     return handleResponse<T>(response, `GET ${url}`);
@@ -163,4 +164,10 @@ export const apiClient = {
   },
 };
 
+// 個別の関数としてもエクスポート（useProfile.tsとの互換性のため）
+export const apiGet = apiClient.get;
+export const apiPost = apiClient.post;
+export const apiPut = apiClient.put;
+export const apiDelete = apiClient.delete;
+export const apiPatch = apiClient.patch;
 export default apiClient;
