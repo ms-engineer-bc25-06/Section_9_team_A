@@ -148,8 +148,6 @@ class ConnectionManager:
         start_time = time.time()
 
         try:
-            await websocket.accept()
-
             # 接続制限チェック
             await self._check_connection_limits(session_id, user.id)
 
@@ -213,13 +211,34 @@ class ConnectionManager:
                 user_id=user.id,
                 session_id=session_id,
             )
+
+            # 接続に失敗した場合、WebSocketを適切に閉じる
+            # 注意: websocket.accept()が呼ばれていない場合はclose()を呼べない
+            try:
+                if websocket.client_state.value >= 2:  # WebSocket.CONNECTING以上
+                    await websocket.close(
+                        code=status.WS_1011_INTERNAL_ERROR, reason="Connection failed"
+                    )
+            except Exception as close_error:
+                logger.error(
+                    f"Failed to close WebSocket after connection failure: {close_error}"
+                )
+
             raise
 
     async def _check_connection_limits(self, session_id: str, user_id: int):
         """接続制限をチェック"""
+        logger.info(f"接続制限チェック開始: session_id={session_id}, user_id={user_id}")
+
         # ユーザー別接続数チェック
         user_connections = len(self.user_connections.get(user_id, set()))
+        logger.info(
+            f"ユーザー接続数: {user_connections}/{self.max_connections_per_user}"
+        )
         if user_connections >= self.max_connections_per_user:
+            logger.warning(
+                f"ユーザー接続制限超過: user_id={user_id}, connections={user_connections}"
+            )
             self.performance_monitor.record_error("user_connection_limit_exceeded")
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -228,12 +247,20 @@ class ConnectionManager:
 
         # セッション別接続数チェック
         session_connections = len(self.session_connections.get(session_id, set()))
+        logger.info(
+            f"セッション接続数: {session_connections}/{self.max_connections_per_session}"
+        )
         if session_connections >= self.max_connections_per_session:
+            logger.warning(
+                f"セッション接続制限超過: session_id={session_id}, connections={session_connections}"
+            )
             self.performance_monitor.record_error("session_connection_limit_exceeded")
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="Maximum connections per session exceeded",
             )
+
+        logger.info("接続制限チェック完了: 接続可能")
 
     async def disconnect(self, connection_id: str):
         """WebSocket接続を切断"""
@@ -281,17 +308,38 @@ class ConnectionManager:
         try:
             if connection_id in self.active_connections:
                 websocket = self.active_connections[connection_id]
-                await websocket.send_text(json.dumps(message))
 
-                # パフォーマンス監視
-                processing_time = time.time() - start_time
-                self.performance_monitor.record_message_processing_time(processing_time)
+                # WebSocketの状態をチェック
+                if websocket.client_state.value >= 3:  # WebSocket.OPEN以上
+                    await websocket.send_text(json.dumps(message))
 
-                logger.debug(f"Personal message sent to {connection_id}")
+                    # パフォーマンス監視
+                    processing_time = time.time() - start_time
+                    self.performance_monitor.record_message_processing_time(
+                        processing_time
+                    )
+
+                    logger.debug(f"Personal message sent to {connection_id}")
+                else:
+                    logger.warning(
+                        f"WebSocket not in OPEN state for {connection_id}, state: {websocket.client_state.value}"
+                    )
+                    # 接続が開いていない場合は切断
+                    await self.disconnect(connection_id)
+            else:
+                logger.warning(
+                    f"Connection {connection_id} not found in active connections"
+                )
         except Exception as e:
             self.performance_monitor.record_error("send_message_failed")
             logger.error(f"Failed to send personal message to {connection_id}: {e}")
-            await self.disconnect(connection_id)
+            # エラーが発生した場合は接続を切断
+            try:
+                await self.disconnect(connection_id)
+            except Exception as disconnect_error:
+                logger.error(
+                    f"Failed to disconnect {connection_id} after send error: {disconnect_error}"
+                )
 
     async def broadcast_to_session(
         self, message: dict, session_id: str, exclude_connection: Optional[str] = None
@@ -320,30 +368,97 @@ class ConnectionManager:
     async def get_session_participants(self, session_id: str) -> list:
         """セッションの参加者一覧を取得"""
         participants = []
-        if session_id in self.session_connections:
-            for connection_id in self.session_connections[session_id]:
-                if connection_id in self.connection_info:
-                    connection_info = self.connection_info[connection_id]
-                    user = connection_info.get("user")
-                    connected_at = connection_info.get("connected_at")
-                    last_activity = connection_info.get("last_activity")
 
-                    if user and connected_at and last_activity:
-                        participants.append(
-                            {
-                                "id": str(user.id),
-                                "username": user.username,
-                                "display_name": user.display_name,
-                                "email": user.email,
-                                "role": "PARTICIPANT",
-                                "status": "online",
-                                "is_active": True,
-                                "is_muted": False,
-                                "joinedAt": connected_at.isoformat(),
-                                "lastActivity": last_activity.isoformat(),
-                            }
+        try:
+            # まずデータベースから参加者情報を取得
+            from app.core.database import AsyncSessionLocal
+            from app.services.voice_session_service import VoiceSessionService
+
+            async with AsyncSessionLocal() as db:
+                voice_session_service = VoiceSessionService(db)
+                session = await voice_session_service.get_session_by_session_id(
+                    session_id
+                )
+
+                if session and session.participants:
+                    try:
+                        # participantsフィールドをJSONとしてパース
+                        participants_data = (
+                            json.loads(session.participants)
+                            if isinstance(session.participants, str)
+                            else session.participants
                         )
-        return participants
+
+                        for participant in participants_data:
+                            participants.append(
+                                {
+                                    "id": str(participant.get("user_id")),
+                                    "username": participant.get("username", "Unknown"),
+                                    "display_name": participant.get(
+                                        "username", "Unknown"
+                                    ),
+                                    "email": participant.get("email", ""),
+                                    "role": participant.get(
+                                        "role", "participant"
+                                    ).upper(),
+                                    "status": "online"
+                                    if participant.get("is_active", True)
+                                    else "offline",
+                                    "is_active": participant.get("is_active", True),
+                                    "is_muted": False,
+                                    "joinedAt": participant.get(
+                                        "joined_at", datetime.now().isoformat()
+                                    ),
+                                    "lastActivity": datetime.now().isoformat(),
+                                }
+                            )
+
+                        logger.info(
+                            f"Retrieved {len(participants)} participants from database for session {session_id}"
+                        )
+                        return participants
+
+                    except (json.JSONDecodeError, TypeError) as e:
+                        logger.error(
+                            f"Failed to parse participants data for session {session_id}: {e}"
+                        )
+
+            # データベースからの取得に失敗した場合、現在のWebSocket接続から取得
+            logger.warning(
+                f"Falling back to WebSocket connections for session {session_id}"
+            )
+            if session_id in self.session_connections:
+                for connection_id in self.session_connections[session_id]:
+                    if connection_id in self.connection_info:
+                        connection_info = self.connection_info[connection_id]
+                        user = connection_info.get("user")
+                        connected_at = connection_info.get("connected_at")
+                        last_activity = connection_info.get("last_activity")
+
+                        if user and connected_at and last_activity:
+                            participants.append(
+                                {
+                                    "id": str(user.id),
+                                    "username": user.username,
+                                    "display_name": user.display_name,
+                                    "email": user.email,
+                                    "role": "PARTICIPANT",
+                                    "status": "online",
+                                    "is_active": True,
+                                    "is_muted": False,
+                                    "joinedAt": connected_at.isoformat(),
+                                    "lastActivity": last_activity.isoformat(),
+                                }
+                            )
+
+            logger.info(
+                f"Total participants retrieved: {len(participants)} for session {session_id}"
+            )
+            return participants
+
+        except Exception as e:
+            logger.error(f"Error getting session participants for {session_id}: {e}")
+            return []
 
     async def update_connection_activity(self, connection_id: str):
         """接続の活動時間を更新"""
@@ -402,6 +517,9 @@ class WebSocketAuth:
         start_time = time.time()
         logger.info("WebSocket認証処理を開始")
 
+        # WebSocketの状態をログ出力
+        logger.info(f"WebSocket状態: client_state={websocket.client_state.value}")
+
         try:
             # クエリパラメータからトークンを取得
             query_params = websocket.query_params
@@ -445,34 +563,50 @@ class WebSocketAuth:
                 logger.info(f"Firebaseトークン検証成功: uid={uid}, email={email}")
 
                 # Firebase UIDでユーザーを検索
-                logger.info("データベースでユーザーを検索中")
+                logger.info(
+                    f"データベースでユーザーを検索中: firebase_uid={uid}, email={email}"
+                )
                 async with AsyncSessionLocal() as db:
-                    result = await db.execute(
-                        select(User).where(User.firebase_uid == uid)
-                    )
-                    user = result.scalar_one_or_none()
-
-                    if not user:
-                        logger.warning(
-                            "Firebase token valid but user not found in database",
-                            firebase_uid=uid,
-                            email=email,
+                    try:
+                        result = await db.execute(
+                            select(User).where(User.firebase_uid == uid)
                         )
-                        manager.performance_monitor.record_error("user_not_found")
-                        raise AuthenticationException("User not found")
+                        user = result.scalar_one_or_none()
 
-                    # パフォーマンス監視
-                    auth_time = time.time() - start_time
-                    manager.performance_monitor.record_connection_time(auth_time)
+                        if not user:
+                            logger.warning(
+                                "Firebase token valid but user not found in database",
+                                firebase_uid=uid,
+                                email=email,
+                            )
+                            manager.performance_monitor.record_error("user_not_found")
+                            raise AuthenticationException("User not found")
 
-                    logger.info(
-                        "WebSocket authentication successful",
-                        user_id=user.id,
-                        firebase_uid=uid,
-                        email=email,
-                        auth_time_ms=round(auth_time * 1000, 2),
-                    )
-                    return user
+                        logger.info(
+                            f"ユーザー検索成功: user_id={user.id}, username={user.username}"
+                        )
+
+                    except Exception as db_error:
+                        logger.error(f"データベース検索エラー: {db_error}")
+                        manager.performance_monitor.record_error(
+                            "database_search_error"
+                        )
+                        raise AuthenticationException(
+                            "Database error during user lookup"
+                        )
+
+                # パフォーマンス監視
+                auth_time = time.time() - start_time
+                manager.performance_monitor.record_connection_time(auth_time)
+
+                logger.info(
+                    "WebSocket authentication successful",
+                    user_id=user.id,
+                    firebase_uid=uid,
+                    email=email,
+                    auth_time_ms=round(auth_time * 1000, 2),
+                )
+                return user
 
             except Exception as firebase_error:
                 manager.performance_monitor.record_error("firebase_verification_error")
@@ -676,6 +810,10 @@ class WebSocketMessageHandler:
             # 参加者一覧を取得
             participants = await manager.get_session_participants(session_id)
 
+            if not participants:
+                logger.warning(f"No participants found for session {session_id}")
+                raise Exception("Failed to get session participants")
+
             # 参加者一覧を全員に送信
             await manager.broadcast_to_session(
                 {
@@ -767,10 +905,16 @@ class WebSocketMessageHandler:
             if message_type == "ping":
                 # ハートビート応答
                 logger.debug("Processing ping message", connection_id=connection_id)
-                await manager.send_personal_message(
-                    {"type": "pong", "timestamp": datetime.now().isoformat()},
-                    connection_id,
-                )
+                try:
+                    await manager.send_personal_message(
+                        {"type": "pong", "timestamp": datetime.now().isoformat()},
+                        connection_id,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to send pong response to {connection_id}: {e}"
+                    )
+                    # pong送信の失敗は致命的ではない
 
             elif message_type in ["offer", "answer", "ice-candidate"]:
                 # WebRTCシグナリングメッセージ

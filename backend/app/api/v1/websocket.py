@@ -72,7 +72,7 @@ async def _handle_voice_session_connection(websocket: WebSocket, session_id: str
             )
             return
 
-        # セッション存在確認（タイムアウト付き）
+        # セッション存在確認と参加者権限チェック（タイムアウト付き）
         try:
             # データベースセッションを適切に管理
             from app.core.database import AsyncSessionLocal
@@ -89,6 +89,21 @@ async def _handle_voice_session_connection(websocket: WebSocket, session_id: str
                         code=status.WS_1008_POLICY_VIOLATION, reason="Session not found"
                     )
                     return
+
+                # 参加者権限チェック
+                if not await _check_user_participant_permission(session, user):
+                    logger.warning(
+                        f"User {user.id} ({user.email}) is not authorized to join session {session_id}"
+                    )
+                    await websocket.close(
+                        code=status.WS_1008_POLICY_VIOLATION,
+                        reason="User not authorized for this session",
+                    )
+                    return
+
+                logger.info(
+                    f"User {user.id} ({user.email}) authorized for session {session_id}"
+                )
         except asyncio.TimeoutError:
             logger.warning(f"Session check timeout for session {session_id}")
             await websocket.close(
@@ -102,14 +117,25 @@ async def _handle_voice_session_connection(websocket: WebSocket, session_id: str
             )
             return
 
-        # 接続を確立
+        # WebSocket接続を確立
         try:
-            logger.info(f"WebSocket接続を確立中: session_id={session_id}")
+            logger.info(
+                f"WebSocket接続を確立中: session_id={session_id}, user_id={user.id}"
+            )
+
+            # まずWebSocket接続を確立
+            await websocket.accept()
+            logger.info(
+                f"WebSocket accept() completed for session {session_id}, user_id={user.id}"
+            )
+
+            # 接続を確立
             connection_id = await manager.connect(websocket, session_id, user)
             connection_established = True
             logger.info(
-                f"WebSocket connection established: {connection_id} for session {session_id}"
+                f"WebSocket connection established: {connection_id} for session {session_id}, user_id={user.id}"
             )
+
         except Exception as e:
             logger.error(f"Failed to establish connection: {e}")
             await websocket.close(
@@ -170,22 +196,39 @@ async def _handle_voice_session_connection(websocket: WebSocket, session_id: str
                 break
             except json.JSONDecodeError:
                 logger.warning(f"Invalid JSON received from {connection_id}")
-                await manager.send_personal_message(
-                    {"type": "error", "message": "Invalid JSON format"}, connection_id
-                )
+                try:
+                    await manager.send_personal_message(
+                        {"type": "error", "message": "Invalid JSON format"},
+                        connection_id,
+                    )
+                except Exception as send_error:
+                    logger.warning(
+                        f"Failed to send JSON error message to {connection_id}: {send_error}"
+                    )
             except Exception as e:
                 logger.error(f"Error processing message from {connection_id}: {e}")
                 try:
+                    # エラーメッセージの送信を試行（失敗しても致命的ではない）
                     await manager.send_personal_message(
                         {"type": "error", "message": "Internal server error"},
                         connection_id,
                     )
                 except Exception as send_error:
-                    logger.error(
+                    logger.warning(
                         f"Failed to send error message to {connection_id}: {send_error}"
                     )
                     # エラーメッセージの送信に失敗した場合は接続を切断
-                    break
+                    # ただし、接続が既に切断されている可能性がある
+                    if connection_id in manager.active_connections:
+                        logger.info(
+                            f"Closing connection {connection_id} due to message processing error"
+                        )
+                        break
+                    else:
+                        logger.info(
+                            f"Connection {connection_id} already closed, exiting message loop"
+                        )
+                        break
 
     except Exception as e:
         logger.error(f"Error in voice session connection handler: {e}")
@@ -259,12 +302,66 @@ async def _handle_chat_room_connection(websocket: WebSocket, room_id: str):
             )
             return
 
-        # 接続を確立
+        # セッション存在確認と参加者権限チェック（タイムアウト付き）
         try:
+            # データベースセッションを適切に管理
+            from app.core.database import AsyncSessionLocal
+
+            async with AsyncSessionLocal() as db:
+                voice_session_service = VoiceSessionService(db)
+                session = await asyncio.wait_for(
+                    voice_session_service.get_session_by_session_id(room_id),
+                    timeout=WEBSOCKET_SESSION_CHECK_TIMEOUT,
+                )
+                if not session:
+                    logger.warning(f"Session not found: {room_id}")
+                    await websocket.close(
+                        code=status.WS_1008_POLICY_VIOLATION, reason="Session not found"
+                    )
+                    return
+
+                # 参加者権限チェック
+                if not await _check_user_participant_permission(session, user):
+                    logger.warning(
+                        f"User {user.id} ({user.email}) is not authorized to join room {room_id}"
+                    )
+                    await websocket.close(
+                        code=status.WS_1008_POLICY_VIOLATION,
+                        reason="User not authorized for this room",
+                    )
+                    return
+
+                logger.info(
+                    f"User {user.id} ({user.email}) authorized for room {room_id}"
+                )
+        except asyncio.TimeoutError:
+            logger.warning(f"Session check timeout for room {room_id}")
+            await websocket.close(
+                code=status.WS_1008_POLICY_VIOLATION, reason="Session check timeout"
+            )
+            return
+        except Exception as e:
+            logger.error(f"Session check failed for room {room_id}: {e}")
+            await websocket.close(
+                code=status.WS_1011_INTERNAL_ERROR, reason="Session check failed"
+            )
+            return
+
+        # WebSocket接続を確立
+        try:
+            logger.info(f"WebSocket接続を確立中: room_id={room_id}, user_id={user.id}")
+
+            # まずWebSocket接続を確立
+            await websocket.accept()
+            logger.info(
+                f"WebSocket accept() completed for room {room_id}, user_id={user.id}"
+            )
+
+            # 接続を確立
             connection_id = await manager.connect(websocket, room_id, user)
             connection_established = True
             logger.info(
-                f"WebSocket connection established: {connection_id} for room {room_id}"
+                f"WebSocket connection established: {connection_id} for room {room_id}, user_id={user.id}"
             )
         except Exception as e:
             logger.error(f"Failed to establish connection: {e}")
@@ -324,22 +421,39 @@ async def _handle_chat_room_connection(websocket: WebSocket, room_id: str):
                 break
             except json.JSONDecodeError:
                 logger.warning(f"Invalid JSON received from {connection_id}")
-                await manager.send_personal_message(
-                    {"type": "error", "message": "Invalid JSON format"}, connection_id
-                )
+                try:
+                    await manager.send_personal_message(
+                        {"type": "error", "message": "Invalid JSON format"},
+                        connection_id,
+                    )
+                except Exception as send_error:
+                    logger.warning(
+                        f"Failed to send JSON error message to {connection_id}: {send_error}"
+                    )
             except Exception as e:
                 logger.error(f"Error processing message from {connection_id}: {e}")
                 try:
+                    # エラーメッセージの送信を試行（失敗しても致命的ではない）
                     await manager.send_personal_message(
                         {"type": "error", "message": "Internal server error"},
                         connection_id,
                     )
                 except Exception as send_error:
-                    logger.error(
+                    logger.warning(
                         f"Failed to send error message to {connection_id}: {send_error}"
                     )
                     # エラーメッセージの送信に失敗した場合は接続を切断
-                    break
+                    # ただし、接続が既に切断されている可能性がある
+                    if connection_id in manager.active_connections:
+                        logger.info(
+                            f"Closing connection {connection_id} due to message processing error"
+                        )
+                        break
+                    else:
+                        logger.info(
+                            f"Connection {connection_id} already closed, exiting message loop"
+                        )
+                        break
 
     except Exception as e:
         logger.error(f"Error in chat room connection handler: {e}")
@@ -387,3 +501,53 @@ async def cleanup_inactive_connections():
     except Exception as e:
         logger.error(f"Failed to cleanup connections: {e}")
         raise HTTPException(status_code=500, detail="Failed to cleanup connections")
+
+
+async def _check_user_participant_permission(session, user) -> bool:
+    """ユーザーがセッションの参加者として認可されているかをチェック"""
+    try:
+        # セッションの参加者リストを取得
+        if not session.participants:
+            logger.warning(f"Session {session.session_id} has no participants list")
+            return False
+
+        # participantsフィールドをJSONとしてパース
+        try:
+            participants_data = (
+                json.loads(session.participants)
+                if isinstance(session.participants, str)
+                else session.participants
+            )
+        except (json.JSONDecodeError, TypeError) as e:
+            logger.error(
+                f"Failed to parse participants data for session {session.session_id}: {e}"
+            )
+            return False
+
+        # ユーザーが参加者リストに含まれているかをチェック
+        user_found = False
+        for participant in participants_data:
+            if participant.get("user_id") == user.id:
+                user_found = True
+                # ユーザーがアクティブかチェック
+                if not participant.get("is_active", True):
+                    logger.warning(
+                        f"User {user.id} is not active in session {session.session_id}"
+                    )
+                    return False
+                logger.info(
+                    f"User {user.id} found in participants list with role: {participant.get('role', 'unknown')}"
+                )
+                break
+
+        if not user_found:
+            logger.warning(
+                f"User {user.id} ({user.email}) not found in participants list for session {session.session_id}"
+            )
+            return False
+
+        return True
+
+    except Exception as e:
+        logger.error(f"Error checking user participant permission: {e}")
+        return False
