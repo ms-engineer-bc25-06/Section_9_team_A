@@ -20,6 +20,8 @@ WEBSOCKET_SESSION_CHECK_TIMEOUT = 5.0  # セッション確認タイムアウト
 @router.websocket("/voice-sessions/{session_id}")
 async def websocket_voice_session(websocket: WebSocket, session_id: str):
     """音声セッション用WebSocketエンドポイント"""
+    logger.info(f"WebSocket接続要求を受信: session_id={session_id}")
+
     try:
         # 接続全体のタイムアウト設定
         connection_task = asyncio.create_task(
@@ -102,6 +104,7 @@ async def _handle_voice_session_connection(websocket: WebSocket, session_id: str
 
         # 接続を確立
         try:
+            logger.info(f"WebSocket接続を確立中: session_id={session_id}")
             connection_id = await manager.connect(websocket, session_id, user)
             connection_established = True
             logger.info(

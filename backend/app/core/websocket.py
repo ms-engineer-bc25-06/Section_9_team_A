@@ -400,6 +400,7 @@ class WebSocketAuth:
     async def authenticate_websocket(websocket: WebSocket) -> User:
         """WebSocket接続の認証（Firebase IDトークンのみ）"""
         start_time = time.time()
+        logger.info("WebSocket認証処理を開始")
 
         try:
             # クエリパラメータからトークンを取得
@@ -418,6 +419,7 @@ class WebSocketAuth:
 
             # Firebase IDトークンの検証
             try:
+                logger.info("Firebase IDトークンの検証を開始")
                 firebase_payload = await verify_firebase_token(token)
                 if not firebase_payload:
                     logger.warning("Firebase token verification returned None")
@@ -440,7 +442,10 @@ class WebSocketAuth:
                     )
                     raise AuthenticationException("Invalid token payload")
 
+                logger.info(f"Firebaseトークン検証成功: uid={uid}, email={email}")
+
                 # Firebase UIDでユーザーを検索
+                logger.info("データベースでユーザーを検索中")
                 async with AsyncSessionLocal() as db:
                     result = await db.execute(
                         select(User).where(User.firebase_uid == uid)
