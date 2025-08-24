@@ -44,12 +44,25 @@ export enum ConnectionState {
   MAX_ATTEMPTS_REACHED = "max_attempts_reached" // 最大試行回数到達状態を追加
 }
 
+// 統一された接続状態管理
 export interface ConnectionStatus {
   state: ConnectionState
   message: string
   details?: string
   canRetry: boolean
   retryAction?: string
+}
+
+// 統一された接続状態オブジェクト
+export interface UnifiedConnectionState {
+  status: ConnectionState
+  wsInstance: WebSocket | null
+  reconnectAttempts: number
+  lastError: string | null
+  isAuthenticated: boolean
+  isConnecting: boolean
+  isConnected: boolean
+  lastActivity: number
 }
 
 function resolveWsBaseUrl(): string | null {
@@ -83,6 +96,18 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
     onMaxAttemptsReached,
   } = options
 
+  // 統一された接続状態管理
+  const [unifiedState, setUnifiedState] = useState<UnifiedConnectionState>({
+    status: ConnectionState.DISCONNECTED,
+    wsInstance: null,
+    reconnectAttempts: 0,
+    lastError: null,
+    isAuthenticated: false,
+    isConnecting: false,
+    isConnected: false,
+    lastActivity: Date.now()
+  })
+
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectAttemptRef = useRef<number>(0)
   const heartbeatTimerRef = useRef<number | null>(null)
@@ -90,6 +115,19 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
   const isConnectingRef = useRef<boolean>(false)
   const connectionTimeoutRef = useRef<number | null>(null)
 
+  // 状態更新の一元化関数
+  const updateUnifiedState = useCallback((updates: Partial<UnifiedConnectionState>) => {
+    setUnifiedState(prev => {
+      const newState = { ...prev, ...updates, lastActivity: Date.now() }
+      console.log('WebSocket状態更新:', {
+        from: { status: prev.status, isConnecting: prev.isConnecting, isConnected: prev.isConnected },
+        to: { status: newState.status, isConnecting: newState.isConnecting, isConnected: newState.isConnected }
+      })
+      return newState
+    })
+  }, [])
+
+  // 従来の状態変数（後方互換性のため保持）
   const [isConnected, setIsConnected] = useState(false)
   const [isConnecting, setIsConnecting] = useState(false) // 接続中状態を追加
   const [lastMessage, setLastMessage] = useState<any | null>(null)
@@ -280,33 +318,121 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoReconnect, reconnectMaxDelayMs, maxReconnectAttempts, onMaxAttemptsReached])
 
+  // 状態遷移図に基づく接続可能判定
+  const canAttemptConnection = useCallback((): boolean => {
+    const currentStatus = unifiedState.status
+    
+    console.log(`WebSocket: 接続試行判定 - 現在の状態: ${currentStatus}`)
+    
+    // 状態遷移図に基づく接続可能判定
+    switch (currentStatus) {
+      case ConnectionState.DISCONNECTED:
+        console.log("WebSocket: 接続可能 - 切断状態")
+        return true
+        
+      case ConnectionState.CONNECTING:
+        console.log("WebSocket: 接続不可 - 既に接続中")
+        return false
+        
+      case ConnectionState.CONNECTED:
+        console.log("WebSocket: 接続不可 - 既に接続済み")
+        return false
+        
+      case ConnectionState.RECONNECTING:
+        console.log("WebSocket: 接続不可 - 再接続中")
+        return false
+        
+      case ConnectionState.ERROR:
+        const canRetry = unifiedState.reconnectAttempts < maxReconnectAttempts
+        console.log(`WebSocket: 接続可能判定 - エラー状態 (試行回数: ${unifiedState.reconnectAttempts}/${maxReconnectAttempts})`)
+        return canRetry
+        
+      case ConnectionState.TIMEOUT:
+        const canRetryTimeout = unifiedState.reconnectAttempts < maxReconnectAttempts
+        console.log(`WebSocket: 接続可能判定 - タイムアウト状態 (試行回数: ${unifiedState.reconnectAttempts}/${maxReconnectAttempts})`)
+        return canRetryTimeout
+        
+      case ConnectionState.AUTH_FAILED:
+        console.log("WebSocket: 接続不可 - 認証失敗")
+        return false
+        
+      case ConnectionState.SERVER_ERROR:
+        const canRetryServer = unifiedState.reconnectAttempts < maxReconnectAttempts
+        console.log(`WebSocket: 接続可能判定 - サーバーエラー状態 (試行回数: ${unifiedState.reconnectAttempts}/${maxReconnectAttempts})`)
+        return canRetryServer
+        
+      case ConnectionState.MAX_ATTEMPTS_REACHED:
+        console.log("WebSocket: 接続不可 - 最大試行回数到達")
+        return false
+        
+      default:
+        console.log("WebSocket: 接続不可 - 不明な状態")
+        return false
+    }
+  }, [unifiedState.status, unifiedState.reconnectAttempts, maxReconnectAttempts])
+
+  // WebSocketインスタンスの完全なライフサイクル管理
+  const createWebSocketInstance = useCallback(async (url: string): Promise<WebSocket> => {
+    console.log("WebSocket: 新しいインスタンスを作成します")
+    
+    // 既存のインスタンスを完全にクリーンアップ
+    if (wsRef.current) {
+      console.log("WebSocket: 既存のインスタンスをクリーンアップします")
+      destroyWebSocketInstance()
+    }
+    
+    // 新しいWebSocketインスタンスを作成
+    const ws = new WebSocket(url)
+    wsRef.current = ws
+    
+    // 統一された状態を更新
+    updateUnifiedState({
+      wsInstance: ws,
+      status: ConnectionState.CONNECTING,
+      isConnecting: true,
+      isConnected: false,
+      lastError: null
+    })
+    
+    return ws
+  }, [updateUnifiedState])
+
+  // WebSocketインスタンスの完全な破棄
+  const destroyWebSocketInstance = useCallback(() => {
+    if (wsRef.current) {
+      console.log("WebSocket: インスタンスを破棄します")
+      
+      const ws = wsRef.current
+      
+      // イベントハンドラーの削除
+      ws.onopen = null
+      ws.onclose = null
+      ws.onerror = null
+      ws.onmessage = null
+      
+      // WebSocketの状態をチェックして適切に閉じる
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close(1000, 'Instance replacement')
+      } else if (ws.readyState === WebSocket.CONNECTING) {
+        ws.close(1000, 'Instance replacement')
+      }
+      
+      // 参照をクリア
+      wsRef.current = null
+      
+      // 統一された状態を更新
+      updateUnifiedState({
+        wsInstance: null,
+        isConnecting: false,
+        isConnected: false
+      })
+    }
+  }, [updateUnifiedState])
+
   const connect = useCallback(async () => {
-    // 重複接続チェック - 接続状態とrefの両方をチェック
-    if (isConnectingRef.current || isConnecting || connectionState === ConnectionState.CONNECTING) {
-      console.log("WebSocket: 既に接続中です。重複接続をスキップします。")
-      return
-    }
-
-    // 再接続中の場合は何もしない
-    if (connectionState === ConnectionState.RECONNECTING) {
-      console.log("WebSocket: 再接続中です。重複接続をスキップします。")
-      return
-    }
-
-    // 最大試行回数に達している場合は何もしない
-    if (connectionState === ConnectionState.MAX_ATTEMPTS_REACHED) {
-      console.log("WebSocket: 最大試行回数に達しています。再接続を停止します。")
-      return
-    }
-
-    // 既存の接続がある場合のチェック
-    if (wsRef.current && wsRef.current.readyState === WebSocket.CONNECTING) {
-      console.log("WebSocket: 接続中のWebSocketが既に存在します。重複接続をスキップします。")
-      return
-    }
-
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      console.log("WebSocket: 既に接続済みです。重複接続をスキップします。")
+    // 統一された状態遷移図に基づく接続可能判定
+    if (!canAttemptConnection()) {
+      console.log(`WebSocket: 現在の状態(${unifiedState.status})では接続できません`)
       return
     }
 
@@ -319,25 +445,25 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
           const token = await getAuthToken()
           if (!token) {
             console.error("WebSocket: 認証トークンが取得できません。接続を中止します。")
-            setConnectionState(ConnectionState.AUTH_FAILED)
-            setConnectError("認証トークンが取得できません。ログインしてください。")
+            updateUnifiedState({
+              status: ConnectionState.AUTH_FAILED,
+              lastError: "認証トークンが取得できません。ログインしてください。"
+            })
             return
           }
         } catch (authError) {
           console.error("WebSocket: 認証エラーが発生しました。接続を中止します。", authError)
-          setConnectionState(ConnectionState.AUTH_FAILED)
-          setConnectError("認証に失敗しました。ログインしてください。")
+          updateUnifiedState({
+            status: ConnectionState.AUTH_FAILED,
+            lastError: "認証に失敗しました。ログインしてください。"
+          })
           return
         }
       }
 
-      // 接続状態を設定
-      isConnectingRef.current = true
-      setIsConnecting(true)
-      setConnectionState(ConnectionState.CONNECTING)
-      setConnectError(null)
-
+      // WebSocketインスタンスの作成
       const fullUrl = await wsUrlBuilder()
+      const ws = await createWebSocketInstance(fullUrl)
       
       // デバッグ用：URLの詳細情報をログ出力
       try {
@@ -356,9 +482,6 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
       }
       
       console.log("WebSocket: 接続を開始します:", fullUrl)
-      
-      const ws = new WebSocket(fullUrl)
-      wsRef.current = ws
 
       // 接続タイムアウトを設定（設定可能）
       connectionTimeoutRef.current = window.setTimeout(() => {
@@ -516,6 +639,19 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
       cleanupHeartbeat()
     }
   }, [connect])
+
+  // 統一された状態管理と従来の状態変数の同期
+  useEffect(() => {
+    // 統一された状態から従来の状態変数を更新
+    setConnectionState(unifiedState.status)
+    setIsConnecting(unifiedState.isConnecting)
+    setIsConnected(unifiedState.isConnected)
+    setConnectError(unifiedState.lastError)
+    reconnectAttemptRef.current = unifiedState.reconnectAttempts
+    
+    // WebSocketインスタンスの参照を更新
+    wsRef.current = unifiedState.wsInstance
+  }, [unifiedState])
 
   // 接続状態の整合性チェック
   useEffect(() => {
