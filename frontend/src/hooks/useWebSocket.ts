@@ -13,6 +13,7 @@ export interface UseWebSocketOptions {
   connectionTimeoutMs?: number // 接続タイムアウトを追加
   maxReconnectAttempts?: number // 最大再接続試行回数を追加
   skipAuth?: boolean // テスト用：認証をスキップ
+  debugMode?: boolean // デバッグモードを追加
   onOpen?: () => void
   onClose?: (ev: CloseEvent) => void
   onError?: (ev: Event) => void
@@ -89,12 +90,20 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
     connectionTimeoutMs = 15_000, // デフォルト15秒
     maxReconnectAttempts = 5, // デフォルト5回
     skipAuth = false, // テスト用：認証をスキップ
+    debugMode = false, // デバッグモードを追加
     onOpen,
     onClose,
     onError,
     onMessage,
     onMaxAttemptsReached,
   } = options
+
+  // デバッグモードでの詳細ログ出力
+  const debugLog = useCallback((message: string, data?: any) => {
+    if (debugMode) {
+      console.log(`[WebSocket Debug] ${message}`, data || '')
+    }
+  }, [debugMode])
 
   // 統一された接続状態管理
   const [unifiedState, setUnifiedState] = useState<UnifiedConnectionState>({
@@ -226,13 +235,18 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
     return async () => {
       if (!base) throw new Error("WS base URL not configured (NEXT_PUBLIC_WS_BASE_URL or NEXT_PUBLIC_API_BASE_URL)")
       
+      debugLog("URL構築開始", { base, urlPath, skipAuth })
+      
       // テスト用：認証をスキップ
       if (skipAuth) {
-        return `${base}${urlPath}`
+        const url = `${base}${urlPath}`
+        debugLog("認証スキップ - URL構築完了", url)
+        return url
       }
       
       try {
         const token = await getAuthToken()
+        debugLog("認証トークン取得", { tokenLength: token?.length })
         
         // トークンの妥当性チェック
         if (!token) {
@@ -241,7 +255,9 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
             status: ConnectionState.AUTH_FAILED,
             lastError: "認証トークンが取得できません"
           })
-          return `${base}${urlPath}`
+          const url = `${base}${urlPath}`
+          debugLog("トークンなし - URL構築完了", url)
+          return url
         }
         
         // トークンの長さチェック（異常に長いトークンを防ぐ）
@@ -251,22 +267,28 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
             status: ConnectionState.AUTH_FAILED,
             lastError: "認証トークンが無効です"
           })
-          return `${base}${urlPath}`
+          const url = `${base}${urlPath}`
+          debugLog("トークン異常 - URL構築完了", url)
+          return url
         }
         
         const search = new URLSearchParams()
         search.set("token", token)
-        return `${base}${urlPath}?${search.toString()}`
+        const url = `${base}${urlPath}?${search.toString()}`
+        debugLog("認証付きURL構築完了", { urlLength: url.length, tokenLength: token.length })
+        return url
       } catch (error) {
         console.error("WebSocket: トークン取得エラー", error)
         updateUnifiedState({
           status: ConnectionState.AUTH_FAILED,
           lastError: "認証トークンの取得に失敗しました"
         })
-        return `${base}${urlPath}`
+        const url = `${base}${urlPath}`
+        debugLog("エラー時 - URL構築完了", url)
+        return url
       }
     }
-  }, [urlPath, skipAuth, updateUnifiedState])
+  }, [urlPath, skipAuth, updateUnifiedState, debugLog])
 
   const cleanupHeartbeat = () => {
     if (heartbeatTimerRef.current) {
@@ -652,12 +674,43 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
     }
   }, [connect, updateUnifiedState])
 
-  // 統一された状態管理の初期化
+  // 統一された状態管理の完全同期
   useEffect(() => {
     // WebSocketインスタンスの参照を更新
     wsRef.current = unifiedState.wsInstance
     reconnectAttemptRef.current = unifiedState.reconnectAttempts
-  }, [unifiedState.wsInstance, unifiedState.reconnectAttempts])
+    
+    // WebSocketインスタンスの実際の状態と統一状態の同期
+    if (unifiedState.wsInstance) {
+      const ws = unifiedState.wsInstance
+      const actualState = ws.readyState
+      
+      // 実際のWebSocket状態に基づいて統一状態を更新
+      if (actualState === WebSocket.OPEN && unifiedState.status !== ConnectionState.CONNECTED) {
+        console.log("WebSocket: 状態同期 - 実際の状態(OPEN)に合わせて更新")
+        updateUnifiedState({
+          status: ConnectionState.CONNECTED,
+          isConnecting: false,
+          isConnected: true,
+          lastError: null
+        })
+      } else if (actualState === WebSocket.CLOSED && unifiedState.status !== ConnectionState.DISCONNECTED) {
+        console.log("WebSocket: 状態同期 - 実際の状態(CLOSED)に合わせて更新")
+        updateUnifiedState({
+          status: ConnectionState.DISCONNECTED,
+          isConnecting: false,
+          isConnected: false
+        })
+      } else if (actualState === WebSocket.CONNECTING && unifiedState.status !== ConnectionState.CONNECTING) {
+        console.log("WebSocket: 状態同期 - 実際の状態(CONNECTING)に合わせて更新")
+        updateUnifiedState({
+          status: ConnectionState.CONNECTING,
+          isConnecting: true,
+          isConnected: false
+        })
+      }
+    }
+  }, [unifiedState.wsInstance, unifiedState.reconnectAttempts, unifiedState.status, updateUnifiedState])
 
   const sendJson = useCallback((payload: JsonValue): boolean => {
     try {
