@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/Badge"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Search, Users, Calendar, MapPin, Heart, Trophy, Coffee, Utensils, BookOpen, Music, Star, Target, Quote } from "lucide-react"
-import { fetchWithAuth } from "@/lib/auth"
+import { fetchWithAuth } from "@/lib/apiClient"
 
 interface MemberProfile {
   department?: string
@@ -87,8 +87,10 @@ export function MemberList() {
   }
 
   const getProfileIcon = (field: keyof MemberProfile) => {
-    const iconMap = {
+    const iconMap: Record<keyof MemberProfile, any> = {
       department: Users,
+      position: Users,
+      nickname: Users,
       join_date: Calendar,
       birth_date: Calendar,
       hometown: MapPin,

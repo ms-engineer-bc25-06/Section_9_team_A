@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/Alert"
 import { Badge } from "@/components/ui/Badge"
 import { CreditCard, X, AlertTriangle, Loader2 } from "lucide-react"
 import { loadStripe } from "@stripe/stripe-js"
+import { getAuthToken } from "@/lib/apiClient"
 
 interface AdminStripeCheckoutProps {
   amount: number
@@ -50,13 +51,27 @@ export function AdminStripeCheckout({
 
     try {
       // バックエンドでCheckout Sessionを作成
-      const response = await fetch('/api/v1/admin/billing/checkout', {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
+      
+      // 認証トークンを取得
+      const authToken = await getAuthToken()
+      
+      // デバッグ用ログ
+      console.log('送信する決済データ:', {
+        amount,
+        additionalUsers,
+        organization_id: 1,
+        currency: 'jpy'
+      })
+      
+      const response = await fetch(`${apiBaseUrl}/api/v1/admin/billing/checkout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
         },
         body: JSON.stringify({
-          amount: amount * 100, // セント単位に変換
+          amount: amount, // 円単位のまま送信
           additional_users: additionalUsers,
           organization_id: 1, // TODO: 実際の組織IDを取得
           currency: 'jpy'
@@ -64,7 +79,9 @@ export function AdminStripeCheckout({
       })
 
       if (!response.ok) {
-        throw new Error('Checkout Sessionの作成に失敗しました')
+        const errorData = await response.json().catch(() => ({}))
+        const errorMessage = errorData.detail || `HTTP ${response.status}: ${response.statusText}`
+        throw new Error(`Checkout Sessionの作成に失敗しました: ${errorMessage}`)
       }
 
       const { checkout_url } = await response.json()

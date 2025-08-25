@@ -3,21 +3,22 @@
 
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { useAuth } from "@/components/auth/AuthProvider"
+import { useSession } from "@/hooks/useSession"
 import { AdminDashboardHeader } from "@/components/admin/AdminDashboardHeader"
 import { AdminDashboardMain } from "@/components/admin/AdminDashboardMain"
+import { SessionExpiredAlert } from "@/components/ui/SessionExpiredAlert"
 
 export default function AdminDashboardPage() {
-  const { user, isLoading } = useAuth()
+  const { user, loading, isSessionValid, sessionExpired } = useSession()
   const router = useRouter()
 
   useEffect(() => {
-    if (!user && !isLoading) {
-      router.push("/")
+    if (!isSessionValid && !loading) {
+      router.push("/login")
     }
-  }, [user, isLoading, router])
+  }, [isSessionValid, loading, router])
 
-  if (isLoading || !user) {
+  if (loading || !isSessionValid) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
@@ -29,6 +30,10 @@ export default function AdminDashboardPage() {
     <div className="min-h-screen bg-white">
       <AdminDashboardHeader />
       <main className="container mx-auto px-4 py-8">
+        {/* セッション期限切れアラート */}
+        {sessionExpired && (
+          <SessionExpiredAlert />
+        )}
         <AdminDashboardMain />
       </main>
     </div>

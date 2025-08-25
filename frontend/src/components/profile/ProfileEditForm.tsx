@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/Separator"
 import { Camera, Save, List } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth/AuthProvider"
-import { fetchWithAuth } from "@/lib/auth"
+import { fetchWithAuth } from "@/lib/apiClient"
 
 interface ProfileData {
   nickname: string

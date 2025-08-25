@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Label } from "@/components/ui/Label"
@@ -10,6 +10,9 @@ import { ArrowLeft, Users, Plus, Minus, CreditCard, ChevronDown, Copy, Eye, EyeO
 import Link from "next/link"
 import { generateTemporaryPassword } from "@/lib/utils"
 import { getAuth } from "firebase/auth"
+import { apiClient } from "@/lib/apiClient"
+import { useSession } from "@/hooks/useSession"
+import { SessionExpiredAlert } from "@/components/ui/SessionExpiredAlert"
 
 interface UserInput {
   email: string
@@ -20,6 +23,7 @@ interface UserInput {
 }
 
 export default function AddUsersPage() {
+  const { user, loading, isSessionValid, sessionExpired } = useSession()
   const [newUsers, setNewUsers] = useState<UserInput[]>([
     { 
       email: "", 
@@ -29,8 +33,35 @@ export default function AddUsersPage() {
       temporaryPassword: ""
     }
   ])
-  const [currentUserCount, setCurrentUserCount] = useState(15) // 現在のユーザー数（APIから取得予定）
+  const [currentUserCount, setCurrentUserCount] = useState(0) // 現在のユーザー数（APIから取得）
+  const [isLoadingUserCount, setIsLoadingUserCount] = useState(true)
   const [showPasswords, setShowPasswords] = useState<boolean[]>([false])
+
+
+
+  // ユーザー数を取得する関数
+  const fetchUserCount = async () => {
+    try {
+      setIsLoadingUserCount(true)
+      
+      // apiClientを使用してユーザー数を取得
+      const data = await apiClient.get('/admin/billing/user-count')
+      setCurrentUserCount(data.total_users)
+    } catch (err) {
+      console.error('ユーザー数取得エラー:', err)
+      // 開発環境ではエラーでもモックデータを使用
+      if (process.env.NODE_ENV === 'development') {
+        setCurrentUserCount(15)
+      }
+    } finally {
+      setIsLoadingUserCount(false)
+    }
+  }
+
+  // ページ読み込み時にユーザー数を取得
+  useEffect(() => {
+    fetchUserCount()
+  }, [])
 
   const addUser = () => {
     setNewUsers([...newUsers, { 
@@ -64,26 +95,12 @@ export default function AddUsersPage() {
       const token = await currentUser.getIdToken()
       
       // バックエンドAPIにユーザー作成リクエストを送信
-      const response = await fetch('http://localhost:8000/api/v1/admin/users', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          email: user.email,
-          name: user.name,
-          department: user.department,
-          role: user.role
-        })
+      const createdUser = await apiClient.post('/admin/users', {
+        email: user.email,
+        name: user.name,
+        department: user.department,
+        role: user.role
       })
-      
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || 'ユーザー作成に失敗しました')
-      }
-      
-      const createdUser = await response.json()
       
       // 成功メッセージ（仮パスワードは表示しない）
       alert(`${user.name}さんを追加しました`)
@@ -215,7 +232,7 @@ export default function AddUsersPage() {
                 ダッシュボードに戻る
               </Button>
             </Link>
-            <h1 className="text-2xl font-bold text-orange-900 flex-1 text-center">使用人数追加</h1>
+            <h1 className="text-2xl font-bold text-orange-900 flex-1 text-center">ユーザー追加</h1>
             <div className="w-32"></div>
           </div>
       </div>
@@ -223,6 +240,11 @@ export default function AddUsersPage() {
 
       <main className="container mx-auto px-4 py-8">
         <div className="space-y-8">
+          {/* セッション期限切れアラート */}
+          {sessionExpired && (
+            <SessionExpiredAlert onRefresh={fetchUserCount} />
+          )}
+
           {/* ユーザー入力フォーム */}
           <div className="space-y-6">
             <Card>
@@ -386,7 +408,7 @@ export default function AddUsersPage() {
           </div>
 
           {/* 追加料金通知 */}
-          {currentUserCount > freeUserLimit && (
+          {!isLoadingUserCount && currentUserCount > freeUserLimit && (
             <Card className="bg-yellow-50 border-yellow-200">
               <CardContent className="pt-6">
                 <div className="text-sm text-yellow-800">
@@ -417,48 +439,90 @@ export default function AddUsersPage() {
           <div className="max-w-2xl space-y-6">
             {/* 現在の利用状況 */}
             <Card>
-        <CardHeader>
+              <CardHeader>
                 <CardTitle className="text-lg">現在の利用状況</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex justify-between items-center">
-                  <span className="text-gray-600">現在のユーザー数</span>
-                  <span className="font-semibold">{currentUserCount}人</span>
-          </div>
-          <div className="flex justify-between items-center">
-                  <span className="text-gray-600">無料枠</span>
-                  <span className="font-semibold">{freeUserLimit}人</span>
-          </div>
-          <div className="flex justify-between items-center">
-                  <span className="text-gray-600">追加ユーザー</span>
-                  <span className="font-semibold">
-                    {Math.max(0, currentUserCount - freeUserLimit)}人
-                  </span>
-          </div>
-                <div className="border-t pt-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">現在の月額料金</span>
-                    <span className="font-semibold">
-                      {Math.max(0, currentUserCount - freeUserLimit) * costPerUser}円
-            </span>
-          </div>
-          </div>
-        </CardContent>
-      </Card>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {isLoadingUserCount ? (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                    <span className="ml-2 text-gray-600">読み込み中...</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">現在のユーザー数</span>
+                      <span className="font-semibold">{currentUserCount}人</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">無料枠</span>
+                      <span className="font-semibold">{freeUserLimit}人</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">追加ユーザー</span>
+                      <span className="font-semibold">
+                        {Math.max(0, currentUserCount - freeUserLimit)}人
+                      </span>
+                    </div>
+                    <div className="border-t pt-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">現在の月額料金</span>
+                        <span className="font-semibold">
+                          {Math.max(0, currentUserCount - freeUserLimit) * costPerUser}円
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
 
             
 
             {/* 決済ボタン */}
             <Button
-              onClick={() => {
-                // 決済画面に直接遷移（入力項目のバリデーションなし）
-                window.location.href = '/admin/billing'
+              onClick={async () => {
+                try {
+                  // セッションの有効性を確認
+                  if (!isSessionValid) {
+                    alert('セッションが期限切れです。セッションを延長してください。')
+                    return
+                  }
+
+                  // 認証状態を再確認
+                  const auth = getAuth()
+                  const currentUser = auth.currentUser
+                  
+                  console.log('認証状態確認:', {
+                    useSessionUser: user?.email,
+                    firebaseUser: currentUser?.email,
+                    loading,
+                    isSessionValid,
+                    sessionExpired
+                  })
+                  
+                  if (currentUser) {
+                    // トークンの有効性を確認
+                    const token = await currentUser.getIdToken(true)
+                    console.log('認証確認完了:', currentUser.email)
+                    
+                    // 決済画面に遷移
+                    window.location.href = '/admin/billing'
+                  } else {
+                    console.log('認証状態なし')
+                    alert('ログインが必要です。再度ログインしてください。')
+                  }
+                } catch (error) {
+                  console.error('認証エラー:', error)
+                  alert('認証エラーが発生しました。再度ログインしてください。')
+                }
               }}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+              disabled={!isSessionValid || loading}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white disabled:bg-gray-400"
               size="lg"
             >
               <CreditCard className="h-5 w-5 mr-2" />
-              決済確認画面に進む
+              {loading ? '読み込み中...' : '決済確認画面に進む'}
             </Button>
             
             {/* 注意事項 */}

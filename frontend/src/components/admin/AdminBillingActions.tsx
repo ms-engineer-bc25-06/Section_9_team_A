@@ -8,7 +8,6 @@ import { Alert, AlertDescription } from "@/components/ui/Alert"
 import { Badge } from "@/components/ui/Badge"
 import { CreditCard, Plus, AlertTriangle, CheckCircle } from "lucide-react"
 import { AdminStripeCheckout } from "./AdminStripeCheckout"
-import { AdminMockCheckout } from "./AdminMockCheckout"
 // import { useToast } from "@/hooks/use-toast"
 
 interface AdminBillingActionsProps {
@@ -27,7 +26,6 @@ export function AdminBillingActions({
   const [showCheckout, setShowCheckout] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [paymentSuccess, setPaymentSuccess] = useState(false)
-  const [useMockPayment, setUseMockPayment] = useState(true) // 開発環境ではモック決済をデフォルトに
   // const { toast } = useToast()
 
   const handlePaymentClick = () => {
@@ -56,18 +54,7 @@ export function AdminBillingActions({
     // データを再取得
     onRefresh()
     
-    // モック決済の場合は成功ページにリダイレクト
-    if (useMockPayment) {
-      setTimeout(() => {
-        const params = new URLSearchParams({
-          session_id: paymentIntentId,
-          amount: additionalCost.toString(),
-          additional_users: additionalUsers.toString(),
-          organization_id: '1'
-        })
-        window.location.href = `/admin/billing/success?${params.toString()}`
-      }, 2000)
-    }
+
   }
 
   const handlePaymentError = (errorMessage: string) => {
@@ -177,21 +164,7 @@ export function AdminBillingActions({
                     )}
                   </Button>
                   
-                  {/* 開発環境用のモック決済切り替え */}
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                    <div className="flex items-center space-x-3">
-                      <input
-                        type="checkbox"
-                        id="mock-payment"
-                        checked={useMockPayment}
-                        onChange={(e) => setUseMockPayment(e.target.checked)}
-                        className="rounded border-gray-300"
-                      />
-                      <label htmlFor="mock-payment" className="text-sm text-yellow-800">
-                        モック決済を使用（開発環境用）
-                      </label>
-                    </div>
-                  </div>
+
                 </div>
               </>
             ) : (
@@ -212,17 +185,7 @@ export function AdminBillingActions({
 
 
       {/* 決済フォーム */}
-      {showCheckout && useMockPayment && (
-        <AdminMockCheckout
-          amount={additionalCost}
-          additionalUsers={additionalUsers}
-          onSuccess={handlePaymentSuccess}
-          onError={handlePaymentError}
-          onCancel={handlePaymentCancel}
-        />
-      )}
-      
-      {showCheckout && !useMockPayment && (
+      {showCheckout && (
         <AdminStripeCheckout
           amount={additionalCost}
           additionalUsers={additionalUsers}

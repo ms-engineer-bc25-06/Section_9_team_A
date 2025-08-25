@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { useAuth } from "@/components/auth/AuthProvider"
+import { useSession } from "@/hooks/useSession"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
 import { Badge } from "@/components/ui/Badge"
@@ -13,9 +13,11 @@ import { AdminBillingOverview } from "@/components/admin/AdminBillingOverview"
 import { AdminBillingActions } from "@/components/admin/AdminBillingActions"
 import Link from "next/link"
 import { getAuth, onAuthStateChanged } from "firebase/auth"
+import { apiClient } from "@/lib/apiClient"
+import { SessionExpiredAlert } from "@/components/ui/SessionExpiredAlert"
 
 export default function AdminBillingPage() {
-  const { user, isLoading } = useAuth()
+  const { user, loading, isSessionValid, sessionExpired } = useSession()
   const router = useRouter()
   const [userCount, setUserCount] = useState(0)
   const [isLoadingData, setIsLoadingData] = useState(true)
@@ -24,35 +26,12 @@ export default function AdminBillingPage() {
 
   // 認証チェック
   useEffect(() => {
-    if (!user && !isLoading) {
-      router.push("/")
+    if (!isSessionValid && !loading) {
+      router.push("/login")
     }
-  }, [user, isLoading, router])
+  }, [isSessionValid, loading, router])
 
-  // 認証トークンを取得する関数
-  const getAuthToken = async (): Promise<string | null> => {
-    try {
-      const auth = getAuth()
-      const user = auth.currentUser
-      
-      if (user) {
-        return await user.getIdToken()
-      } else {
-        // 開発環境では認証エラーでもnullを返す（モックデータを使用）
-        if (process.env.NODE_ENV === 'development') {
-          console.warn('認証されていませんが、開発環境のためモックデータを使用します。')
-          return null
-        }
-        throw new Error('ユーザーが認証されていません')
-      }
-    } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('認証トークン取得エラー:', error)
-        return null
-      }
-      throw error
-    }
-  }
+
 
   useEffect(() => {
     if (!user) return // 認証されていない場合はスキップ
@@ -74,41 +53,9 @@ export default function AdminBillingPage() {
     const fetchUserCount = async () => {
     try {
       setIsLoadingData(true)
-      // 認証トークンを取得（Firebase認証から）
-      const token = await getAuthToken()
       
-      // 開発環境でトークンが取得できない場合はモックデータを使用
-      if (!token && process.env.NODE_ENV === 'development') {
-        console.warn('認証トークンが取得できません。モックデータを使用します。')
-        setUserCount(15)
-        return
-      }
-      
-      // トークンがない場合はAPIコールをスキップ
-      if (!token) {
-        throw new Error('認証が必要です。ログインしてください。')
-      }
-      
-      const response = await fetch('/api/v1/admin/billing/user-count', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('認証が必要です。ログインしてください。')
-        } else if (response.status === 404) {
-          // 開発環境ではモックデータを使用
-          console.warn('APIエンドポイントが見つかりません。モックデータを使用します。')
-          setUserCount(15) // 開発環境用のモックデータ
-          return
-        }
-        throw new Error('ユーザー数の取得に失敗しました')
-      }
-      
-      const data = await response.json()
+      // apiClientを使用してユーザー数を取得
+      const data = await apiClient.get('/admin/billing/user-count')
       setUserCount(data.total_users)
     } catch (err) {
       console.error('ユーザー数取得エラー:', err)
@@ -124,32 +71,13 @@ export default function AdminBillingPage() {
     }
   }
 
-  // 開発環境用: テストのためにユーザー数を強制的に15人に設定
-  // ただし、セッションストレージに新しいユーザーがいる場合はそれを考慮
-  const [pendingUsers, setPendingUsers] = useState<string | null>(null)
-  const [testUserCount, setTestUserCount] = useState(process.env.NODE_ENV === 'development' ? 15 : userCount)
-  
-  // セッションストレージの読み込みをuseEffectで実行（クライアントサイドのみ）
-  useEffect(() => {
-    try {
-      const stored = sessionStorage.getItem('pendingUsers')
-      setPendingUsers(stored)
-      
-      if (stored) {
-        const newUsers = JSON.parse(stored)
-        setTestUserCount(prev => prev + newUsers.length)
-      }
-    } catch (error) {
-      console.error('Error parsing pending users:', error)
-    }
-  }, [])
-  
-  const isFreeTier = testUserCount <= 10
-  const overLimit = testUserCount > 10
-  const additionalUsers = Math.max(0, testUserCount - 10)
+  // 実データを使用
+  const isFreeTier = userCount <= 10
+  const overLimit = userCount > 10
+  const additionalUsers = Math.max(0, userCount - 10)
   const additionalCost = additionalUsers * 500
 
-  if (isLoading || !user) {
+  if (loading || !isSessionValid) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -168,26 +96,18 @@ export default function AdminBillingPage() {
                 ダッシュボードに戻る
               </Button>
             </Link>
-            <h1 className="text-2xl font-bold text-orange-900 flex-1 text-center">利用状況・課金管理</h1>
+            <h1 className="text-2xl font-bold text-orange-900 flex-1 text-center">決済・利用状況</h1>
             <div className="w-32"></div>
         </div>
       </div>
       </header>
 
       <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <p className="text-gray-600">システムの利用状況と決済履歴を確認できます</p>
-          
-          {/* 開発環境用の注意書き */}
-          {process.env.NODE_ENV === 'development' && (
-            <Alert className="mt-4 border-yellow-200 bg-yellow-50">
-              <AlertTriangle className="h-4 w-4 text-yellow-600" />
-              <AlertDescription className="text-yellow-800">
-                <strong>開発環境:</strong> テスト用にユーザー数を15人に設定しています。モック決済機能が利用できます。
-              </AlertDescription>
-            </Alert>
-          )}
-        </div>
+
+        {/* セッション期限切れアラート */}
+        {sessionExpired && (
+          <SessionExpiredAlert />
+        )}
 
         {error && (
           <Alert className="mb-6">
@@ -203,15 +123,8 @@ export default function AdminBillingPage() {
           </Alert>
         )}
 
-        {/* アクションボタン */}
-        <div className="mb-6 flex items-center justify-between">
-          <Link href="/admin/billing/add-users">
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-              <Users className="h-4 w-4 mr-2" />
-              ユーザーを追加
-            </Button>
-          </Link>
-          
+        {/* 情報更新ボタン */}
+        <div className="mb-6 flex justify-end">
           <Button 
             onClick={fetchUserCount} 
             variant="outline" 
@@ -230,11 +143,11 @@ export default function AdminBillingPage() {
               </>
             )}
           </Button>
-          </div>
+        </div>
 
                 {/* 詳細情報 */}
         <AdminBillingOverview 
-          userCount={testUserCount}
+          userCount={userCount}
           isFreeTier={isFreeTier}
           additionalUsers={additionalUsers}
           additionalCost={additionalCost}
@@ -243,7 +156,7 @@ export default function AdminBillingPage() {
         {/* 決済情報 */}
         <div className="mt-12">
           <AdminBillingActions 
-            userCount={testUserCount}
+            userCount={userCount}
             additionalUsers={additionalUsers}
             additionalCost={additionalCost}
             onRefresh={fetchUserCount}
