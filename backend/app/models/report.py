@@ -85,8 +85,8 @@ class Report(Base):
         comment="更新日時",
     )
 
-    # リレーション
-    user = relationship("User", back_populates="reports")
+    # リレーション（一時的に無効化）
+    # user = relationship("User", back_populates="reports")
     exports = relationship("ReportExport", back_populates="report")
     shares = relationship("ReportShare", back_populates="report")
 
@@ -190,9 +190,9 @@ class ReportExport(Base):
         comment="更新日時",
     )
 
-    # リレーション
+    # リレーション（一時的に無効化）
     report = relationship("Report", back_populates="exports")
-    user = relationship("User", back_populates="report_exports")
+    # user = relationship("User", back_populates="report_exports")
 
 
 class ReportShare(Base):
@@ -243,12 +243,12 @@ class ReportShare(Base):
         comment="更新日時",
     )
 
-    # リレーション
+    # リレーション（一時的に無効化）
     report = relationship("Report", back_populates="shares")
-    shared_by_user = relationship(
-        "User", foreign_keys=[shared_by], back_populates="shared_reports"
-    )
-    shared_with_user = relationship(
-        "User", foreign_keys=[shared_with], back_populates="received_reports"
-    )
-    shared_with_team_rel = relationship("Organization", back_populates="shared_reports")
+    # shared_by_user = relationship(
+    #     "User", foreign_keys=[shared_by], back_populates="shared_reports"
+    # )
+    # shared_with_user = relationship(
+    #     "User", foreign_keys=[shared_with], back_populates="received_reports"
+    # )
+    # shared_with_team_rel = relationship("Organization", back_populates="shared_reports")

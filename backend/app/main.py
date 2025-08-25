@@ -39,6 +39,18 @@ async def lifespan(app: FastAPI):
     # 起動時
     logger.info("Starting Bridge Line API server")
 
+    # Firebase初期化を確実に実行
+    try:
+        from app.core.auth import get_firebase_app
+
+        firebase_app = get_firebase_app()
+        if firebase_app:
+            logger.info("Firebase initialized successfully during startup")
+        else:
+            logger.warning("Firebase initialization failed during startup")
+    except Exception as e:
+        logger.error(f"Firebase initialization error during startup: {e}")
+
     # データベースマイグレーションは Alembic を使用（自動作成は行わない）
     logger.info("Skipping automatic table creation. Use Alembic migrations instead.")
 
