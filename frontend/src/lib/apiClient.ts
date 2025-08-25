@@ -138,4 +138,11 @@ export const apiClient = {
   },
 };
 
+// 直接関数として使用できるように個別にエクスポート
+export const apiGet = apiClient.get;
+export const apiPost = apiClient.post;
+export const apiPut = apiClient.put;
+export const apiDelete = apiClient.delete;
+export const apiPatch = apiClient.patch;
+
 export default apiClient;

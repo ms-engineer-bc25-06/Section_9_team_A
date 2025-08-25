@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     STRIPE_PUBLISHABLE_KEY: Optional[str] = None
     STRIPE_WEBHOOK_SECRET: Optional[str] = None
     STRIPE_PRICE_ID: Optional[str] = None
+    
+    # フロントエンド設定
+    FRONTEND_URL: str = "http://localhost:3000"
 
     # OpenAI設定
     OPENAI_API_KEY: Optional[str] = None

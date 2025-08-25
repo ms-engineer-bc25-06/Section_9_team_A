@@ -3,23 +3,24 @@
 
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { useAuth } from "@/components/auth/AuthProvider"
+import { useSession } from "@/hooks/useSession"
 import { AdminUserList } from "@/components/admin/AdminUserList"
 import { Button } from "@/components/ui/Button"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
+import { SessionExpiredAlert } from "@/components/ui/SessionExpiredAlert"
 
 export default function AdminUsersPage() {
-  const { user, isLoading } = useAuth()
+  const { user, loading, isSessionValid, sessionExpired } = useSession()
   const router = useRouter()
 
   useEffect(() => {
-    if (!user && !isLoading) {
-      router.push("/")
+    if (!isSessionValid && !loading) {
+      router.push("/login")
     }
-  }, [user, isLoading, router])
+  }, [isSessionValid, loading, router])
 
-  if (isLoading || !user) {
+  if (loading || !isSessionValid) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -45,6 +46,11 @@ export default function AdminUsersPage() {
       </header>
 
       <main className="container mx-auto px-4 py-8">
+        {/* セッション期限切れアラート */}
+        {sessionExpired && (
+          <SessionExpiredAlert />
+        )}
+        
         <AdminUserList />
       </main>
     </div>

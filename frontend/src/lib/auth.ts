@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import { 
   getAuth, 
   setPersistence, 
-  inMemoryPersistence,
+  browserLocalPersistence,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
@@ -28,7 +28,7 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
 // 認証の永続性設定
-setPersistence(auth, inMemoryPersistence);
+setPersistence(auth, browserLocalPersistence);
 
 // 認証関数
 export async function signUp(email: string, password: string) {
@@ -49,20 +49,6 @@ export async function getIdToken(): Promise<string | null> {
   const user = auth.currentUser;
   if (!user) return null;
   return await user.getIdToken();
-}
-
-export async function fetchWithAuth(url: string, options: RequestInit = {}) {
-  const token = await getIdToken();
-  if (!token) throw new Error("ログインが必要です");
-
-  return fetch(url, {
-    ...options,
-    headers: {
-      ...options.headers,
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  });
 }
 
 // 認証状態変更の監視
