@@ -67,17 +67,52 @@ export interface UnifiedConnectionState {
 }
 
 function resolveWsBaseUrl(): string | null {
+  // 完全なWebSocket URLが指定されている場合はそれを優先
+  const fullWsUrl = process.env.NEXT_PUBLIC_WS_URL
+  if (fullWsUrl) {
+    try {
+      const url = new URL(fullWsUrl)
+      const baseUrl = `${url.protocol}//${url.host}`
+      console.log(`[WebSocket Debug] 完全なURLからベースURLを抽出: ${fullWsUrl} -> ${baseUrl}`)
+      return baseUrl
+    } catch (error) {
+      console.warn(`[WebSocket Debug] URL解析エラー: ${fullWsUrl}`, error)
+      // URL解析に失敗した場合はそのまま返す
+      return fullWsUrl
+    }
+  }
+
+  // 従来のベースURL設定
   const explicit = process.env.NEXT_PUBLIC_WS_BASE_URL
-  if (explicit) return explicit.replace(/\/$/, "")
+  if (explicit) {
+    console.log(`[WebSocket Debug] 明示的なベースURLを使用: ${explicit}`)
+    return explicit.replace(/\/$/, "")
+  }
 
   const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL
-  if (!apiBase) return null
+  if (!apiBase) {
+    // 開発環境のデフォルト値
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[WebSocket Debug] 開発環境のデフォルト値を使用: ws://localhost:8000`)
+      return "ws://localhost:8000"
+    }
+    console.warn(`[WebSocket Debug] WebSocketベースURLが設定されていません`)
+    return null
+  }
 
   try {
     const url = new URL(apiBase)
     url.protocol = url.protocol === "https:" ? "wss:" : "ws:"
-    return url.toString().replace(/\/$/, "")
-  } catch {
+    const wsBaseUrl = url.toString().replace(/\/$/, "")
+    console.log(`[WebSocket Debug] APIベースURLからWebSocketベースURLを生成: ${apiBase} -> ${wsBaseUrl}`)
+    return wsBaseUrl
+  } catch (error) {
+    console.warn(`[WebSocket Debug] APIベースURLの解析エラー: ${apiBase}`, error)
+    // 開発環境のデフォルト値
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[WebSocket Debug] 開発環境のデフォルト値を使用: ws://localhost:8000`)
+      return "ws://localhost:8000"
+    }
     return null
   }
 }
@@ -240,6 +275,7 @@ export function useWebSocket(urlPath: string, options: UseWebSocketOptions = {})
     return async () => {
       if (!base) throw new Error("WS base URL not configured (NEXT_PUBLIC_WS_BASE_URL or NEXT_PUBLIC_API_BASE_URL)")
       
+      console.log(`[WebSocket Debug] URL構築開始 - ベースURL: ${base}, パス: ${urlPath}, 認証スキップ: ${skipAuth}`)
       debugLog("URL構築開始", { base, urlPath, skipAuth })
       
       // テスト用：認証をスキップ

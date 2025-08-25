@@ -78,8 +78,8 @@ class Settings(BaseSettings):
     MAX_FILE_SIZE: int = 10 * 1024 * 1024  # 10MB
 
     # WebSocket設定
-    WS_MESSAGE_QUEUE_URL: str = "redis://localhost:6379"
-    WEBSOCKET_URL: str = "ws://localhost:8000/ws"
+    WS_MESSAGE_QUEUE_URL: str = "redis://redis:6379"
+    WEBSOCKET_URL: str = "ws://0.0.0.0:8000/ws"
 
     # ログ設定
     LOG_LEVEL: str = "INFO"
