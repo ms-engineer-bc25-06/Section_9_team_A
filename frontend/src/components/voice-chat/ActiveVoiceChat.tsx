@@ -10,12 +10,14 @@ import { useRouter } from "next/navigation"
 import { useVoiceChat } from "@/hooks/useVoiceChat"
 import { useAdvancedAudioOptimization } from "@/hooks/useAdvancedAudioOptimization"
 import { useRealTimeTranscription } from "@/hooks/useRealTimeTranscription"
+import { useWebSocket, ConnectionState } from "@/hooks/useWebSocket"
 import { AudioCapture } from "./AudioCapture"
 import { ParticipantsList } from "./ParticipantsList"
 import { AdvancedAudioQualityMonitor } from "./AdvancedAudioQualityMonitor"
 import { AdvancedAudioQualitySettings } from "./AdvancedAudioQualitySettings"
 import { RealTimeTranscription } from "./RealTimeTranscription"
 import { TranscriptionSettings } from "./TranscriptionSettings"
+import { ConnectionStatusDisplay } from "./ConnectionStatusDisplay"
 
 interface Props {
   roomId: string
@@ -72,12 +74,27 @@ export function ActiveVoiceChat({ roomId }: Props) {
   const [showTranscriptionSettings, setShowTranscriptionSettings] = useState(false)
   const router = useRouter()
   
+  // WebSocket接続状態管理
+  const {
+    connectionState: wsConnectionState,
+    connectError,
+    isConnecting,
+    reconnect,
+    close: closeWebSocket
+  } = useWebSocket(`/api/v1/websocket/voice-sessions/${roomId}`, {
+    maxReconnectAttempts: 5,
+    onMaxAttemptsReached: () => {
+      // 最大試行回数到達時にルームを強制終了
+      handleForceClose()
+    }
+  })
+  
   // WebRTC音声チャットフック
   const {
     localStream,
     remoteStreams,
     participants,
-    connectionState,
+    connectionState: rtcConnectionState,
     joinRoom,
     leaveRoom,
     isMuted,
@@ -193,31 +210,48 @@ export function ActiveVoiceChat({ roomId }: Props) {
 
   // 接続状態の管理
   useEffect(() => {
-    if (localStream) {
+    // WebSocket接続が確立されている場合のみ音声処理を開始
+    if (localStream && wsConnectionState === ConnectionState.CONNECTED) {
+      console.log("音声処理を開始します")
+      
       // MediaStreamから音声データを取得して処理
       const audioContext = new AudioContext()
       const source = audioContext.createMediaStreamSource(localStream)
       const processor = audioContext.createScriptProcessor(4096, 1, 1)
       
       processor.onaudioprocess = (event) => {
-        const inputData = event.inputBuffer.getChannelData(0)
-        processAudio(inputData)
+        try {
+          const inputData = event.inputBuffer.getChannelData(0)
+          processAudio(inputData)
+        } catch (error) {
+          console.error("音声処理エラー:", error)
+          // エラーが発生した場合は音声処理を停止
+          source.disconnect()
+          processor.disconnect()
+          audioContext.close()
+        }
       }
       
       source.connect(processor)
       processor.connect(audioContext.destination)
       
       return () => {
-        source.disconnect()
-        processor.disconnect()
-        audioContext.close()
+        try {
+          source.disconnect()
+          processor.disconnect()
+          audioContext.close()
+        } catch (error) {
+          console.warn("音声処理のクリーンアップエラー:", error)
+        }
       }
+    } else if (localStream && wsConnectionState !== ConnectionState.CONNECTED) {
+      console.log("WebSocket接続が確立されていないため、音声処理を開始しません")
     }
-  }, [localStream, processAudio])
+  }, [localStream, processAudio, wsConnectionState])
 
   // 接続状態に基づく表示
   const getConnectionStatusText = () => {
-    switch (connectionState) {
+    switch (rtcConnectionState) {
       case 'new':
         return '初期化中...'
       case 'connecting':
@@ -237,7 +271,7 @@ export function ActiveVoiceChat({ roomId }: Props) {
 
   // 接続状態に基づく色
   const getConnectionStatusColor = () => {
-    switch (connectionState) {
+    switch (rtcConnectionState) {
       case 'connected':
         return 'text-green-600'
       case 'connecting':
@@ -250,11 +284,31 @@ export function ActiveVoiceChat({ roomId }: Props) {
     }
   }
 
-  // エラー表示
+  // 強制終了処理
+  const handleForceClose = () => {
+    closeWebSocket()
+    leaveRoom()
+    router.push('/voice-chat')
+  }
+
+  // 認証エラー表示
+  if (wsConnectionState === ConnectionState.AUTH_FAILED) {
+    return (
+      <div className="text-center py-8">
+        <div className="text-red-600 text-lg font-semibold mb-4">認証エラー</div>
+        <div className="text-gray-600 mb-4">ログインが必要です</div>
+        <Button onClick={() => router.push('/auth/login')} variant="outline">
+          ログインページへ
+        </Button>
+      </div>
+    )
+  }
+
+  // 音声最適化エラー表示
   if (optimizationError) {
     return (
       <div className="text-center py-8">
-        <div className="text-red-600 text-lg font-semibold mb-4">エラーが発生しました</div>
+        <div className="text-red-600 text-lg font-semibold mb-4">音声最適化エラー</div>
         <div className="text-gray-600 mb-4">{optimizationError}</div>
         <Button onClick={clearOptimizationError} variant="outline">
           エラーをクリア
@@ -265,13 +319,23 @@ export function ActiveVoiceChat({ roomId }: Props) {
 
   return (
     <div className="space-y-6">
+      {/* WebSocket接続状態表示 */}
+      <ConnectionStatusDisplay
+        connectionState={wsConnectionState}
+        connectError={connectError}
+        isConnecting={isConnecting}
+        onReconnect={reconnect}
+        onRetry={reconnect}
+        className="mb-4"
+      />
+      
       {/* 接続状態表示 */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>接続状態</span>
             <Badge 
-              variant={connectionState === 'connected' ? 'default' : 'secondary'}
+              variant={rtcConnectionState === 'connected' ? 'default' : 'secondary'}
               className={getConnectionStatusColor()}
               data-testid="connection-status"
             >
@@ -340,6 +404,19 @@ export function ActiveVoiceChat({ roomId }: Props) {
               <Phone className="h-5 w-5 mr-2" />
               通話終了
             </Button>
+            
+            {/* 接続エラー時の強制終了ボタン */}
+            {wsConnectionState === ConnectionState.MAX_ATTEMPTS_REACHED && (
+              <Button
+                onClick={handleForceClose}
+                variant="destructive"
+                size="lg"
+                className="ml-2"
+              >
+                <AlertCircle className="h-5 w-5 mr-2" />
+                ルームを強制終了
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>

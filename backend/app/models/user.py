@@ -75,6 +75,9 @@ class User(Base):
     organization_memberships = relationship("OrganizationMember", back_populates="user")
     owned_organizations = relationship("Organization", back_populates="owner")
     voice_sessions = relationship("VoiceSession", back_populates="host")
+    # voice_session_participations = relationship(
+    #     "VoiceSessionParticipant", back_populates="user"
+    # )
     transcriptions = relationship("Transcription", back_populates="user")
     analyses = relationship("Analysis", back_populates="user")
     subscriptions = relationship("Subscription", back_populates="user")
@@ -84,19 +87,19 @@ class User(Base):
     # chat_messages = relationship("ChatMessage", back_populates="sender")
     # chat_room_participations = relationship("ChatRoomParticipant", back_populates="user")
 
-    # レポート関連
-    reports = relationship("Report", back_populates="user")
-    shared_reports = relationship(
-        "ReportShare",
-        foreign_keys="ReportShare.shared_by",
-        back_populates="shared_by_user",
-    )
-    received_reports = relationship(
-        "ReportShare",
-        foreign_keys="ReportShare.shared_with",
-        back_populates="shared_with_user",
-    )
-    report_exports = relationship("ReportExport", back_populates="user")
+    # レポート関連（一時的に無効化）
+    # reports = relationship("Report", back_populates="user")
+    # shared_reports = relationship(
+    #     "ReportShare",
+    #     foreign_keys="ReportShare.shared_by",
+    #     back_populates="shared_by_user",
+    # )
+    # received_reports = relationship(
+    #     "ReportShare",
+    #     foreign_keys="ReportShare.shared_with",
+    #     back_populates="shared_with_user",
+    # )
+    # report_exports = relationship("ReportExport", back_populates="user")
 
     # チームダイナミクス分析関連
     team_profiles = relationship("OrganizationMemberProfile", back_populates="user")

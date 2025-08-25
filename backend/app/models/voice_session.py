@@ -61,5 +61,12 @@ class VoiceSession(Base):
     analyses = relationship("Analysis", back_populates="voice_session")
     transcriptions = relationship("Transcription", back_populates="voice_session")
 
+    # 参加者管理（新しい設計）- 一時的に無効化
+    # participants = relationship(
+    #     "VoiceSessionParticipant",
+    #     back_populates="voice_session",
+    #     cascade="all, delete-orphan",
+    # )
+
     def __repr__(self) -> str:
         return f"<VoiceSession(id={self.id}, session_id='{self.session_id}', title='{self.title}')>"
