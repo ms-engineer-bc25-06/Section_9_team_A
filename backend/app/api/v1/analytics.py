@@ -41,9 +41,9 @@ async def get_analytics(
         
         return AnalysisListResponse(
             analyses=result["analyses"],
-            total_count=result["total_count"],
+            total=result["total_count"],
             page=result["page"],
-            page_size=result["page_size"]
+            size=result["page_size"]
         )
         
     except AnalysisError as e:

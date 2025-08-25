@@ -1,261 +1,189 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/Button"
-import { Input } from "@/components/ui/Input"
-import { Label } from "@/components/ui/Label"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
-import { Alert, AlertDescription } from "@/components/ui/Alert"
-import { Eye, EyeOff, Shield, CheckCircle } from "lucide-react"
-import { getAuth } from "firebase/auth"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Label } from "@/components/ui/Label";
+import { Lock, CheckCircle, AlertCircle } from "lucide-react";
+import { auth } from "@/lib/auth";
+import { updatePassword } from "firebase/auth";
+
+interface ChangePasswordForm {
+  newPassword: string;
+  confirmPassword: string;
+}
 
 export default function ChangePasswordPage() {
-  const [currentPassword, setCurrentPassword] = useState("")
-  const [newPassword, setNewPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
-  const [showNewPassword, setShowNewPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [success, setSuccess] = useState(false)
-  
-  const router = useRouter()
-  const auth = getAuth()
+  const { user, backendToken } = useAuth();
+  const router = useRouter();
+  const [formData, setFormData] = useState<ChangePasswordForm>({
+    newPassword: "",
+    confirmPassword: ""
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
-  useEffect(() => {
-    // ログイン状態をチェック
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (!user) {
-        router.push("/auth/login")
-        return
-      }
-      
-      // ログイン状態を確認
-      checkLoginStatus()
-    })
-
-    return () => unsubscribe()
-  }, [router, auth])
-
-  const checkLoginStatus = async () => {
-    try {
-      const token = await auth.currentUser?.getIdToken()
-      if (!token) return
-
-      const response = await fetch("http://localhost:8000/api/v1/auth/login-status", {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        if (!data.needs_password_setup) {
-          // パスワード設定が不要な場合はダッシュボードにリダイレクト
-          router.push("/dashboard")
-        }
-      }
-    } catch (error) {
-      console.error("ログイン状態確認エラー:", error)
-    }
+  // 未認証の場合はログインページにリダイレクト
+  if (!user || !backendToken) {
+    router.push("/auth/login");
+    return null;
   }
+
+  const handleInputChange = (field: keyof ChangePasswordForm, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    setIsLoading(true)
-
-    // バリデーション
-    if (newPassword !== confirmPassword) {
-      setError("新しいパスワードが一致しません")
-      setIsLoading(false)
-      return
+    e.preventDefault();
+    
+    if (formData.newPassword.length < 8) {
+      setError("パスワードは8文字以上で入力してください");
+      return;
     }
 
-    if (newPassword.length < 8) {
-      setError("パスワードは8文字以上で入力してください")
-      setIsLoading(false)
-      return
+    if (formData.newPassword !== formData.confirmPassword) {
+      setError("パスワードが一致しません");
+      return;
     }
+
+    setIsSubmitting(true);
+    setError(null);
 
     try {
-      const token = await auth.currentUser?.getIdToken()
-      if (!token) {
-        setError("認証トークンが取得できません")
-        setIsLoading(false)
-        return
-      }
-
-      const response = await fetch("http://localhost:8000/api/v1/auth/change-password", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          current_password: currentPassword,
-          new_password: newPassword
-        })
-      })
-
-      if (response.ok) {
-        setSuccess(true)
-        setTimeout(() => {
-          router.push("/dashboard")
-        }, 2000)
+      // Firebaseでパスワードを更新
+      await updatePassword(user, formData.newPassword);
+      
+      setSuccess(true);
+      
+      // 3秒後にプロフィール作成ページにリダイレクト
+      setTimeout(() => {
+        router.push("/profile/edit");
+      }, 3000);
+      
+    } catch (err: any) {
+      console.error("パスワード変更に失敗:", err);
+      if (err.code === 'auth/requires-recent-login') {
+        setError("セキュリティのため、再度ログインしてください");
       } else {
-        const errorData = await response.json()
-        setError(errorData.detail || "パスワード変更に失敗しました")
+        setError(err.message || "パスワード変更に失敗しました");
       }
-    } catch (error) {
-      console.error("パスワード変更エラー:", error)
-      setError("パスワード変更中にエラーが発生しました")
     } finally {
-      setIsLoading(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   if (success) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
-          <CardContent className="pt-6 text-center">
-            <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+          <CardContent className="p-8 text-center">
+            <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+              <CheckCircle className="w-8 h-8 text-green-600" />
+            </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              パスワード設定完了
+              パスワード変更完了
             </h2>
-            <p className="text-gray-600">
-              パスワードが正常に設定されました。<br />
-              ダッシュボードに移動します...
+            <p className="text-gray-600 mb-4">
+              本パスワードの設定が完了しました
+            </p>
+            <p className="text-sm text-gray-500">
+              プロフィール作成ページに移動します...
             </p>
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-            <Shield className="h-6 w-6 text-blue-600" />
+          <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+            <Lock className="w-8 h-8 text-blue-600" />
           </div>
           <CardTitle className="text-2xl font-bold text-gray-900">
-            パスワードを設定してください
+            本パスワードを設定
           </CardTitle>
-          <p className="text-gray-600 mt-2">
-            初回ログインのため、新しいパスワードを設定してください
-          </p>
+          <CardDescription className="text-gray-600">
+            仮パスワードから本パスワードに変更してください
+          </CardDescription>
         </CardHeader>
-        
+
         <CardContent>
-          {error && (
-            <Alert className="mb-4 border-red-200 bg-red-50">
-              <AlertDescription className="text-red-800">
-                {error}
-              </AlertDescription>
-            </Alert>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Label htmlFor="current-password">現在のパスワード（仮パスワード）</Label>
-              <div className="relative">
-                <Input
-                  id="current-password"
-                  type={showCurrentPassword ? "text" : "password"}
-                  value={currentPassword}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCurrentPassword(e.target.value)}
-                  required
-                  className="pr-10"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                  className="absolute right-0 top-0 h-full px-2 hover:bg-gray-100"
-                >
-                  {showCurrentPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </Button>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600" />
+                  <p className="text-red-600 text-sm">{error}</p>
+                </div>
               </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">
+                新しいパスワード <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="newPassword"
+                type="password"
+                placeholder="8文字以上で入力"
+                value={formData.newPassword}
+                onChange={(e) => handleInputChange('newPassword', e.target.value)}
+                required
+                className="w-full"
+              />
             </div>
 
-            <div>
-              <Label htmlFor="new-password">新しいパスワード</Label>
-              <div className="relative">
-                <Input
-                  id="new-password"
-                  type={showNewPassword ? "text" : "password"}
-                  value={newPassword}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewPassword(e.target.value)}
-                  required
-                  minLength={8}
-                  className="pr-10"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowNewPassword(!showNewPassword)}
-                  className="absolute right-0 top-0 h-full px-2 hover:bg-gray-100"
-                >
-                  {showNewPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                8文字以上で入力してください
-              </p>
-            </div>
-
-            <div>
-              <Label htmlFor="confirm-password">新しいパスワード（確認）</Label>
-              <div className="relative">
-                <Input
-                  id="confirm-password"
-                  type={showConfirmPassword ? "text" : "password"}
-                  value={confirmPassword}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)}
-                  required
-                  className="pr-10"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-0 top-0 h-full px-2 hover:bg-gray-100"
-                >
-                  {showConfirmPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">
+                パスワード確認 <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="再度入力してください"
+                value={formData.confirmPassword}
+                onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                required
+                className="w-full"
+              />
             </div>
 
             <Button
               type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-              disabled={isLoading}
+              disabled={isSubmitting || !formData.newPassword.trim() || !formData.confirmPassword.trim()}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400"
             >
-              {isLoading ? "設定中..." : "パスワードを設定"}
+              {isSubmitting ? (
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  設定中...
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4" />
+                  パスワードを設定
+                </div>
+              )}
             </Button>
+
+            <div className="text-center">
+              <p className="text-sm text-gray-500">
+                パスワードは8文字以上で入力してください
+              </p>
+            </div>
           </form>
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

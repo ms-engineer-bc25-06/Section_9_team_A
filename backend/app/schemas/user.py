@@ -78,6 +78,7 @@ class UserResponse(UserBase):
 # プロフィール専用スキーマ
 class ProfileUpdate(BaseModel):
     """プロフィール更新用スキーマ"""
+    full_name: Optional[str] = None
     nickname: Optional[str] = None
     department: Optional[str] = None
     join_date: Optional[str] = None
@@ -98,6 +99,8 @@ class ProfileUpdate(BaseModel):
 
 class ProfileResponse(BaseModel):
     """プロフィール表示用スキーマ"""
+    is_first_login: bool
+    full_name: str
     nickname: str
     department: str
     join_date: str

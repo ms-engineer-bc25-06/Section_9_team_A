@@ -1,29 +1,15 @@
 //FIXME（プロフィール閲覧）
 "use client"
 
-
-import { AIAnalysisSection } from "./AIAnalysisSection"
-import { AnalysisUpdateForm } from "./AnalysisUpdateForm"
 import { ProfileTabs } from "./ProfileTabs"
-import { useAIAnalysis } from "@/hooks/useAIAnalysis"
 import { useProfile } from "@/hooks/useProfile"
 import Link from "next/link"
 
 // モックデータを削除 - 実際のユーザープロフィールデータを使用
 
 export function ProfileView() {
-  const { analyses, isLoading, error, createAnalysis } = useAIAnalysis()
   const { profile, isLoading: profileLoading, error: profileError } = useProfile()
   
-  const handleAnalysisUpdate = async (text: string, analysisTypes: string[]) => {
-    try {
-      await createAnalysis(text, analysisTypes)
-    } catch (error) {
-      console.error('Analysis update failed:', error)
-      throw error
-    }
-  }
-
   // プロフィールデータが読み込み中の場合はローディング表示
   if (profileLoading) {
     return (
@@ -111,8 +97,8 @@ export function ProfileView() {
 
   // 実際のプロフィールデータをProfileTabsの期待する形式に変換
   const profileData = {
-    name: profile.nickname || "ユーザー",
-    nickname: profile.nickname || "",
+    name: profile.full_name || "名前未設定",
+    nickname: profile.nickname || "ニックネーム未設定",
     department: profile.department || "",
     joinDate: profile.join_date || "",
     birthDate: profile.birth_date || "",
@@ -135,10 +121,7 @@ export function ProfileView() {
     <ProfileTabs profile={profileData}>
       <div className="space-y-6">
         {/* AI分析結果セクション */}
-        <AIAnalysisSection analyses={analyses} isLoading={isLoading} />
-        
         {/* AI分析更新フォーム */}
-        <AnalysisUpdateForm onAnalysisUpdate={handleAnalysisUpdate} isLoading={isLoading} />
       </div>
     </ProfileTabs>
   )

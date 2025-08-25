@@ -168,6 +168,47 @@ async def delete_team(
 
 # ==================== チームメンバー管理 ====================
 
+@router.get("/members", response_model=List[OrganizationMemberResponse])
+async def get_organization_members(
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """現在のユーザーが所属する組織のメンバー一覧を取得"""
+    try:
+        organization_service = OrganizationService()
+        
+        # ユーザーが所属する組織を取得
+        user_teams = await organization_service.get_user_teams(
+            db=db,
+            user_id=current_user.id
+        )
+        
+        if not user_teams:
+            return []
+        
+        # 最初の組織のメンバーを取得（複数組織がある場合は要検討）
+        first_team = user_teams[0]
+        members = await organization_service.get_organization_members(
+            db=db,
+            org_id=first_team.id
+        )
+        
+        logger.info(
+            "組織メンバー一覧取得完了",
+            user_id=current_user.id,
+            team_id=first_team.id,
+            member_count=len(members)
+        )
+        
+        return members
+        
+    except Exception as e:
+        logger.error("組織メンバー一覧取得でエラー", error=str(e), user_id=current_user.id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="組織メンバー一覧の取得に失敗しました"
+        )
+
 @router.get("/{team_id}/members", response_model=List[OrganizationMemberResponse])
 async def get_team_members(
     team_id: int,

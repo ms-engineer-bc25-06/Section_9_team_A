@@ -10,6 +10,7 @@ from app.api.v1 import (
     subscriptions,
     invitations,
     webhooks,
+    analytics,
     # 統合されたAPI
     analysis_unified,
     admin_unified,
@@ -55,6 +56,9 @@ api_router.include_router(invitations.router, prefix="/invitations", tags=["招�
 
 # Webhooks
 api_router.include_router(webhooks.router, prefix="/webhooks", tags=["Webhooks"])
+
+# Analytics
+api_router.include_router(analytics.router, prefix="/analytics", tags=["Analytics"])
 
 # 統合された分析API
 api_router.include_router(analysis_unified.router, prefix="/analyses", tags=["統合分析"])

@@ -1,10 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar"
 import { Badge } from "@/components/ui/Badge"
-import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Search, Users, Calendar, MapPin, Heart, Trophy, Coffee, Utensils, BookOpen, Music, Star, Target, Quote } from "lucide-react"
 import { fetchWithAuth } from "@/lib/apiClient"
@@ -37,11 +37,11 @@ interface Member {
 }
 
 export function MemberList() {
+  const router = useRouter()
   const [members, setMembers] = useState<Member[]>([])
   const [filteredMembers, setFilteredMembers] = useState<Member[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedMember, setSelectedMember] = useState<Member | null>(null)
 
   useEffect(() => {
     fetchMembers()
@@ -60,6 +60,7 @@ export function MemberList() {
       
       if (response.ok) {
         const data = await response.json()
+        console.log('Fetched members data:', data)
         setMembers(data)
       } else {
         console.error("メンバー取得に失敗しました")
@@ -86,27 +87,8 @@ export function MemberList() {
     setFilteredMembers(filtered)
   }
 
-  const getProfileIcon = (field: keyof MemberProfile) => {
-    const iconMap: Record<keyof MemberProfile, any> = {
-      department: Users,
-      position: Users,
-      nickname: Users,
-      join_date: Calendar,
-      birth_date: Calendar,
-      hometown: MapPin,
-      residence: MapPin,
-      hobbies: Heart,
-      student_activities: Trophy,
-      holiday_activities: Coffee,
-      favorite_food: Utensils,
-      favorite_media: BookOpen,
-      favorite_music: Music,
-      pets_oshi: Star,
-      respected_person: Target,
-      motto: Quote,
-      future_goals: Target
-    }
-    return iconMap[field] || Users
+  const handleMemberClick = (memberId: string) => {
+    router.push(`/profile/${memberId}`)
   }
 
   if (isLoading) {
@@ -144,7 +126,7 @@ export function MemberList() {
           <Card 
             key={member.id} 
             className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => setSelectedMember(member)}
+            onClick={() => handleMemberClick(member.id)}
           >
             <CardHeader className="pb-3">
               <div className="flex items-center space-x-3">
@@ -189,80 +171,6 @@ export function MemberList() {
           </Card>
         ))}
       </div>
-
-      {/* メンバー詳細モーダル */}
-      {selectedMember && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <Card className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <Avatar className="h-16 w-16">
-                    <AvatarImage src={selectedMember.avatar_url} />
-                    <AvatarFallback className="text-2xl">
-                      {selectedMember.display_name.slice(0, 2)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <CardTitle className="text-2xl">{selectedMember.display_name}</CardTitle>
-                    {selectedMember.profile?.department && (
-                      <Badge variant="secondary" className="text-lg">
-                        {selectedMember.profile.department}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSelectedMember(null)}
-                >
-                  閉じる
-                </Button>
-              </div>
-            </CardHeader>
-            
-            <CardContent className="space-y-4">
-              {selectedMember.profile && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {Object.entries(selectedMember.profile).map(([key, value]) => {
-                    if (!value) return null
-                    
-                    const Icon = getProfileIcon(key as keyof MemberProfile)
-                    const label = {
-                      nickname: "ニックネーム",
-                      join_date: "入社年月",
-                      birth_date: "生年月日",
-                      hometown: "出身地",
-                      residence: "居住地",
-                      hobbies: "趣味・特技",
-                      student_activities: "学生時代の部活・サークル",
-                      holiday_activities: "休日の過ごし方",
-                      favorite_food: "好きな食べ物",
-                      favorite_media: "好きな本・漫画・映画・ドラマ",
-                      favorite_music: "好きな音楽・カラオケの18番",
-                      pets_oshi: "ペット・推し",
-                      respected_person: "尊敬する人",
-                      motto: "座右の銘",
-                      future_goals: "将来の目標"
-                    }[key] || key
-                    
-                    return (
-                      <div key={key} className="flex items-start space-x-2">
-                        <Icon className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                        <div className="flex-1">
-                          <dt className="text-sm font-medium text-gray-500 mb-1">{label}</dt>
-                          <dd className="text-gray-900 break-words">{value}</dd>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
 
       {filteredMembers.length === 0 && (
         <Card>

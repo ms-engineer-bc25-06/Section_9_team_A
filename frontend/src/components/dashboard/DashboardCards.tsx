@@ -34,7 +34,7 @@ const DashboardCards: React.FC = () => {
 
   const cards = [
     {
-      title: "チームメンバー一覧",
+      title: "部署別メンバー一覧",
       description: "チームメンバーの情報を確認",
       icon: Users,
       action: () => router.push("/team"),

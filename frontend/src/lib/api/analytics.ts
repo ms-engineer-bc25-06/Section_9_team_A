@@ -58,9 +58,9 @@ export interface BehaviorScore {
 
 export interface AnalysisListResponse {
   analyses: AnalysisResponse[]
-  total_count: number
+  total: number
   page: number
-  page_size: number
+  size: number
 }
 
 class AnalyticsAPI {
@@ -68,7 +68,7 @@ class AnalyticsAPI {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const response = await apiClient.get(`/api/v1/analytics${endpoint}`, options)
+    const response = await apiClient.get(`/analytics${endpoint}`, options)
     
     if (!response.ok) {
       const errorText = await response.text()
@@ -102,8 +102,8 @@ class AnalyticsAPI {
   }
 
   // 新しい分析を作成
-  async createAnalysis(request: AnalysisRequest): Promise<AnalysisResponse> {
-    const response = await apiClient.post('/api/v1/analytics', request)
+  async createAnalysis(request: AnalysisRequest): Promise<AnalysisResponse[]> {
+    const response = await apiClient.post('/analytics', request)
     
     if (!response.ok) {
       const errorText = await response.text()

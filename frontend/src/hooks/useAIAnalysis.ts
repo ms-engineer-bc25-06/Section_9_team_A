@@ -10,7 +10,7 @@ interface UseAIAnalysisReturn {
   createAnalysis: (text: string, analysisTypes: string[]) => Promise<AnalysisResponse[] | null>
   getAnalysisById: (id: string) => AnalysisResponse | undefined
   getAnalysesByType: (type: string) => AnalysisResponse[]
-  updateAnalysis: (id: string, updates: Partial<AnalysisResponse>) => Promise<AnalysisResponse | null>
+  updateAnalysis: (id: string, updates: Partial<AnalysisRequest>) => Promise<AnalysisResponse | null>
   deleteAnalysis: (id: string) => Promise<boolean>
   refreshAnalyses: () => Promise<void>
 }
@@ -39,7 +39,7 @@ export function useAIAnalysis(): UseAIAnalysisReturn {
     setError(null)
     
     try {
-      const response = await analyticsAPI.getAnalyses(undefined, undefined, undefined, undefined, backendToken)
+      const response = await analyticsAPI.getAnalyses(1, 20)
       setAnalyses(response.analyses)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '分析結果の取得に失敗しました'
@@ -66,7 +66,7 @@ export function useAIAnalysis(): UseAIAnalysisReturn {
         analysis_types: analysisTypes,
       }
       
-      const newAnalyses = await analyticsAPI.createAnalysis(request, backendToken)
+      const newAnalyses = await analyticsAPI.createAnalysis(request)
       setAnalyses(prev => [...newAnalyses, ...prev])
       return newAnalyses
     } catch (err) {
@@ -80,14 +80,14 @@ export function useAIAnalysis(): UseAIAnalysisReturn {
   }
 
   // 分析結果を更新
-  const updateAnalysis = async (id: string, updates: Partial<AnalysisResponse>): Promise<AnalysisResponse | null> => {
+  const updateAnalysis = async (id: string, updates: Partial<AnalysisRequest>): Promise<AnalysisResponse | null> => {
     if (!backendToken) {
       setError('認証が必要です。ログインしてください。')
       return null
     }
 
     try {
-      const updatedAnalysis = await analyticsAPI.updateAnalysis(id, updates, backendToken)
+      const updatedAnalysis = await analyticsAPI.updateAnalysis(id, updates)
       setAnalyses(prev => prev.map(analysis => 
         analysis.id === id ? updatedAnalysis : analysis
       ))
@@ -108,7 +108,7 @@ export function useAIAnalysis(): UseAIAnalysisReturn {
     }
 
     try {
-      await analyticsAPI.deleteAnalysis(id, backendToken)
+      await analyticsAPI.deleteAnalysis(id)
       setAnalyses(prev => prev.filter(analysis => analysis.id !== id))
       return true
     } catch (err) {

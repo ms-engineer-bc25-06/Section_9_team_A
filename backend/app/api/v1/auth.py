@@ -224,6 +224,7 @@ async def firebase_login(
                 "access_token": access_token,
                 "token_type": "bearer",
                 "expires_in": 1800,  # 30分
+                "has_temporary_password": user.has_temporary_password,
                 "user": {
                     "id": user.id,
                     "email": user.email,
