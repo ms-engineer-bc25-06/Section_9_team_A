@@ -110,6 +110,7 @@ export const useVoiceChat = (roomId: string): UseVoiceChatReturn => {
       onMessage: (message) => {
         handleSignalingMessage(message);
       },
+      debugMode: true, // デバッグモードを有効化
     }
   );
 

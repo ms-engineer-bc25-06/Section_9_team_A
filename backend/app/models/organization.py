@@ -52,13 +52,13 @@ class Organization(Base):
     # チーム機能を統合
     voice_sessions = relationship("VoiceSession", back_populates="organization")
     chat_rooms = relationship("ChatRoom", back_populates="organization")
-    shared_reports = relationship("ReportShare", back_populates="shared_with_team_rel")
+    # shared_reports = relationship("ReportShare", back_populates="shared_with_team_rel")
     member_profiles = relationship("OrganizationMemberProfile", back_populates="team")
 
-    # チームダイナミクス関連
-    team_interactions = relationship("TeamInteraction")
-    team_compatibilities = relationship("TeamCompatibility")
-    team_cohesions = relationship("TeamCohesion")
+    # チームダイナミクス関連（一時的に無効化）
+    # team_interactions = relationship("TeamInteraction")
+    # team_compatibilities = relationship("TeamCompatibility")
+    # team_cohesions = relationship("TeamCohesion")
 
     def __repr__(self):
         return f"<Organization(id={self.id}, name='{self.name}', slug='{self.slug}')>"
