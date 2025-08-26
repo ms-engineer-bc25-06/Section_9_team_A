@@ -27,11 +27,18 @@
 | 機能名         | 説明 |
 |----------------|------|
 | ユーザー認証    | Firebase Authentication によるメール/パスワード認証 |
-| 雑談ルーム     | テーマボタン、ログイン中メンバー表示、音声通話（Agora.io SDK使用） |
-| 会話分析       | OpenAI Whisper + scikit-learn で解析し、プロフィール更新 |
+| チームメンバー一覧 | 部署別にメンバーとプロフィールの閲覧 |
+| 雑談ルーム     | テーマボタン、ログイン中メンバー表示、音声通話 |
+| 会話分析       | OpenAI Whisper で解析し、フィードバック作成 |
 | マイプロフィール| 編集可能、公開/非公開設定、分析による特性自動追加 |
-| チームメンバー一覧 | 公開設定に応じたプロフィール閲覧 |
+
+
+## 🎈 その他機能
+
+| 機能名         | 説明 |
+|----------------|------|
 | 決済           | Stripe APIを利用 |
+| 管理者ページ     | ユーザー管理・決済管理・組織運営の統合ダッシュボード |
 
 ---
 
@@ -42,9 +49,11 @@
 | フロントエンド | Next.js, TypeScript, Tailwind CSS, MUI |
 | バックエンド   | FastAPI（Python）, SQLAlchemy, Alembic |
 | DB             | PostgreSQL, Redis |
-| AI・分析       | OpenAI Whisper, scikit-learn |
-| 外部API        | Agora.io SDK, OpenAI API |
+| AI・分析       | OpenAI Whisper, GPT-4, NumPy, Librosa, SciPy |
+| 音声処理       | Web Socket, WebRTC, Pydub, SoundFile |
+| 外部API        | OpenAI API, Firebase Authentication, Stripe API |
 | 認証           | Firebase Authentication |
+| 決済        　　| Stripe |
 | テスト         | Vitest（FE）, Pytest（BE） |
 | Linter         | ESLint（FE）, PyLint（BE） |
 | Formatter      | Prettier（FE）, Black（BE） |
@@ -54,9 +63,9 @@
 ---
 
 ## 🤝 チーム情報
-- るい（リーダー）
-- しづか
-- あっすー
+- るい（リーダー） : 環境構築、雑談ルーム、会話分析
+- しづか ： マイプロフィール、企画整理、スライド作成
+- あっすー ： ユーザー認証、メンバー一覧、決済、UI
 
 ---
 
@@ -134,8 +143,8 @@ npm run dev
 - **バックエンドAPI**: http://localhost:8000
 - **APIドキュメント**: http://localhost:8000/docs
 - **フロントエンド**: http://localhost:3000
-- **データベース**: localhost:5432
-- **Redis**: localhost:6379
+- **データベース**: http://localhost:5432
+- **Redis**: http://localhost:6379
 
 ## 開発環境
 
@@ -149,14 +158,14 @@ npm run dev
 - **Frontend**: Next.js, TypeScript, Tailwind CSS
 - **Infrastructure**: Docker, Docker Compose
 
-## プロジェクト構造
+## プロジェクト構造（要編集）
 ```
 bridge-line/
 ├── backend/          # FastAPIバックエンド
 ├── frontend/         # Next.jsフロントエンド
 ├── scripts/          # データベース初期化スクリプト
 ├── docs/            # ドキュメント
-├── compose.yaml # Docker環境設定
+├── compose.yaml 　　# Docker環境設定
 └── README.md        # このファイル
 ```
 
