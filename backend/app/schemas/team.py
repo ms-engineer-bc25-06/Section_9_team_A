@@ -56,6 +56,7 @@ class UserProfileOut(BaseModel):
 class UserOut(BaseModel):
     id: str
     display_name: str
+    email: Optional[str] = None
     avatar_url: Optional[str] = None
     profile: Optional[UserProfileOut] = None
 

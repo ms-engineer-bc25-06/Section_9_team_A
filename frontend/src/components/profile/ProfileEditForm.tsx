@@ -10,12 +10,13 @@ import { Textarea } from "@/components/ui/Textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar"
 import { Badge } from "@/components/ui/Badge"
 import { Separator } from "@/components/ui/Separator"
-import { Camera, Save, List } from "lucide-react"
+import { Camera, Save, List, AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth/AuthProvider"
-import { fetchWithAuth } from "@/lib/apiClient"
+import { apiClient } from "@/lib/apiClient"
 
 interface ProfileData {
+  full_name?: string
   nickname: string
   department: string
   join_date: string
@@ -35,6 +36,7 @@ interface ProfileData {
 }
 
 const defaultProfile: ProfileData = {
+  full_name: "",
   nickname: "",
   department: "",
   join_date: "",
@@ -57,6 +59,7 @@ export function ProfileEditForm() {
   const [profile, setProfile] = useState<ProfileData>(defaultProfile)
   const [isLoading, setIsLoading] = useState(false)
   const [isInitializing, setIsInitializing] = useState(true)
+  const [isFirstLogin, setIsFirstLogin] = useState(false)
   const router = useRouter()
   const { user } = useAuth()
 
@@ -66,13 +69,9 @@ export function ProfileEditForm() {
       if (!user) return
       
       try {
-        const response = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/api/v1/users/profile`)
-        if (response.ok) {
-          const data = await response.json()
-          setProfile(data)
-        } else {
-          console.warn("プロフィール取得に失敗しました")
-        }
+        const data = await apiClient.get('/users/profile')
+        setProfile(data)
+        setIsFirstLogin(data.is_first_login || false)
       } catch (error) {
         console.error("プロフィール取得エラー:", error)
       } finally {
@@ -93,27 +92,58 @@ export function ProfileEditForm() {
       return
     }
 
+    // 初回ログイン時の必須項目チェック
+    if (isFirstLogin && (!profile.full_name?.trim() || !profile.department?.trim())) {
+      alert("初回ログイン時は、名前と部署が必須項目です")
+      return
+    }
+
     setIsLoading(true)
     
     try {
-      const response = await fetchWithAuth(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/api/v1/users/profile`,
-        {
-          method: "PUT",
-          body: JSON.stringify(profile)
-        }
+      // 空文字列をnullに変換してバックエンドで適切に処理されるようにする
+      const cleanedProfile = Object.fromEntries(
+        Object.entries(profile).map(([key, value]) => [
+          key, 
+          value === "" ? null : value
+        ])
       )
+      
+      console.log("送信するプロフィールデータ:", cleanedProfile)
+      
+      // プロフィール更新
+      const response = await apiClient.put('/users/profile', cleanedProfile)
+      console.log("プロフィール更新レスポンス:", response)
 
-      if (response.ok) {
-        alert("プロフィールを更新しました")
-        router.push("/profile")
-      } else {
-        const errorData = await response.json()
-        alert(`更新に失敗しました: ${errorData.detail || "エラーが発生しました"}`)
+      // 初回ログインの場合は、初回ログインフラグを更新
+      if (isFirstLogin) {
+        try {
+          await apiClient.put('/users/first-login-complete')
+          alert("プロフィールを作成しました！ダッシュボードに移動します")
+          router.push("/dashboard")
+          return
+        } catch (error) {
+          console.error("初回ログイン完了処理に失敗:", error)
+        }
       }
-    } catch (error) {
+
+      alert("プロフィールを更新しました")
+      router.push("/profile")
+    } catch (error: any) {
       console.error("保存エラー:", error)
-      alert("保存中にエラーが発生しました")
+      console.error("エラーメッセージ:", error.message)
+      console.error("エラー詳細:", error)
+      
+      // より具体的なエラーメッセージを表示
+      if (error.message?.includes('401')) {
+        alert("認証エラーが発生しました。再度ログインしてください。")
+      } else if (error.message?.includes('403')) {
+        alert("アクセス権限がありません。")
+      } else if (error.message?.includes('500')) {
+        alert("サーバーエラーが発生しました。しばらく時間をおいて再度お試しください。")
+      } else {
+        alert(`保存中にエラーが発生しました: ${error.message}`)
+      }
     } finally {
       setIsLoading(false)
     }
@@ -142,15 +172,22 @@ export function ProfileEditForm() {
           <div className="flex items-center space-x-6">
             <div className="relative">
               <Avatar className="h-24 w-24">
-                <AvatarImage src={`/placeholder.svg?height=96&width=96&query=${profile.nickname}`} />
-                <AvatarFallback className="text-2xl">{profile.nickname.slice(0, 2) || "ユ"}</AvatarFallback>
+                <AvatarImage src={`/placeholder.svg?height=96&width=96&query=${profile.full_name || profile.nickname}`} />
+                <AvatarFallback className="text-2xl">
+                  {(profile.full_name || profile.nickname || "ユ").slice(0, 2)}
+                </AvatarFallback>
               </Avatar>
               <Button size="sm" className="absolute -bottom-2 -right-2 rounded-full w-8 h-8 p-0">
                 <Camera className="h-4 w-4" />
               </Button>
             </div>
             <div>
-              <CardTitle className="text-3xl mb-2">{profile.nickname || "ニックネーム未設定"}</CardTitle>
+              <CardTitle className="text-3xl mb-2">
+                {profile.full_name || profile.nickname || "名前未設定"}
+              </CardTitle>
+              {profile.nickname && profile.nickname !== profile.full_name && (
+                <p className="text-lg text-gray-600 mb-2">({profile.nickname})</p>
+              )}
               <Badge variant="secondary" className="text-lg px-3 py-1">
                 {profile.department || "部署未設定"}
               </Badge>
@@ -161,16 +198,40 @@ export function ProfileEditForm() {
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <Label htmlFor="nickname">ニックネーム</Label>
-              <Input id="nickname" value={profile.nickname} onChange={(e) => handleInputChange("nickname", e.target.value)} />
+              <Label htmlFor="full_name" className="flex items-center gap-2">
+                お名前
+                {isFirstLogin && <span className="text-red-500 text-sm">*</span>}
+              </Label>
+              <Input 
+                id="full_name" 
+                value={profile.full_name || ""} 
+                onChange={(e) => handleInputChange("full_name", e.target.value)}
+                placeholder="田中太郎"
+              />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="department">部署</Label>
+              <Label htmlFor="nickname">
+                ニックネーム
+              </Label>
+              <Input 
+                id="nickname" 
+                value={profile.nickname || ""} 
+                onChange={(e) => handleInputChange("nickname", e.target.value)}
+                placeholder="たなちゃん"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="department" className="flex items-center gap-2">
+                部署
+                {isFirstLogin && <span className="text-red-500 text-sm">*</span>}
+              </Label>
               <Input
                 id="department"
                 value={profile.department}
                 onChange={(e) => handleInputChange("department", e.target.value)}
+                placeholder="開発部"
               />
             </div>
 
@@ -323,9 +384,12 @@ export function ProfileEditForm() {
               フィードバック一覧
             </Button>
 
-            <Button onClick={handleSave} disabled={isLoading}>
-              <Save className="h-4 w-4 mr-2" />
-              {isLoading ? "保存中..." : "保存"}
+            <Button 
+              onClick={handleSave} 
+              disabled={isLoading || (isFirstLogin && (!profile.full_name?.trim() || !profile.department?.trim()))}
+              className={isFirstLogin ? "bg-blue-600 hover:bg-blue-700" : ""}
+            >
+              {isLoading ? "保存中..." : "プロフィールを更新"}
             </Button>
           </div>
         </CardContent>

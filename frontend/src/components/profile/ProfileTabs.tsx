@@ -27,7 +27,8 @@ import {
   Star,
   Quote,
   Target,
-  BarChart3
+  BarChart3,
+  Building2
 } from "lucide-react"
 
 interface ProfileTabsProps {
@@ -65,7 +66,9 @@ export function ProfileTabs({ profile, children }: ProfileTabsProps) {
   const [activeTab, setActiveTab] = useState("basic")
 
   const profileItems = [
+    { icon: User, label: "お名前", value: profile.name },
     { icon: User, label: "ニックネーム", value: profile.nickname },
+    { icon: Building2, label: "部署", value: profile.department || "未設定" },
     { icon: Calendar, label: "入社年月", value: profile.joinDate },
     { icon: Calendar, label: "生年月日", value: profile.birthDate },
     { icon: MapPin, label: "出身地", value: profile.hometown },
@@ -155,9 +158,15 @@ export function ProfileTabs({ profile, children }: ProfileTabsProps) {
             </div>
             <div>
               <CardTitle className="text-3xl mb-2">{profile.name}</CardTitle>
-              <Badge variant="secondary" className="text-lg px-3 py-1">
-                {profile.department}
-              </Badge>
+              {profile.department ? (
+                <Badge variant="secondary" className="text-lg px-3 py-1">
+                  {profile.department}
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-lg px-3 py-1 text-gray-500">
+                  部署未設定
+                </Badge>
+              )}
             </div>
           </div>
         </CardHeader>

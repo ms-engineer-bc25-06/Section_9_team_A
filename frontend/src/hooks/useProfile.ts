@@ -3,6 +3,7 @@ import { apiGet } from "@/lib/apiClient"
 import { useAuth } from "@/components/auth/AuthProvider"
 
 export interface UserProfile {
+  full_name: string
   nickname: string
   department: string
   join_date: string
