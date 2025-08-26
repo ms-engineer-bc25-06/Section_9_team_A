@@ -3,13 +3,30 @@
 
 import { ProfileTabs } from "./ProfileTabs"
 import { useProfile } from "@/hooks/useProfile"
+import { useApprovalList } from "@/hooks/useFeedbackApproval"
 import Link from "next/link"
+import { useEffect } from "react"
 
 // モックデータを削除 - 実際のユーザープロフィールデータを使用
 
 export function ProfileView() {
   const { profile, isLoading: profileLoading, error: profileError } = useProfile()
   
+  // フィードバック承認関連のフック
+  const {
+    approvals: feedbackApprovals,
+    loading: feedbackLoading,
+    error: feedbackError,
+    loadMyApprovals
+  } = useApprovalList()
+
+  // フィードバックデータを読み込み
+  useEffect(() => {
+    if (profile) {
+      loadMyApprovals()
+    }
+  }, [profile, loadMyApprovals])
+
   // プロフィールデータが読み込み中の場合はローディング表示
   if (profileLoading) {
     return (
@@ -95,6 +112,46 @@ export function ProfileView() {
     )
   }
 
+  // フィードバックデータを処理
+  const processFeedbackData = () => {
+    if (!feedbackApprovals || feedbackApprovals.length === 0) {
+      return []
+    }
+
+    return feedbackApprovals.map(approval => {
+      // 承認リクエストからフィードバックメッセージを生成
+      let feedbackMessage = ""
+      
+      if (approval.approval_status === 'approved') {
+        feedbackMessage = `✅ 分析結果が承認されました`
+        if (approval.review_notes) {
+          feedbackMessage += ` - ${approval.review_notes}`
+        }
+      } else if (approval.approval_status === 'rejected') {
+        feedbackMessage = `❌ 分析結果が却下されました`
+        if (approval.rejection_reason) {
+          feedbackMessage += ` - ${approval.rejection_reason}`
+        }
+      } else if (approval.approval_status === 'requires_changes') {
+        feedbackMessage = `⚠️ 分析結果に修正が必要です`
+        if (approval.review_notes) {
+          feedbackMessage += ` - ${approval.review_notes}`
+        }
+      } else if (approval.approval_status === 'pending') {
+        feedbackMessage = `⏳ 分析結果の承認待ちです`
+      } else if (approval.approval_status === 'under_review') {
+        feedbackMessage = `🔍 分析結果をレビュー中です`
+      }
+
+      // 分析タイトルがある場合は追加
+      if (approval.analysis_title) {
+        feedbackMessage = `「${approval.analysis_title}」: ${feedbackMessage}`
+      }
+
+      return feedbackMessage
+    }).filter(message => message !== "") // 空のメッセージを除外
+  }
+
   // 実際のプロフィールデータをProfileTabsの期待する形式に変換
   const profileData = {
     name: profile.full_name || "名前未設定",
@@ -114,7 +171,7 @@ export function ProfileView() {
     respectedPerson: profile.respected_person || "",
     motto: profile.motto || "",
     futureGoals: profile.future_goals || "",
-    feedback: [] // フィードバックは現在実装されていないため空配列
+    feedback: processFeedbackData() // 実際のフィードバックデータを使用
   }
 
   return (
