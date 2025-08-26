@@ -1,7 +1,7 @@
 // プロフィール表示ページ
 import { ProfileView } from "@/components/profile/ProfileView"
 import { Button } from "@/components/ui/Button"
-import { ArrowLeft, Edit } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
 export default function ProfilePage() {
@@ -19,12 +19,7 @@ export default function ProfilePage() {
             <h1 className="text-2xl font-bold text-gray-900 absolute left-1/2 transform -translate-x-1/2">
               マイプロフィール
             </h1>
-            <Link href="/profile/edit">
-              <Button>
-                <Edit className="h-4 w-4 mr-2" />
-                編集画面へ
-              </Button>
-            </Link>
+            {/* 編集ボタンは設定タブに統合済み */}
           </div>
         </div>
       </header>
