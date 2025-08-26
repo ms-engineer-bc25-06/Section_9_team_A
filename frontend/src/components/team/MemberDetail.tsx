@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState, Fragment  } from "react";
-import { apiGet } from "@/lib/apiClient";
-import type { UserDetailResponse, MemberProfile } from "@/types/team";
+import { getMemberProfile } from "@/lib/api/teamMembers";
+import type { MemberProfile } from "@/lib/api/teamMembers";
 import {
   User as UserIcon,
   Briefcase,
@@ -21,20 +21,24 @@ import {
   Quote,
   Target,
   MessageSquare,
+  Brain,
+  TrendingUp,
+  Lightbulb,
 } from "lucide-react";
 
 type Props = { memberId: string };
 
 export function MemberDetail({ memberId }: Props) {
-  const [data, setData] = useState<UserDetailResponse | null>(null);
+  const [data, setData] = useState<MemberProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await apiGet<UserDetailResponse>(`/users/${memberId}`);
-        setData(res);
+        // プレゼンテーション用：モックデータからメンバー詳細を取得
+        const profile = await getMemberProfile(memberId);
+        setData(profile);
       } catch (e: any) {
         setErr(e?.message ?? "メンバー詳細の取得に失敗しました。");
       } finally {
@@ -47,7 +51,7 @@ export function MemberDetail({ memberId }: Props) {
   if (err) return <div className="text-sm text-red-600">{err}</div>;
   if (!data) return null;
 
-  const p: MemberProfile = data.profile ?? {};
+  const p: MemberProfile = data;
 
   // value のフォーマット（空なら "未設定"）
   const v = (x: any) => (x && String(x).trim() ? String(x) : "未設定");
@@ -55,7 +59,6 @@ export function MemberDetail({ memberId }: Props) {
   const fields: { icon: JSX.Element; label: string; value: string }[] = [
     { icon: <UserIcon className="h-4 w-4" />, label: "名前", value: v(data.display_name) },
     { icon: <Briefcase className="h-4 w-4" />, label: "部署", value: v(p.department) },
-    { icon: <UserIcon className="h-4 w-4" />, label: "ニックネーム", value: v(p.nickname) },
     { icon: <CalendarDays className="h-4 w-4" />, label: "入社年月", value: v(p.join_date) },
     { icon: <Cake className="h-4 w-4" />, label: "生年月日", value: v(p.birth_date) },
     { icon: <MapPin className="h-4 w-4" />, label: "出身地", value: v(p.hometown) },
@@ -72,10 +75,34 @@ export function MemberDetail({ memberId }: Props) {
     { icon: <Target className="h-4 w-4" />, label: "将来の目標・生きてるうちにやってみたいこと", value: v(p.future_goals) },
   ];
 
+  // AI分析フィードバックのモックデータ
+  const aiAnalysisFeedback = [
+    {
+      icon: <Brain className="h-5 w-5 text-blue-600" />,
+      title: "話題提供",
+      content: "家電量販店からの転職であり、過去に月間売上日本一に輝いた経歴あり",
+      score: "A+",
+      category: "コミュニケーション"
+    },
+    {
+      icon: <TrendingUp className="h-5 w-5 text-green-600" />,
+      title: "成長性・学習意欲",
+      content: "新しい技術への関心が高く、自己学習を継続的に行っています。チームメンバーからのフィードバックを積極的に受け入れ、改善に活かす姿勢が見られます。",
+      score: "A",
+      category: "成長性"
+    },
+    {
+      icon: <Lightbulb className="h-5 w-5 text-purple-600" />,
+      title: "問題解決能力",
+      content: "複雑な課題に対して論理的にアプローチし、効率的な解決策を提案できます。チーム全体の視点で物事を考えることができ、長期的な改善案も提示しています。",
+      score: "A-",
+      category: "問題解決"
+    }
+  ];
 
   return (
     <div className="mx-auto max-w-2xl rounded-2xl bg-white shadow p-6 border space-y-6">
-      {/* ヘッダー（アイコン・名前・部署） */}
+      {/* ヘッダー（アイコン・名前・部署・メール） */}
       <div className="flex items-center gap-3">
         {data.avatar_url ? (
           <img
@@ -88,16 +115,24 @@ export function MemberDetail({ memberId }: Props) {
             {(data.display_name || "？").slice(0, 1)}
           </div>
         )}
-        <div>
+        <div className="flex-1">
           <div className="text-lg font-bold text-gray-900">{data.display_name}</div>
-          <div className="text-sm text-gray-600">{p.department ?? "部署未設定"}</div>
+          <div className="text-sm text-gray-600">{data.email}</div>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+              {p.department ?? "部署未設定"}
+            </span>
+            <span className="text-xs text-gray-500">
+              入社: {p.join_date ? new Date(p.join_date).toLocaleDateString('ja-JP') : "未設定"}
+            </span>
+          </div>
         </div>
       </div>
 
       {/* 詳細一覧 */}
       <section>
         <ul className="divide-y">
-          {fields.map((f, i) => (
+          {fields.slice(4).map((f, i) => ( // 名前、部署、入社日、生年月日は既にヘッダーに表示済み
             <li key={i} className="py-3 flex items-start gap-3">
               <span className="mt-1">{f.icon}</span>
               <div className="min-w-0">
@@ -109,42 +144,33 @@ export function MemberDetail({ memberId }: Props) {
         </ul>
       </section>
 
-             {/* フィードバック一覧 */}
-       {p.feedback && p.feedback.length > 0 ? (
-        <section className="border-t pt-6">
-                     <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-             <MessageSquare className="h-5 w-5 text-green-600" />
-             フィードバック一覧
-           </h3>
-          
-          {/* フィードバック一覧 */}
-          {p.feedback && p.feedback.length > 0 && (
-            <div className="mb-6">
-              <h4 className="text-md font-medium text-gray-800 mb-3 flex items-center gap-2">
-                <MessageSquare className="h-4 w-4 text-green-600" />
-                フィードバック一覧
-              </h4>
-              <div className="space-y-3">
-                {p.feedback.map((feedback, index) => (
-                  <div key={index} className="bg-green-50 border border-green-200 rounded-lg p-3">
-                    <p className="text-sm text-green-800">{feedback}</p>
-                  </div>
-                ))}
+      {/* AI分析フィードバック */}
+      <section className="border-t pt-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <Brain className="h-5 w-5 text-blue-600" />
+          AI分析フィードバック
+        </h3>
+        <div className="space-y-4">
+          {aiAnalysisFeedback.map((feedback, index) => (
+            <div key={index} className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  {feedback.icon}
+                  <h4 className="font-medium text-gray-900">{feedback.title}</h4>
+                </div>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-600 text-white">
+                  {feedback.score}
+                </span>
+              </div>
+              <p className="text-sm text-gray-700 mb-2">{feedback.content}</p>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-blue-600 font-medium">{feedback.category}</span>
+                <span className="text-xs text-gray-500">AI分析結果</span>
               </div>
             </div>
-          )}
-
-
-        </section>
-      ) : (
-                 <section className="border-t pt-6">
-           <div className="text-center text-gray-500 py-8">
-             <MessageSquare className="h-12 w-12 mx-auto text-gray-300 mb-3" />
-             <p className="text-sm">フィードバックはまだありません</p>
-             <p className="text-xs text-gray-400 mt-1">マイプロフィールでフィードバックを登録すると表示されます</p>
-           </div>
-         </section>
-      )}
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

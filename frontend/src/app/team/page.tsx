@@ -16,15 +16,16 @@ export default function TeamPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // 実際のAPIからデータを取得
+    // プレゼンテーション用：モックデータからデータを取得
     fetchMembers();
   }, []);
 
   const fetchMembers = async () => {
     try {
       setLoading(true);
+      setError(null);
       
-      // 実際のAPIからデータを取得
+      // プレゼンテーション用：モックデータからデータを取得
       const apiMembers = await getTeamMembers();
       setMembers(apiMembers);
       
@@ -96,6 +97,18 @@ export default function TeamPage() {
                 チームメンバー一覧を表示するには、プロフィール（名前・部署）を設定する必要があります。
               </p>
             )}
+          </div>
+        )}
+        
+        {!error && members.length === 0 && (
+          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+              <p className="text-yellow-800 text-sm font-medium">メンバーが見つかりません</p>
+            </div>
+            <p className="text-yellow-700 text-sm mt-2">
+              現在、表示できるメンバーがいません。プロフィール情報が設定されているメンバーのみ表示されます。
+            </p>
           </div>
         )}
         
