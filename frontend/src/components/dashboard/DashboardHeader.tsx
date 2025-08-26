@@ -1,4 +1,3 @@
-// ダッシュボードページのヘッダー
 "use client"
 
 import type React from "react"
@@ -61,7 +60,7 @@ const DashboardHeader: React.FC = () => {
     return "U"
   }
 
-  // ナビゲーションアイテムを削除（ダッシュボードカードで代替）
+  
 
   return (
     <header className="bg-gradient-to-r from-blue-600 to-blue-700 shadow-lg">

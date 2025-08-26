@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/Separator"
 import { Camera, Save, List, AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth/AuthProvider"
-import { apiClient } from "@/lib/apiClient"
+import { mockUserProfile } from "@/data/mockProfileData"
 
 interface ProfileData {
   full_name?: string
@@ -63,15 +63,36 @@ export function ProfileEditForm() {
   const router = useRouter()
   const { user } = useAuth()
 
-  // 初期データの取得
+  // プレゼンテーション用：モックデータを初期値として使用
   useEffect(() => {
-    const fetchProfile = async () => {
+    const fetchMockProfile = async () => {
       if (!user) return
       
       try {
-        const data = await apiClient.get('/users/profile')
-        setProfile(data)
-        setIsFirstLogin(data.is_first_login || false)
+        // シミュレーション用の遅延（実際のAPI呼び出しを模擬）
+        await new Promise(resolve => setTimeout(resolve, 300))
+        
+        // モックデータを設定
+        setProfile({
+          full_name: mockUserProfile.full_name,
+          nickname: mockUserProfile.nickname,
+          department: mockUserProfile.department,
+          join_date: mockUserProfile.join_date,
+          birth_date: mockUserProfile.birth_date,
+          hometown: mockUserProfile.hometown,
+          residence: mockUserProfile.residence,
+          hobbies: mockUserProfile.hobbies,
+          student_activities: mockUserProfile.student_activities,
+          holiday_activities: mockUserProfile.holiday_activities,
+          favorite_food: mockUserProfile.favorite_food,
+          favorite_media: mockUserProfile.favorite_media,
+          favorite_music: mockUserProfile.favorite_music,
+          pets_oshi: mockUserProfile.pets_oshi,
+          respected_person: mockUserProfile.respected_person,
+          motto: mockUserProfile.motto,
+          future_goals: mockUserProfile.future_goals,
+        })
+        setIsFirstLogin(false)
       } catch (error) {
         console.error("プロフィール取得エラー:", error)
       } finally {
@@ -79,7 +100,7 @@ export function ProfileEditForm() {
       }
     }
 
-    fetchProfile()
+    fetchMockProfile()
   }, [user])
 
   const handleInputChange = (field: string, value: string) => {
@@ -87,63 +108,23 @@ export function ProfileEditForm() {
   }
 
   const handleSave = async () => {
-    if (!user) {
-      alert("ログインが必要です")
-      return
-    }
-
-    // 初回ログイン時の必須項目チェック
-    if (isFirstLogin && (!profile.full_name?.trim() || !profile.department?.trim())) {
-      alert("初回ログイン時は、名前と部署が必須項目です")
-      return
-    }
+    if (!user) return
 
     setIsLoading(true)
     
     try {
-      // 空文字列をnullに変換してバックエンドで適切に処理されるようにする
-      const cleanedProfile = Object.fromEntries(
-        Object.entries(profile).map(([key, value]) => [
-          key, 
-          value === "" ? null : value
-        ])
-      )
+      // プレゼンテーション用：シミュレーション用の遅延
+      await new Promise(resolve => setTimeout(resolve, 1000))
       
-      console.log("送信するプロフィールデータ:", cleanedProfile)
+      // プレゼンテーション用：成功メッセージを表示
+      alert("プロフィールが保存されました！")
       
-      // プロフィール更新
-      const response = await apiClient.put('/users/profile', cleanedProfile)
-      console.log("プロフィール更新レスポンス:", response)
-
-      // 初回ログインの場合は、初回ログインフラグを更新
-      if (isFirstLogin) {
-        try {
-          await apiClient.put('/users/first-login-complete')
-          alert("プロフィールを作成しました！ダッシュボードに移動します")
-          router.push("/dashboard")
-          return
-        } catch (error) {
-          console.error("初回ログイン完了処理に失敗:", error)
-        }
-      }
-
-      alert("プロフィールを更新しました")
-      router.push("/profile")
-    } catch (error: any) {
-      console.error("保存エラー:", error)
-      console.error("エラーメッセージ:", error.message)
-      console.error("エラー詳細:", error)
+      // 実際の実装ではここでAPIを呼び出す
+      // await apiClient.put('/users/profile', profile)
       
-      // より具体的なエラーメッセージを表示
-      if (error.message?.includes('401')) {
-        alert("認証エラーが発生しました。再度ログインしてください。")
-      } else if (error.message?.includes('403')) {
-        alert("アクセス権限がありません。")
-      } else if (error.message?.includes('500')) {
-        alert("サーバーエラーが発生しました。しばらく時間をおいて再度お試しください。")
-      } else {
-        alert(`保存中にエラーが発生しました: ${error.message}`)
-      }
+    } catch (error) {
+      console.error("プロフィール保存エラー:", error)
+      alert("プロフィールの保存に失敗しました")
     } finally {
       setIsLoading(false)
     }
