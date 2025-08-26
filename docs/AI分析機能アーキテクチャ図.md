@@ -6,17 +6,17 @@
 graph TB
     subgraph "BridgeLINE AI分析システム"
         subgraph "フロントエンド層"
-            FE[Next.js Frontend]
+            FE["Next.js Frontend"]
         end
         
         subgraph "バックエンド層"
-            BE[FastAPI Backend]
+            BE["FastAPI Backend"]
         end
         
         subgraph "外部サービス層"
-            AI[OpenAI API]
-            FB[Firebase]
-            ST[Stripe]
+            AI["OpenAI API"]
+            FB["Firebase"]
+            ST["Stripe"]
         end
     end
     
@@ -32,30 +32,30 @@ graph TB
 graph TB
     subgraph "フロントエンド層"
         subgraph "ページ層"
-            AP[Analytics Page]
-            AR[AI Analysis Report]
-            DC[Dashboard Components]
+            AP["Analytics Page"]
+            AR["AI Analysis Report"]
+            DC["Dashboard Components"]
         end
         
         subgraph "UIコンポーネント層"
-            AC[AnalyticsCard]
-            ACH[AnalysisChart]
-            AH[AnalysisHistory]
-            RG[ReportGenerator]
+            AC["AnalyticsCard"]
+            ACH["AnalysisChart"]
+            AH["AnalysisHistory"]
+            RG["ReportGenerator"]
         end
         
         subgraph "カスタムフック層"
-            UAI[useAIAnalysis]
-            URA[useRealtimeAnalysis]
-            UAP[useAnalysisPrivacy]
-            UAO[useAdvancedAudioOpt]
+            UAI["useAIAnalysis"]
+            URA["useRealtimeAnalysis"]
+            UAP["useAnalysisPrivacy"]
+            UAO["useAdvancedAudioOpt"]
         end
         
         subgraph "APIクライアント層"
-            API[apiClient]
-            AN[analytics API]
-            AP[analysisPrivacy]
-            FA[feedbackApproval]
+            API["apiClient"]
+            AN["analytics API"]
+            AP["analysisPrivacy"]
+            FA["feedbackApproval"]
         end
     end
     
@@ -77,35 +77,35 @@ graph TB
 graph TB
     subgraph "バックエンド層"
         subgraph "APIルーター層"
-            A1[/analytics]
-            A2[/analyses]
-            TG[/topic-gen]
-            TD[/team-dynamics]
+            A1["/analytics"]
+            A2["/analyses"]
+            TG["/topic-gen"]
+            TD["/team-dynamics"]
         end
         
         subgraph "サービス層"
-            AAS[AIAnalysisService]
-            TGS[TopicGenerationService]
-            TS[TranscriptionService]
-            TDS[TeamDynamicsService]
-            CAS[ComparisonAnalysisService]
-            FAS[FeedbackApprovalService]
-            PGS[PersonalGrowthService]
-            RGS[ReportGenerationService]
+            AAS["AIAnalysisService"]
+            TGS["TopicGenerationService"]
+            TS["TranscriptionService"]
+            TDS["TeamDynamicsService"]
+            CAS["ComparisonAnalysisService"]
+            FAS["FeedbackApprovalService"]
+            PGS["PersonalGrowthService"]
+            RGS["ReportGenerationService"]
         end
         
         subgraph "リポジトリ層"
-            AR[AnalysisRepository]
-            UR[UserRepository]
-            TR[TranscriptionRepository]
-            VSR[VoiceSessionRepository]
+            AR["AnalysisRepository"]
+            UR["UserRepository"]
+            TR["TranscriptionRepository"]
+            VSR["VoiceSessionRepository"]
         end
         
         subgraph "統合層"
-            OC[OpenAIClient]
-            FC[FirebaseClient]
-            SC[StripeClient]
-            WM[WebSocketManager]
+            OC["OpenAIClient"]
+            FC["FirebaseClient"]
+            SC["StripeClient"]
+            WM["WebSocketManager"]
         end
     end
     
