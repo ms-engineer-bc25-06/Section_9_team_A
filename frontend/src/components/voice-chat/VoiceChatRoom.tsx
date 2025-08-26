@@ -108,7 +108,7 @@ export function VoiceChatRoom() {
           <div className="space-y-3 mt-6">
             <Button onClick={startVoiceChat} className="w-full" size="lg" type="button">
               <Play className="h-5 w-5 mr-2" />
-              雑談ルームを開始する
+              雑談ルームに入室する
             </Button>
             
             <Button 

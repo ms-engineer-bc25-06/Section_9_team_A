@@ -47,8 +47,7 @@ export function ActiveVoiceChat({ roomId }: Props) {
 
   const handleLeaveRoom = () => {
     // プレゼンテーション用：ルーム退出をシミュレート
-    if (confirm("雑談ルームを退出しますか？")) {
-      alert("雑談ルームを退出しました！")
+    if (confirm("退出しますか？")) {
       router.push("/voice-chat")
     }
   }
