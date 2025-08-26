@@ -156,6 +156,41 @@ class AuthService:
             await self.db.rollback()
             return False
 
+    async def get_firebase_user_only(
+        self, firebase_uid: str, email: str
+    ) -> Optional[User]:
+        """Firebaseユーザーを取得のみ（作成は行わない）"""
+        try:
+            logger.info(
+                f"get_firebase_user_only called: email={email}, firebase_uid={firebase_uid}"
+            )
+
+            # 既存ユーザーを検索（firebase_uidまたはemailで）
+            result = await self.db.execute(
+                select(User).where(
+                    (User.firebase_uid == firebase_uid) | (User.email == email)
+                )
+            )
+            user = result.scalar_one_or_none()
+
+            if user:
+                logger.info(f"Found existing user: {user.id} (email: {user.email}, firebase_uid: {user.firebase_uid}), updating login time")
+                # 既存ユーザーの情報を更新（ログイン時刻のみ）
+                user.last_login_at = datetime.utcnow()
+                await self.db.commit()
+                await self.db.refresh(user)
+                logger.info(f"Existing Firebase user logged in: {email}")
+                return user
+
+            logger.info(f"No existing user found for: {email} (firebase_uid: {firebase_uid})")
+            logger.info(f"This user was not created by an admin")
+            return None
+
+        except Exception as e:
+            logger.error(f"Firebase user search failed: {e}")
+            await self.db.rollback()
+            return None
+
     async def get_or_create_firebase_user(
         self, firebase_uid: str, email: str, display_name: str | None = None
     ) -> User:
@@ -185,6 +220,8 @@ class AuthService:
                 user.last_login_at = datetime.utcnow()
                 if display_name:
                     user.full_name = display_name
+                # 部署情報がない場合は、管理者が設定した部署情報を保持
+                # 部署情報がある場合は更新しない（管理者が設定した情報を優先）
                 user.is_verified = True
                 user.is_active = True
 

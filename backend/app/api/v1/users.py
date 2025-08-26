@@ -209,6 +209,8 @@ async def get_team_members(
         for row in members_result.fetchall():
             user, role, status = row
             logger.info(f"Processing member: {user.id}, {user.full_name}")
+            logger.info(f"  - department: {getattr(user, 'department', 'NOT_FOUND')}")
+            logger.info(f"  - role: {role}")
             
             profile = UserProfileOut(
                 department=getattr(user, "department"),
@@ -234,6 +236,8 @@ async def get_team_members(
                 future_goals=getattr(user, "future_goals"),
             )
 
+            logger.info(f"  - profile.department: {profile.department}")
+
             member_out = UserOut(
                 id=str(user.id),
                 display_name=getattr(user, "full_name")
@@ -244,7 +248,7 @@ async def get_team_members(
             )
             
             members.append(member_out)
-            logger.info(f"Added member: {member_out.id}, {member_out.display_name}")
+            logger.info(f"Added member: {member_out.id}, {member_out.display_name}, department: {member_out.profile.department}")
 
         logger.info(f"Returning {len(members)} members")
         return members

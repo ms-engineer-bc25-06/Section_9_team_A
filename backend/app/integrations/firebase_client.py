@@ -27,73 +27,29 @@ class FirebaseClient:
                 print("✅ Firebase既に初期化済み")
                 return True
 
-            # 環境変数からFirebase設定を取得
-            from app.config import settings
-
-            # 必須設定値のチェック
-            print(f"🔥 Firebase設定確認: PROJECT_ID = {settings.FIREBASE_PROJECT_ID}")
-            if (
-                not settings.FIREBASE_PROJECT_ID
-                or settings.FIREBASE_PROJECT_ID == "your-firebase-project-id"
-            ):
-                print(
-                    "❌ Firebase設定が不完全です。FIREBASE_PROJECT_IDが設定されていません。"
-                )
-                logger.warning(
-                    "Firebase設定が不完全です。FIREBASE_PROJECT_IDが設定されていません。"
-                )
+            # firebase-admin-key.jsonファイルから直接読み込み
+            import json
+            import os
+            
+            firebase_key_path = os.path.join(os.path.dirname(__file__), '..', '..', 'firebase-admin-key.json')
+            
+            if not os.path.exists(firebase_key_path):
+                print(f"❌ Firebase設定ファイルが見つかりません: {firebase_key_path}")
+                logger.warning(f"Firebase設定ファイルが見つかりません: {firebase_key_path}")
                 logger.info("開発環境ではダミーUIDが生成されます。")
                 return False
 
-            if (
-                not settings.FIREBASE_CLIENT_EMAIL
-                or settings.FIREBASE_CLIENT_EMAIL == "your-firebase-client-email"
-            ):
-                logger.warning(
-                    "Firebase設定が不完全です。FIREBASE_CLIENT_EMAILが設定されていません。"
-                )
-                logger.info("開発環境ではダミーUIDが生成されます。")
-                return False
+            # 設定ファイルを読み込み
+            with open(firebase_key_path, 'r', encoding='utf-8') as f:
+                service_account_info = json.load(f)
 
-            if (
-                not settings.FIREBASE_PRIVATE_KEY
-                or settings.FIREBASE_PRIVATE_KEY == "your-private-key"
-            ):
-                logger.warning(
-                    "Firebase設定が不完全です。FIREBASE_PRIVATE_KEYが設定されていません。"
-                )
-                logger.info("開発環境ではダミーUIDが生成されます。")
-                return False
-
-            # 環境変数から認証情報を作成
-            service_account_info = {
-                "type": "service_account",
-                "project_id": settings.FIREBASE_PROJECT_ID,
-                "private_key_id": settings.FIREBASE_PRIVATE_KEY_ID,
-                "private_key": settings.FIREBASE_PRIVATE_KEY.replace("\\n", "\n"),
-                "client_email": settings.FIREBASE_CLIENT_EMAIL,
-                "client_id": settings.FIREBASE_CLIENT_ID,
-                "auth_uri": settings.FIREBASE_AUTH_URI,
-                "token_uri": settings.FIREBASE_TOKEN_URI,
-                "auth_provider_x509_cert_url": settings.FIREBASE_AUTH_PROVIDER_X509_CERT_URL,
-                "client_x509_cert_url": settings.FIREBASE_CLIENT_X509_CERT_URL,
-            }
-
-            # デバッグ用：設定値をログ出力
+            print(f"🔥 Firebase設定確認: PROJECT_ID = {service_account_info['project_id']}")
             logger.info("Firebase設定確認:")
-            logger.info(f"  PROJECT_ID: {settings.FIREBASE_PROJECT_ID}")
-            logger.info(f"  CLIENT_EMAIL: {settings.FIREBASE_CLIENT_EMAIL}")
-            logger.info(
-                f"  PRIVATE_KEY: {'設定済み' if settings.FIREBASE_PRIVATE_KEY else '未設定'}"
-            )
-            logger.info(f"  PRIVATE_KEY_ID: {settings.FIREBASE_PRIVATE_KEY_ID}")
-            logger.info(f"  CLIENT_ID: {settings.FIREBASE_CLIENT_ID}")
-            logger.info(
-                f"  CLIENT_X509_CERT_URL: {settings.FIREBASE_CLIENT_X509_CERT_URL}"
-            )
+            logger.info(f"  PROJECT_ID: {service_account_info['project_id']}")
+            logger.info(f"  CLIENT_EMAIL: {service_account_info['client_email']}")
 
             cred = credentials.Certificate(service_account_info)
-            logger.info("Using Firebase credentials from environment variables")
+            logger.info("Using Firebase credentials from file")
 
             # 既存のアプリがあるかチェック
             try:

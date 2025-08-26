@@ -47,7 +47,6 @@ const DashboardCards: React.FC = () => {
       action: () => router.push("/voice-chat"),
       color: "bg-amber-500",
     },
-
     {
       title: "AI分析結果",
       description: "コミュニケーション分析を確認",
@@ -62,8 +61,19 @@ const DashboardCards: React.FC = () => {
       action: () => router.push("/personal-growth"),
       color: "bg-violet-500",
     },
-
   ]
+
+  // 初回ログインのユーザー向けのプロフィール設定カード
+  const profileSetupCard = {
+    title: "プロフィール設定",
+    description: "初回ログインの方は、プロフィール情報を設定してください",
+    icon: Target,
+    action: () => router.push("/profile/edit"),
+    color: "bg-green-500",
+  }
+
+  // 初回ログインかどうかを判定
+  const isFirstLogin = userProfileData?.is_first_login || false
 
   return (
     <div className="space-y-8">
@@ -80,26 +90,49 @@ const DashboardCards: React.FC = () => {
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-10 max-w-7xl mx-auto">
-      {cards.map((card, index) => (
-        <div key={index} className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer p-8 min-h-[200px] flex flex-col">
-          <div className="flex items-center space-x-4 mb-6">
-            <div className={`p-4 rounded-lg ${card.color}`}>
-              <card.icon className="h-8 w-8 text-white" />
+        {/* 通常のカードを表示 */}
+        {cards.map((card, index) => (
+          <div key={index} className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer p-8 min-h-[200px] flex flex-col">
+            <div className="flex items-center space-x-4 mb-6">
+              <div className={`p-4 rounded-lg ${card.color}`}>
+                <card.icon className="h-8 w-8 text-white" />
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">{card.title}</h3>
+                <p className="text-gray-600 text-base">{card.description}</p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">{card.title}</h3>
-              <p className="text-gray-600 text-base">{card.description}</p>
-            </div>
-          </div>
-          <div className="flex-grow"></div>
-                      <button
+            <div className="flex-grow"></div>
+            <button
               onClick={card.action}
               className="w-full bg-white border-2 border-gray-400 text-gray-700 py-3 px-6 rounded-md hover:bg-gray-50 hover:border-gray-500 transition-colors text-base font-medium mt-auto"
             >
               開く
             </button>
-        </div>
-      ))}
+          </div>
+        ))}
+        
+        {/* 初回ログインの場合は、プロフィール設定カードも追加表示 */}
+        {isFirstLogin && (
+          <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer p-8 min-h-[200px] flex flex-col">
+            <div className="flex items-center space-x-4 mb-6">
+              <div className={`p-4 rounded-lg ${profileSetupCard.color}`}>
+                <profileSetupCard.icon className="h-8 w-8 text-white" />
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">{profileSetupCard.title}</h3>
+                <p className="text-gray-600 text-base">{profileSetupCard.description}</p>
+              </div>
+            </div>
+            <div className="flex-grow"></div>
+            <button
+              onClick={profileSetupCard.action}
+              className="w-full bg-white border-2 border-gray-400 text-gray-700 py-3 px-6 rounded-md hover:bg-gray-50 hover:border-gray-500 transition-colors text-base font-medium mt-auto"
+            >
+              プロフィールを設定する
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -12,14 +12,14 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
-  const { login, backendToken } = useAuth()
+  const { adminLogin, backendToken } = useAuth()
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
 
     try {
-      const token = await login(email, password)
+      const token = await adminLogin(email, password)
       
       // 管理者権限をチェック
       try {
