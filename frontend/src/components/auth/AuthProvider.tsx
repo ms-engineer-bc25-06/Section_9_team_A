@@ -12,6 +12,7 @@ interface AuthContextType {
   temporaryLogin: (email: string, password: string) => Promise<string | null>
   logout: () => Promise<void>
   isLoading: boolean
+  adminLogin: (email: string, password: string) => Promise<string | null>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -29,48 +30,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(firebaseUser || null) // nullを明示
       
       if (firebaseUser) {
-        // Firebase認証が成功したら、自動的にバックエンドと連携
-        try {
-          console.log("🔄 Firebase認証成功、バックエンド連携を開始...")
-          const idToken = await firebaseUser.getIdToken()
-          const response = await fetch('http://localhost:8000/api/v1/auth/firebase-login', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              id_token: idToken,
-              display_name: firebaseUser.displayName || firebaseUser.email || "ユーザー"
-            })
-          })
+        // Firebase認証が成功した場合、バックエンドトークンが既に存在するかチェック
+        const existingToken = localStorage.getItem('jwt_token')
+        if (existingToken) {
+          // 既存のトークンがある場合は、そのトークンを使用
+          setBackendToken(existingToken)
+          console.log("✅ 既存のバックエンドトークンを使用")
           
-          if (response.ok) {
-            const data = await response.json()
-            const token = data.access_token
-            setBackendToken(token)
-            console.log("✅ バックエンドユーザー登録・同期完了")
-            
-            // JWTトークンをローカルストレージに保存
-            localStorage.setItem('jwt_token', token)
-            
-            // Firebaseプロフィール変更の監視を開始
-            profileSyncCleanup = startProfileSync(firebaseUser, token)
-          } else {
-            const errorData = await response.json().catch(() => ({}))
-            console.warn(`バックエンド連携に失敗 (ステータス: ${response.status}) - ${errorData.detail || 'Unknown error'}`)
-            
-            // エラーの詳細をログに出力
-            if (errorData.detail) {
-              console.error("エラー詳細:", errorData.detail)
-            }
-            
-            setBackendToken(null)
-            localStorage.removeItem('jwt_token')
-          }
-        } catch (error) {
-          console.error("バックエンド連携でエラー:", error)
+          // Firebaseプロフィール変更の監視を開始
+          profileSyncCleanup = startProfileSync(firebaseUser, existingToken)
+        } else {
+          // バックエンドトークンがない場合は、明示的なログインが必要
+          console.log("⚠️ バックエンドトークンがありません。明示的なログインが必要です。")
           setBackendToken(null)
-          localStorage.removeItem('jwt_token')
         }
       } else {
         // ユーザーがログアウトした場合
@@ -208,18 +180,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // JWTトークンをローカルストレージに保存
             localStorage.setItem('jwt_token', token)
             
-            // 初回ログイン判定 (本パスワード設定後)
+            // ログイン後にプロフィール情報を強制的に再取得
+            // 管理者が作成したユーザーの名前と部署を正しく反映するため
             try {
+              console.log("🔄 ログイン後のプロフィール情報を再取得中...")
               const profileResponse = await fetch('http://localhost:8000/api/v1/users/profile', {
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
               });
               if (profileResponse.ok) {
                 const profileData = await profileResponse.json();
-                // 名前と部署は自動で入るので、初回ログインフラグのみチェック
-                if (profileData.is_first_login) {
-                  window.location.href = '/profile/edit';
-                  return token;
-                }
+                console.log("📊 取得したプロフィール情報:", {
+                  full_name: profileData.full_name,
+                  department: profileData.department,
+                  is_first_login: profileData.is_first_login
+                });
+                
+                // 初回ログインフラグは記録するが、自動リダイレクトは行わない
+                console.log("初回ログイン状態:", profileData.is_first_login);
+              } else {
+                console.warn("プロフィール取得に失敗:", profileResponse.status);
               }
             } catch (profileError) {
               console.warn("プロフィール確認に失敗:", profileError);
@@ -295,28 +274,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // JWTトークンをローカルストレージに保存
             localStorage.setItem('jwt_token', token)
             
-            // 仮パスワードでのログインの場合は、本パスワード登録ページにリダイレクト
-            if (data.has_temporary_password) {
+            // パスワード設定が必要な場合のみパスワード変更画面にリダイレクト
+            if (data.needs_password_setup) {
               window.location.href = '/auth/change-password';
               return token;
-            }
-            
-            // 初回ログイン判定 (本パスワード設定後)
-            try {
-              const profileResponse = await fetch('http://localhost:8000/api/v1/users/profile', {
-                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
-              });
-              if (profileResponse.ok) {
-                const profileData = await profileResponse.json();
-                // 名前と部署は自動で入るので、初回ログインフラグのみチェック
-                if (profileData.is_first_login) {
-                  window.location.href = '/profile/edit';
-                  return token;
-                }
-              }
-            } catch (profileError) {
-              console.warn("プロフィール確認に失敗:", profileError)
-              // プロフィール確認に失敗した場合は通常のフローを継続
             }
             
             return token
@@ -341,6 +302,72 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // 管理者ログイン
+  const adminLogin = async (email: string, password: string): Promise<string | null> => {
+    setIsLoading(true)
+    try {
+      // 1. Firebase 認証
+      await signInWithEmailAndPassword(auth, email, password)
+      
+      // 2. バックエンドでユーザー登録・同期
+      const user = auth.currentUser
+      if (user) {
+        try {
+          const idToken = await user.getIdToken()
+          console.log("管理者バックエンドユーザー登録・同期開始...")
+          const response = await fetch('http://localhost:8000/api/v1/auth/firebase-login', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              id_token: idToken,
+              display_name: user.displayName || user.email || "管理者"
+            })
+          })
+          
+          if (response.ok) {
+            const data = await response.json()
+            const token = data.access_token
+            setBackendToken(token)
+            console.log("✅ 管理者バックエンドユーザー登録・同期完了")
+            
+            // JWTトークンをローカルストレージに保存
+            localStorage.setItem('jwt_token', token)
+            
+            return token
+          } else {
+            const errorData = await response.json().catch(() => ({}))
+            console.warn(`管理者バックエンド連携に失敗 (ステータス: ${response.status}) - ${errorData.detail || 'Unknown error'}`)
+            
+            // エラーの詳細をログに出力
+            if (errorData.detail) {
+              console.error("エラー詳細:", errorData.detail)
+            }
+            
+            setBackendToken(null)
+            localStorage.removeItem('jwt_token')
+            
+            // バックエンド連携に失敗した場合は、Firebase認証もロールバック
+            await signOut(auth)
+            throw new Error('サーバー内部エラーが発生しました。しばらく待ってから再試行してください。')
+          }
+        } catch (backendError) {
+          console.error("❌ 管理者バックエンド連携エラー:", backendError)
+          // バックエンド認証が失敗した場合は、Firebase認証もロールバック
+          await signOut(auth)
+          throw new Error('バックエンド認証に失敗しました。しばらく待ってから再試行してください。')
+        }
+      }
+      return null
+    } catch (error: any) {
+      console.error("管理者Login failed:", error.code, error.message);
+      throw error;
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   // ログアウト
   const logout = async () => {
     await signOut(auth)
@@ -350,7 +377,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, backendToken, login, temporaryLogin, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, backendToken, login, temporaryLogin, logout, isLoading, adminLogin }}>
       {children}
     </AuthContext.Provider>
   )

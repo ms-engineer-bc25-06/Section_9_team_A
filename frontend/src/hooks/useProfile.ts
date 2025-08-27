@@ -21,10 +21,11 @@ export interface UserProfile {
   respected_person: string
   motto: string
   future_goals: string
+  is_first_login?: boolean
 }
 
 export function useProfile() {
-  const { user, isLoading: authLoading } = useAuth()
+  const { user, isLoading: authLoading, backendToken } = useAuth()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -35,15 +36,16 @@ export function useProfile() {
       return
     }
 
-    if (user) {
-      // プレゼンテーション用：モックデータを使用
-      fetchMockProfile()
-    } else {
+    if (user && backendToken) {
+      // ログイン状態とバックエンドトークンが変更された際にプロフィールを再取得
+      console.log("🔄 ユーザーログイン状態またはバックエンドトークン変更を検出、プロフィールを再取得中...")
+      fetchProfile()
+    } else if (!user) {
       // ユーザーがログインしていない場合
       setError("ログインが必要です")
       setIsLoading(false)
     }
-  }, [user, authLoading])
+  }, [user, authLoading, backendToken])
 
   // プレゼンテーション用：モックデータを取得
   const fetchMockProfile = async () => {
@@ -75,7 +77,13 @@ export function useProfile() {
     try {
       setIsLoading(true)
       setError(null)
+      console.log("🔍 プロフィール情報を取得中...")
       const data = await apiGet<UserProfile>("/users/profile")
+      console.log("📊 取得したプロフィール情報:", {
+        full_name: data.full_name,
+        department: data.department,
+        is_first_login: data.is_first_login
+      })
       setProfile(data)
     } catch (err) {
       console.error("プロフィールの取得に失敗:", err)

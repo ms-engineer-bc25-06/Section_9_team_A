@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { useSession } from "@/hooks/useSession"
+import { useAuth } from "@/components/auth/AuthProvider"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
 import { Badge } from "@/components/ui/Badge"
@@ -14,10 +14,9 @@ import { AdminBillingActions } from "@/components/admin/AdminBillingActions"
 import Link from "next/link"
 import { getAuth, onAuthStateChanged } from "firebase/auth"
 import { apiClient } from "@/lib/apiClient"
-import { SessionExpiredAlert } from "@/components/ui/SessionExpiredAlert"
 
 export default function AdminBillingPage() {
-  const { user, loading, isSessionValid, sessionExpired } = useSession()
+  const { user, isLoading } = useAuth()
   const router = useRouter()
   const [userCount, setUserCount] = useState(0)
   const [isLoadingData, setIsLoadingData] = useState(true)
@@ -26,12 +25,10 @@ export default function AdminBillingPage() {
 
   // 認証チェック
   useEffect(() => {
-    if (!isSessionValid && !loading) {
-      router.push("/login")
+    if (!user && !isLoading) {
+      router.push("/admin/login")
     }
-  }, [isSessionValid, loading, router])
-
-
+  }, [user, isLoading, router])
 
   useEffect(() => {
     if (!user) return // 認証されていない場合はスキップ
@@ -50,7 +47,7 @@ export default function AdminBillingPage() {
     return () => clearInterval(interval)
   }, [user])
 
-    const fetchUserCount = async () => {
+  const fetchUserCount = async () => {
     try {
       setIsLoadingData(true)
       
@@ -77,7 +74,7 @@ export default function AdminBillingPage() {
   const additionalUsers = Math.max(0, userCount - 10)
   const additionalCost = additionalUsers * 500
 
-  if (loading || !isSessionValid) {
+  if (isLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -85,7 +82,7 @@ export default function AdminBillingPage() {
     )
   }
 
-    return (
+  return (
     <div className="min-h-screen bg-slate-50">
       <header className="bg-gradient-to-br from-orange-50 to-amber-50 shadow-sm border-b border-orange-200">
         <div className="container mx-auto px-4 py-4">
@@ -98,16 +95,11 @@ export default function AdminBillingPage() {
             </Link>
             <h1 className="text-2xl font-bold text-orange-900 flex-1 text-center">決済・利用状況</h1>
             <div className="w-32"></div>
+          </div>
         </div>
-      </div>
       </header>
 
       <div className="container mx-auto px-4 py-8">
-
-        {/* セッション期限切れアラート */}
-        {sessionExpired && (
-          <SessionExpiredAlert />
-        )}
 
         {error && (
           <Alert className="mb-6">
@@ -145,7 +137,7 @@ export default function AdminBillingPage() {
           </Button>
         </div>
 
-                {/* 詳細情報 */}
+        {/* 詳細情報 */}
         <AdminBillingOverview 
           userCount={userCount}
           isFreeTier={isFreeTier}
@@ -162,7 +154,6 @@ export default function AdminBillingPage() {
             onRefresh={fetchUserCount}
           />
         </div>
-
 
       </div>
     </div>

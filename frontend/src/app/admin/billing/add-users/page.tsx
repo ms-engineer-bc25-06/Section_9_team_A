@@ -11,8 +11,7 @@ import Link from "next/link"
 import { generateTemporaryPassword } from "@/lib/utils"
 import { getAuth } from "firebase/auth"
 import { apiClient } from "@/lib/apiClient"
-import { useSession } from "@/hooks/useSession"
-import { SessionExpiredAlert } from "@/components/ui/SessionExpiredAlert"
+import { useAuth } from "@/components/auth/AuthProvider"
 
 interface UserInput {
   email: string
@@ -23,7 +22,7 @@ interface UserInput {
 }
 
 export default function AddUsersPage() {
-  const { user, loading, isSessionValid, sessionExpired } = useSession()
+  const { user, isLoading } = useAuth()
   const [newUsers, setNewUsers] = useState<UserInput[]>([
     { 
       email: "", 
@@ -37,7 +36,12 @@ export default function AddUsersPage() {
   const [isLoadingUserCount, setIsLoadingUserCount] = useState(true)
   const [showPasswords, setShowPasswords] = useState<boolean[]>([false])
 
-
+  // 認証チェック
+  useEffect(() => {
+    if (!user && !isLoading) {
+      window.location.href = "/admin/login"
+    }
+  }, [user, isLoading])
 
   // ユーザー数を取得する関数
   const fetchUserCount = async () => {
@@ -241,9 +245,7 @@ export default function AddUsersPage() {
       <main className="container mx-auto px-4 py-8">
         <div className="space-y-8">
           {/* セッション期限切れアラート */}
-          {sessionExpired && (
-            <SessionExpiredAlert onRefresh={fetchUserCount} />
-          )}
+          {/* SessionExpiredAlertコンポーネントはuseAuthに統合されたため削除 */}
 
           {/* ユーザー入力フォーム */}
           <div className="space-y-6">
@@ -484,45 +486,33 @@ export default function AddUsersPage() {
               onClick={async () => {
                 try {
                   // セッションの有効性を確認
-                  if (!isSessionValid) {
-                    alert('セッションが期限切れです。セッションを延長してください。')
-                    return
-                  }
-
-                  // 認証状態を再確認
+                  // useAuthによってログイン状態が管理されているため、ここでは不要
+                  // ただし、バックエンドAPIにトークンを渡すために、ユーザー情報を取得
                   const auth = getAuth()
                   const currentUser = auth.currentUser
                   
-                  console.log('認証状態確認:', {
-                    useSessionUser: user?.email,
-                    firebaseUser: currentUser?.email,
-                    loading,
-                    isSessionValid,
-                    sessionExpired
-                  })
-                  
-                  if (currentUser) {
-                    // トークンの有効性を確認
-                    const token = await currentUser.getIdToken(true)
-                    console.log('認証確認完了:', currentUser.email)
-                    
-                    // 決済画面に遷移
-                    window.location.href = '/admin/billing'
-                  } else {
-                    console.log('認証状態なし')
+                  if (!currentUser) {
                     alert('ログインが必要です。再度ログインしてください。')
+                    return
                   }
+
+                  // トークンの有効性を確認
+                  const token = await currentUser.getIdToken(true)
+                  console.log('認証確認完了:', currentUser.email)
+                  
+                  // 決済画面に遷移
+                  window.location.href = '/admin/billing'
                 } catch (error) {
                   console.error('認証エラー:', error)
                   alert('認証エラーが発生しました。再度ログインしてください。')
                 }
               }}
-              disabled={!isSessionValid || loading}
+              disabled={!user || isLoading}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white disabled:bg-gray-400"
               size="lg"
             >
               <CreditCard className="h-5 w-5 mr-2" />
-              {loading ? '読み込み中...' : '決済確認画面に進む'}
+              {isLoading ? '読み込み中...' : '決済確認画面に進む'}
             </Button>
             
             {/* 注意事項 */}

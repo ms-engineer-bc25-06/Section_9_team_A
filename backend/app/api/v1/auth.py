@@ -199,17 +199,37 @@ async def firebase_login(
         try:
             logger.info(f"Starting database operation for user: {email}")
 
-            # データベースでユーザーを検索または作成
+            # データベースでユーザーを検索（作成は行わない）
             auth_service = AuthService(db)
 
-            logger.info(f"AuthService created, calling get_or_create_firebase_user")
+            logger.info(f"AuthService created, calling get_firebase_user_only (NOT get_or_create_firebase_user)")
 
-            user = await auth_service.get_or_create_firebase_user(
+            # 既存ユーザーのみを検索（新規作成は行わない）
+            user = await auth_service.get_firebase_user_only(
                 firebase_uid=uid,
                 email=email,
-                display_name=request.display_name or email,
             )
-            logger.info(f"User operation completed successfully: {user.id}")
+            
+            if not user:
+                logger.warning(f"User not found in database: {email} (UID: {uid})")
+                logger.warning(f"This means the user was not created by an admin")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="このアカウントは管理者によって作成されていません。管理者にお問い合わせください。",
+                )
+            
+            logger.info(f"User found successfully: {user.id} (email: {user.email}, firebase_uid: {user.firebase_uid})")
+
+            # ログイン時に管理者が作成したユーザーの名前と部署を確認
+            # データベースに正しい情報が設定されている場合は、それを優先する
+            logger.info(f"User profile info - Name: {user.full_name}, Department: {user.department}")
+            
+            # 管理者が作成したユーザーの場合、Firebaseのdisplay_nameではなく
+            # データベースの情報を優先する
+            if user.full_name and user.department:
+                logger.info(f"Using database profile info: {user.full_name} ({user.department})")
+            else:
+                logger.warning(f"User profile incomplete - Name: {user.full_name}, Department: {user.department}")
 
             # JWTアクセストークンを作成
             access_token_expires = timedelta(minutes=30)
@@ -225,10 +245,11 @@ async def firebase_login(
                 "token_type": "bearer",
                 "expires_in": 1800,  # 30分
                 "has_temporary_password": user.has_temporary_password,
+                "needs_password_setup": user.is_first_login and user.has_temporary_password,
                 "user": {
                     "id": user.id,
                     "email": user.email,
-                    "display_name": user.display_name,
+                    "display_name": user.full_name,  # 更新された名前を使用
                     "firebase_uid": user.firebase_uid,
                     "is_active": user.is_active,
                     "is_admin": user.is_admin,
@@ -237,11 +258,13 @@ async def firebase_login(
 
             return FirebaseAuthResponse(**response_data)
 
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Database operation failed: {e}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Internal server error during user creation/retrieval",
+                detail="Internal server error during user retrieval",
             )
     except HTTPException:
         raise

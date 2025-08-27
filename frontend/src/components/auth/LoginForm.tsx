@@ -57,8 +57,8 @@ export function LoginForm() {
               const data = await response.json()
               console.log("📊 ログイン状態:", data)
               
-              if (data.needs_password_setup || data.has_temporary_password || data.is_first_login) {
-                // 初回ログインでパスワード設定が必要な場合
+              // パスワード設定が必要な場合のみパスワード変更画面に遷移
+              if (data.needs_password_setup) {
                 console.log("🔄 初回ログイン - パスワード変更画面へ")
                 router.push("/auth/change-password")
                 return

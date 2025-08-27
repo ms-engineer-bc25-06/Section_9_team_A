@@ -46,7 +46,7 @@ export const useSession = () => {
       
       // セッション期限切れ時はログイン画面に遷移
       console.log('セッションが期限切れになりました。ログイン画面に遷移します。');
-      router.push('/login');
+      router.push('/admin/login');
       
       return false;
     }
@@ -83,9 +83,7 @@ export const useSession = () => {
     const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
     
     const handleActivity = () => {
-      if (sessionState.user) {
-        updateActivity();
-      }
+      updateActivity();
     };
 
     // イベントリスナーを追加
@@ -95,9 +93,7 @@ export const useSession = () => {
 
     // 定期的なセッションチェック（1分ごと）
     const sessionCheckInterval = setInterval(() => {
-      if (sessionState.user) {
-        checkSessionValidity();
-      }
+      checkSessionValidity();
     }, 60000);
 
     // クリーンアップ
@@ -108,7 +104,7 @@ export const useSession = () => {
       });
       clearInterval(sessionCheckInterval);
     };
-  }, [sessionState.user, checkSessionValidity, updateActivity]);
+  }, [checkSessionValidity, updateActivity]); // 依存配列からsessionState.userを削除
 
   // セッションが期限切れかどうかをチェック
   const isSessionValid = sessionState.user && !sessionState.sessionExpired;
