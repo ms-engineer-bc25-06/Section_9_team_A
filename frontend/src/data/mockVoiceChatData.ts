@@ -38,7 +38,7 @@ export const mockParticipants: MockParticipant[] = [
     name: "加瀬賢一郎",
     status: "away",
     avatar_url: "/placeholder.svg?height=40&width=40&query=加瀬賢一郎",
-    department: "開発部",
+    department: "法務部",
     isSpeaking: false,
     audioLevel: 0.8
   },
@@ -47,7 +47,7 @@ export const mockParticipants: MockParticipant[] = [
     name: "真田梨央",
     status: "online",
     avatar_url: "/placeholder.svg?height=40&width=40&query=真田梨央",
-    department: "デザイン部",
+    department: "ウェルネス部",
     isSpeaking: false,
     audioLevel: 0.3
   },
@@ -56,7 +56,7 @@ export const mockParticipants: MockParticipant[] = [
     name: "宮崎大輝",
     status: "away",
     avatar_url: "/placeholder.svg?height=40&width=40&query=宮崎大輝",
-    department: "営業部",
+    department: "警備部",
     isSpeaking: false,
     audioLevel: 0.1
   },
@@ -65,7 +65,7 @@ export const mockParticipants: MockParticipant[] = [
     name: "橘しおり",
     status: "away",
     avatar_url: "/placeholder.svg?height=40&width=40&query=橘しおり",
-    department: "マーケティング部",
+    department: "広報部",
     isSpeaking: false,
     audioLevel: 0.0
   },

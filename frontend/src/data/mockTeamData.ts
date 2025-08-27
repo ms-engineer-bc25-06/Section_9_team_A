@@ -33,7 +33,7 @@ export const mockTeamMembers: MockTeamMember[] = [
       display_name: "加瀬賢一郎",
       avatar_url: "/placeholder.svg?height=40&width=40&query=加瀬賢一郎",
       profile: {
-        department: "開発部",
+        department: "法務部",
         nickname: "けん",
         join_date: "2000-04-01",
         hobbies: "サッカー、映画鑑賞",
@@ -50,7 +50,7 @@ export const mockTeamMembers: MockTeamMember[] = [
       display_name: "真田梨央",
       avatar_url: "/placeholder.svg?height=40&width=40&query=真田梨央",
       profile: {
-        department: "デザイン部",
+        department: "ウェルネス部",
         nickname: "りお",
         join_date: "2020-06-01",
         hobbies: "イラスト、カフェ巡り、写真撮影",
@@ -67,7 +67,7 @@ export const mockTeamMembers: MockTeamMember[] = [
       display_name: "宮崎大輝",
       avatar_url: "/placeholder.svg?height=40&width=40&query=宮崎大輝",
       profile: {
-        department: "営業部",
+        department: "警備部",
         nickname: "大ちゃん",
         join_date: "2009-10-01",
         hobbies: "ゴルフ、テニス、読書",
@@ -84,7 +84,7 @@ export const mockTeamMembers: MockTeamMember[] = [
       display_name: "橘しおり",
       avatar_url: "/placeholder.svg?height=40&width=40&query=橘しおり",
       profile: {
-        department: "マーケティング部",
+        department: "広報部",
         nickname: "しおり",
         join_date: "2025-08-01",
         hobbies: "SNS、旅行、料理",
@@ -101,8 +101,8 @@ export const mockTeamMembers: MockTeamMember[] = [
       display_name: "藤井隼人",
       avatar_url: "/placeholder.svg?height=40&width=40&query=藤井隼人",
       profile: {
-        department: "開発部",
-        nickname: "ふじー",
+        department: "警備部",
+        nickname: "ふじい",
         join_date: "2022-12-01",
         hobbies: "プログラミング、読書、映画鑑賞、テニス",
         favorite_food: "ラーメン、寿司、カレー",
@@ -118,7 +118,7 @@ export const mockTeamMembers: MockTeamMember[] = [
       display_name: "朝宮優",
       avatar_url: "/placeholder.svg?height=40&width=40&query=朝宮優",
       profile: {
-        department: "企画部",
+        department: "法務部",
         nickname: "ゆう",
         join_date: "2023-02-01",
         hobbies: "読書、映画、カフェ",
@@ -132,11 +132,11 @@ export const mockTeamMembers: MockTeamMember[] = [
     user_id: "7",
     user: {
       id: "7",
-      display_name: "渡辺涼太",
-      avatar_url: "/placeholder.svg?height=40&width=40&query=渡辺涼太",
+      display_name: "後藤信介",
+      avatar_url: "/placeholder.svg?height=40&width=40&query=後藤信介",
       profile: {
-        department: "人事部",
-        nickname: "なべ",
+        department: "ウェルネス部",
+        nickname: "ごとう",
         join_date: "2022-07-01",
         hobbies: "ジム、読書、音楽",
         favorite_food: "サラダ、鶏肉",
@@ -149,11 +149,11 @@ export const mockTeamMembers: MockTeamMember[] = [
     user_id: "8",
     user: {
       id: "8",
-      display_name: "阿部大介",
-      avatar_url: "/placeholder.svg?height=40&width=40&query=阿部大介",
+      display_name: "朝宮達雄",
+      avatar_url: "/placeholder.svg?height=40&width=40&query=朝宮達雄",
       profile: {
-        department: "総務部",
-        nickname: "あべ",
+        department: "陸上部",
+        nickname: "たつお",
         join_date: "2023-01-01",
         hobbies: "園芸、散歩、読書",
         favorite_food: "和食、お茶",
@@ -166,11 +166,11 @@ export const mockTeamMembers: MockTeamMember[] = [
     user_id: "9",
     user: {
       id: "9",
-      display_name: "村上康二",
-      avatar_url: "/placeholder.svg?height=40&width=40&query=村上康二",
+      display_name: "山尾敦",
+      avatar_url: "/placeholder.svg?height=40&width=40&query=山尾敦",
       profile: {
-        department: "開発部",
-        nickname: "ジーコ",
+        department: "警備部",
+        nickname: "係長",
         join_date: "2023-03-01",
         hobbies: "サッカー",
         favorite_food: "うどん、おにぎり",
@@ -183,13 +183,13 @@ export const mockTeamMembers: MockTeamMember[] = [
     user_id: "10",
     user: {
       id: "10",
-      display_name: "岩元翔太",
-      avatar_url: "/placeholder.svg?height=40&width=40&query=岩元翔太",
+      display_name: "渡辺昭",
+      avatar_url: "/placeholder.svg?height=40&width=40&query=渡辺昭",
       profile: {
-        department: "営業部",
-        nickname: "がんちゃん",
+        department: "陸上部",
+        nickname: "あきら",
         join_date: "2022-09-01",
-        hobbies: "野球、釣り、BBQ",
+        hobbies: "マラソン、釣り、BBQ",
         favorite_food: "焼肉、魚料理",
         motto: "チームワークが勝利の鍵"
       }
@@ -209,11 +209,11 @@ export const generateDepartments = (members: MockTeamMember[]): MockDepartment[]
   
   // 部署の色定義
   const departmentColors = {
-    '開発部': { color: 'bg-orange-500 hover:bg-orange-600', badgeColor: 'border-orange-500 text-orange-700 bg-orange-50' },
-    'デザイン部': { color: 'bg-blue-500 hover:bg-blue-600', badgeColor: 'border-blue-500 text-blue-700 bg-blue-50' },
-    '営業部': { color: 'bg-red-500 hover:bg-red-600', badgeColor: 'border-red-500 text-red-700 bg-red-50' },
-    'マーケティング部': { color: 'bg-green-500 hover:bg-green-600', badgeColor: 'border-green-500 text-green-700 bg-green-50' },
-    '企画部': { color: 'bg-purple-500 hover:bg-purple-600', badgeColor: 'border-purple-500 text-purple-700 bg-purple-50' },
+    'ウェルネス部': { color: 'bg-orange-500 hover:bg-orange-600', badgeColor: 'border-orange-500 text-orange-700 bg-orange-50' },
+    '警備部部': { color: 'bg-blue-500 hover:bg-blue-600', badgeColor: 'border-blue-500 text-blue-700 bg-blue-50' },
+    '広報部': { color: 'bg-red-500 hover:bg-red-600', badgeColor: 'border-red-500 text-red-700 bg-red-50' },
+    '法務部': { color: 'bg-green-500 hover:bg-green-600', badgeColor: 'border-green-500 text-green-700 bg-green-50' },
+    '陸上部': { color: 'bg-purple-500 hover:bg-purple-600', badgeColor: 'border-purple-500 text-purple-700 bg-purple-50' },
     '人事部': { color: 'bg-pink-500 hover:bg-pink-600', badgeColor: 'border-pink-500 text-pink-700 bg-pink-50' },
     '総務部': { color: 'bg-indigo-500 hover:bg-indigo-600', badgeColor: 'border-indigo-500 text-indigo-700 bg-indigo-50' },
     '未設定': { color: 'bg-gray-500 hover:bg-gray-600', badgeColor: 'border-gray-500 text-gray-700 bg-gray-50' }

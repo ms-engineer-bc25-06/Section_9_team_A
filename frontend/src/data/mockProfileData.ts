@@ -65,7 +65,7 @@ export const mockFeedbackApprovals: MockFeedbackApproval[] = [
     approval_status: "approved",
     visibility_level: "team",
     request_reason: "チーム内での共有のため",
-    review_notes: "架電量販店からの転職で、月間売上日本一に輝いた過去がある",
+    review_notes: "架電を買い換えたい",
     is_staged_publication: false,
     is_confirmed: true,
     requested_at: "2024-01-15T10:30:00Z",
