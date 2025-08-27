@@ -1,4 +1,4 @@
-// FIXME （雑談ルームUI）
+// プレゼンテーション用：雑談ルームUI（モックデータ使用）
 "use client"
 
 import { useState } from "react"
@@ -6,23 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar"
 import { Badge } from "@/components/ui/Badge"
-import { Play, Users, Lightbulb, Mic, Settings } from "lucide-react"
+import { Play, Users, Lightbulb, Mic, Settings, TrendingUp } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { AudioEnhancement } from "./AudioEnhancement"
-
-const mockParticipants = [
-  { id: 1, name: "田中太郎", status: "online" },
-  { id: 2, name: "佐藤花子", status: "online" },
-  { id: 3, name: "鈴木一郎", status: "away" },
-]
-
-const suggestedTopics = [
-  "最近読んだ本について",
-  "週末の過ごし方",
-  "好きな映画やドラマ",
-  "趣味について",
-  "おすすめのレストラン",
-]
+import { mockParticipants, mockTopics } from "@/data/mockVoiceChatData"
 
 export function VoiceChatRoom() {
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null)
@@ -40,7 +27,34 @@ export function VoiceChatRoom() {
 
   const handleEnhancedAudio = (audioBlob: Blob) => {
     console.log("Enhanced audio received:", audioBlob)
-    // ここで音声チャットに処理済み音声を送信する処理を追加
+    // プレゼンテーション用：モックデータで音声処理をシミュレート
+    alert("音声品質向上処理が完了しました！")
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "online":
+        return "bg-green-500"
+      case "away":
+        return "bg-yellow-500"
+      case "offline":
+        return "bg-gray-400"
+      default:
+        return "bg-gray-400"
+    }
+  }
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case "online":
+        return "オンライン"
+      case "away":
+        return "離席中"
+      case "offline":
+        return "オフライン"
+      default:
+        return "不明"
+    }
   }
 
   return (
@@ -49,7 +63,7 @@ export function VoiceChatRoom() {
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Users className="h-5 w-5" />
-            <span>現在参加中のメンバー</span>
+            <span>現在参加中のメンバー ({mockParticipants.length}人)</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -58,20 +72,34 @@ export function VoiceChatRoom() {
               <div key={participant.id} className="flex items-center space-x-3">
                 <div className="relative">
                   <Avatar>
-                    <AvatarImage src={`/placeholder.svg?height=40&width=40&query=${participant.name}`} />
+                    <AvatarImage src={participant.avatar_url} />
                     <AvatarFallback>{participant.name.slice(0, 2)}</AvatarFallback>
                   </Avatar>
                   <div
-                    className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${
-                      participant.status === "online" ? "bg-green-500" : "bg-yellow-500"
-                    }`}
+                    className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${getStatusColor(participant.status)}`}
                   />
+                  {participant.isSpeaking && (
+                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full animate-pulse" />
+                  )}
                 </div>
                 <div className="flex-1">
                   <p className="font-medium">{participant.name}</p>
-                  <Badge variant="secondary" className="text-xs">
-                    {participant.status === "online" ? "オンライン" : "離席中"}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="text-xs">
+                      {getStatusText(participant.status)}
+                    </Badge>
+                    {participant.department && (
+                      <Badge variant="outline" className="text-xs">
+                        {participant.department}
+                      </Badge>
+                    )}
+                  </div>
+                  {participant.isSpeaking && (
+                    <div className="flex items-center gap-1 mt-1">
+                      <Mic className="h-3 w-3 text-blue-600" />
+                      <span className="text-xs text-blue-600">話し中</span>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -80,7 +108,7 @@ export function VoiceChatRoom() {
           <div className="space-y-3 mt-6">
             <Button onClick={startVoiceChat} className="w-full" size="lg" type="button">
               <Play className="h-5 w-5 mr-2" />
-              開始する
+              雑談ルームに入室する
             </Button>
             
             <Button 
@@ -100,20 +128,29 @@ export function VoiceChatRoom() {
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Lightbulb className="h-5 w-5" />
-            <span>こんなテーマはどうですか？</span>
+            <span>AI提案トピック</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {suggestedTopics.map((topic, index) => (
+            {mockTopics.slice(0, 6).map((topic, index) => (
               <Button
                 key={index}
-                variant={selectedTopic === topic ? "default" : "outline"}
+                variant={selectedTopic === topic.text ? "default" : "outline"}
                 className="w-full justify-start text-left h-auto py-3 px-4"
-                onClick={() => setSelectedTopic(topic)}
+                onClick={() => setSelectedTopic(topic.text)}
                 type="button"
               >
-                {topic}
+                <div className="flex-1 text-left">
+                  <div className="font-medium">{topic.text}</div>
+                  <div className="text-xs text-gray-500 mt-1">{topic.description}</div>
+                </div>
+                {topic.popularity && (
+                  <div className="flex items-center gap-1 text-xs text-gray-600">
+                    <TrendingUp className="h-3 w-3" />
+                    {topic.popularity}%
+                  </div>
+                )}
               </Button>
             ))}
           </div>
@@ -122,6 +159,9 @@ export function VoiceChatRoom() {
             <div className="mt-4 p-3 bg-blue-50 rounded-lg">
               <p className="text-sm text-blue-700">
                 選択されたテーマ: <strong>{selectedTopic}</strong>
+              </p>
+              <p className="text-xs text-blue-600 mt-1">
+                このテーマで雑談を始めましょう！
               </p>
             </div>
           )}

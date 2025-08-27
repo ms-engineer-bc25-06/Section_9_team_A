@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
-import { ArrowLeft, Building2, Calendar, MapPin, Heart, Music, BookOpen, Target } from "lucide-react";
+import { ArrowLeft, Building2, Calendar, MapPin, Heart, Music, BookOpen, Target, MessageSquare, Star, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { getMemberProfile, MemberProfile } from "@/lib/api/teamMembers";
 
@@ -74,6 +74,28 @@ export default function MemberProfilePage() {
       return dateString;
     }
   };
+
+  // AI分析フィードバックのモックデータ
+  const feedbackData = [
+    {
+      icon: <MessageSquare className="h-5 w-5 text-green-600" />,
+      title: "過去の実績",
+      content: "家電量販店に勤務しているとき、月間売上日本一に輝いた",
+      category: "AI分析結果"
+    },
+    {
+      icon: <Star className="h-5 w-5 text-yellow-600" />,
+      title: "コミュニケーション",
+      content: "常に様々な話題を提供している",
+      category: "AI分析結果"
+    },
+    {
+      icon: <TrendingUp className="h-5 w-5 text-blue-600" />,
+      title: "最近の活動",
+      content: "先週サッカー野球観戦で東京ドームに行った",
+      category: "AI分析結果"
+    }
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -241,12 +263,27 @@ export default function MemberProfilePage() {
             </Card>
           </div>
 
-          {/* 戻るボタン */}
-          <div className="text-center">
-            <Button variant="outline" onClick={() => router.back()}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              チームメンバー一覧に戻る
-            </Button>
+          {/* AI分析フィードバック欄 */}
+          <div className="mb-8">
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">AI分析フィードバック</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {feedbackData.map((feedback, index) => (
+                <Card key={index} className="hover:shadow-md transition-shadow">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center gap-2">
+                      {feedback.icon}
+                      <CardTitle className="text-sm">{feedback.title}</CardTitle>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <p className="text-sm text-gray-700 mb-3">{feedback.content}</p>
+                    <div className="text-xs text-blue-600 font-medium">
+                      {feedback.category}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
         </div>
       </main>
