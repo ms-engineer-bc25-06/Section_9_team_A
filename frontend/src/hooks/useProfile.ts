@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import { apiGet } from "@/lib/apiClient"
 import { useAuth } from "@/components/auth/AuthProvider"
+import { mockUserProfile, MockUserProfile } from "@/data/mockProfileData"
 
 export interface UserProfile {
   full_name: string
@@ -35,17 +36,41 @@ export function useProfile() {
       return
     }
 
-    if (user && backendToken) {
-      // ログイン状態とバックエンドトークンが変更された際にプロフィールを再取得
-      console.log("🔄 ユーザーログイン状態またはバックエンドトークン変更を検出、プロフィールを再取得中...")
-      fetchProfile()
-    } else if (!user) {
+    // if (user && backendToken) {
+    //   // ログイン状態とバックエンドトークンが変更された際にプロフィールを再取得
+    //   console.log("🔄 ユーザーログイン状態またはバックエンドトークン変更を検出、プロフィールを再取得中...")
+    //   fetchProfile()
+    // } else if (!user) {
+    if (user) {
+      // プレゼンテーション用：モックデータを使用
+      fetchMockProfile()
+    } else {
       // ユーザーがログインしていない場合
       setError("ログインが必要です")
       setIsLoading(false)
     }
   }, [user, authLoading, backendToken])
 
+  // プレゼンテーション用：モックデータを取得
+  const fetchMockProfile = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      
+      // シミュレーション用の遅延（実際のAPI呼び出しを模擬）
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      // モックデータを設定
+      setProfile(mockUserProfile)
+    } catch (err) {
+      console.error("プロフィールの取得に失敗:", err)
+      setError("プロフィールの取得に失敗しました")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // 実際のAPI呼び出し（現在は無効化）
   const fetchProfile = async () => {
     if (!user) {
       setError("ログインが必要です")
@@ -87,6 +112,6 @@ export function useProfile() {
     isLoading: isLoading || authLoading,
     error,
     hasProfileData: hasProfileData(),
-    refetch: fetchProfile
+    refetch: fetchMockProfile // プレゼンテーション用：モックデータ取得関数を返す
   }
 }
