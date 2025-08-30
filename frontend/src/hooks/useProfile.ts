@@ -36,15 +36,11 @@ export function useProfile() {
       return
     }
 
-    // if (user && backendToken) {
-    //   // ログイン状態とバックエンドトークンが変更された際にプロフィールを再取得
-    //   console.log("🔄 ユーザーログイン状態またはバックエンドトークン変更を検出、プロフィールを再取得中...")
-    //   fetchProfile()
-    // } else if (!user) {
-    if (user) {
-      // プレゼンテーション用：モックデータを使用
-      fetchMockProfile()
-    } else {
+    if (user && backendToken) {
+      // ログイン状態とバックエンドトークンが変更された際にプロフィールを再取得
+      console.log("🔄 ユーザーログイン状態またはバックエンドトークン変更を検出、プロフィールを再取得中...")
+      fetchProfile()
+    } else if (!user) {
       // ユーザーがログインしていない場合
       setError("ログインが必要です")
       setIsLoading(false)
