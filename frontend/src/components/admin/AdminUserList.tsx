@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Search, Users, UserCheck, MoreHorizontal, Copy, ArrowUpDown } from "lucide-react"
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { getDepartmentColor } from "@/lib/utils/departmentColors"
 
 // ユーザーの型定義
 interface User {
@@ -247,7 +248,20 @@ export function AdminUserList() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>{user.department || '部署未設定'}</TableCell>
+                    <TableCell>
+                      {user.department ? (
+                        <Badge 
+                          variant="outline" 
+                          className={`text-sm px-3 py-1 ${getDepartmentColor(user.department)}`}
+                        >
+                          {user.department}
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-sm px-3 py-1 text-gray-500">
+                          部署未設定
+                        </Badge>
+                      )}
+                    </TableCell>
                     <TableCell>{getRoleBadge(user.role)}</TableCell>
                     <TableCell>
                       {user.role === "admin" ? (

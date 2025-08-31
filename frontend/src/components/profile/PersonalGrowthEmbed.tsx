@@ -57,78 +57,29 @@ export function PersonalGrowthEmbed() {
   const [growthGoals, setGrowthGoals] = useState<GrowthGoal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // サンプルデータ（実際のAPIから取得）
+  // 実際のAPIからデータを取得
   useEffect(() => {
-    // シミュレーション用のデータ
-    const mockData = {
-      improvementPlan: {
-        id: '1',
-        title: 'コミュニケーションスキル向上計画',
-        description: 'AI分析に基づく個別化された改善計画',
-        current_skill_level: '中級',
-        target_skill_level: '上級',
-        overall_difficulty: 'intermediate',
-        estimated_total_duration_days: 90,
-        steps: [
-          {
-            id: '1',
-            title: 'アクティブリスニングの練習',
-            description: '相手の話を深く理解するための聞き方の練習',
-            difficulty: 'beginner' as const,
-            estimated_duration_days: 14,
-            priority: 'high' as const,
-            completed: false
-          },
-          {
-            id: '2',
-            title: 'フィードバックの受け入れ方',
-            description: '建設的なフィードバックを効果的に受け入れる方法',
-            difficulty: 'intermediate' as const,
-            estimated_duration_days: 21,
-            priority: 'medium' as const,
-            completed: false
-          },
-          {
-            id: '3',
-            title: 'チーム内での意見表明',
-            description: '会議やディスカッションで自分の意見を効果的に伝える',
-            difficulty: 'advanced' as const,
-            estimated_duration_days: 30,
-            priority: 'high' as const,
-            completed: false
-          }
-        ],
-        progress_percentage: 25,
-        status: 'in_progress'
-      },
-      growthGoals: [
-        {
-          id: '1',
-          title: 'リーダーシップスキルの習得',
-          description: 'チームを導くためのリーダーシップ能力を向上させる',
-          category: 'リーダーシップ',
-          target_date: '2024-06-30',
-          status: 'in_progress' as const,
-          progress_percentage: 60,
-          milestones: ['基本的なリーダーシップ理論の学習', '小規模チームでの実践', 'フィードバックの収集と改善']
-        },
-        {
-          id: '2',
-          title: '技術スキルの向上',
-          description: '最新の技術トレンドをキャッチアップし、実践的なスキルを身につける',
-          category: '技術',
-          target_date: '2024-12-31',
-          status: 'not_started' as const,
-          progress_percentage: 0,
-          milestones: ['技術動向の調査', '学習計画の策定', '実践プロジェクトへの参加']
-        }
-      ]
+    const fetchGrowthData = async () => {
+      try {
+        setIsLoading(true);
+        // TODO: 実際のAPIエンドポイントに置き換える
+        // const response = await apiGet<{improvementPlan: ImprovementPlan, growthGoals: GrowthGoal[]}>('/personal-growth');
+        // setImprovementPlan(response.improvementPlan);
+        // setGrowthGoals(response.growthGoals);
+        
+        // 一時的に空のデータを設定
+        setImprovementPlan(null);
+        setGrowthGoals([]);
+      } catch (error) {
+        console.error('個人成長データの取得に失敗:', error);
+        setImprovementPlan(null);
+        setGrowthGoals([]);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
-    // データを設定
-    setImprovementPlan(mockData.improvementPlan);
-    setGrowthGoals(mockData.growthGoals);
-    setIsLoading(false);
+    fetchGrowthData();
   }, []);
 
   if (isLoading) {

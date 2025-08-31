@@ -588,6 +588,108 @@ class FeedbackApprovalService:
         
         return distribution
 
+    async def get_member_published_feedback(
+        self,
+        db: AsyncSession,
+        member_id: int,
+        current_user: User,
+        page: int = 1,
+        page_size: int = 20
+    ) -> Tuple[List[FeedbackApproval], int]:
+        """特定のメンバーの公開されたフィードバック一覧を取得"""
+        try:
+            # メンバーの存在確認
+            member = await db.get(User, member_id)
+            if not member:
+                raise NotFoundException("指定されたメンバーが見つかりません")
+            
+            # 権限チェック：同じチームまたは組織のメンバーかどうか
+            # ここでは簡易的に実装（実際の実装では適切な権限チェックが必要）
+            if not await self._can_view_member_feedback(current_user, member):
+                raise PermissionException("このメンバーのフィードバックを閲覧する権限がありません")
+            
+            # 公開されたフィードバックを取得
+            query = select(FeedbackApproval).where(
+                and_(
+                    FeedbackApproval.requester_id == member_id,
+                    FeedbackApproval.approval_status == ApprovalStatus.APPROVED,
+                    FeedbackApproval.is_confirmed == True,
+                    FeedbackApproval.published_at.isnot(None)
+                )
+            )
+            
+            # 可視性レベルに基づくフィルタリング
+            visibility_conditions = []
+            
+            # 本人の場合は全て表示
+            if current_user.id == member_id:
+                visibility_conditions.append(True)
+            else:
+                # 他のユーザーの場合は可視性レベルに応じてフィルタリング
+                visibility_conditions.append(
+                    or_(
+                        FeedbackApproval.visibility_level == VisibilityLevel.TEAM,
+                        FeedbackApproval.visibility_level == VisibilityLevel.ORGANIZATION,
+                        FeedbackApproval.visibility_level == VisibilityLevel.PUBLIC
+                    )
+                )
+            
+            if visibility_conditions:
+                query = query.where(and_(*visibility_conditions))
+            
+            # 総件数を取得
+            count_query = select(func.count(FeedbackApproval.id)).where(
+                and_(
+                    FeedbackApproval.requester_id == member_id,
+                    FeedbackApproval.approval_status == ApprovalStatus.APPROVED,
+                    FeedbackApproval.is_confirmed == True,
+                    FeedbackApproval.published_at.isnot(None)
+                )
+            )
+            
+            if visibility_conditions:
+                count_query = count_query.where(and_(*visibility_conditions))
+            
+            total_count = await db.scalar(count_query)
+            
+            # ページネーション
+            offset = (page - 1) * page_size
+            query = query.offset(offset).limit(page_size).order_by(
+                FeedbackApproval.published_at.desc()
+            )
+            
+            # 関連データをロード
+            query = query.options(
+                selectinload(FeedbackApproval.analysis),
+                selectinload(FeedbackApproval.requester),
+                selectinload(FeedbackApproval.reviewer)
+            )
+            
+            result = await db.execute(query)
+            approvals = result.scalars().all()
+            
+            return approvals, total_count
+            
+        except Exception as e:
+            logger.error(f"メンバーフィードバック取得に失敗: {e}")
+            raise
+
+    async def _can_view_member_feedback(self, current_user: User, target_member: User) -> bool:
+        """メンバーのフィードバックを閲覧する権限があるかチェック"""
+        try:
+            # 本人の場合は常に閲覧可能
+            if current_user.id == target_member.id:
+                return True
+            
+            # 同じチームまたは組織のメンバーの場合は閲覧可能
+            # ここでは簡易的に実装（実際の実装では適切な権限チェックが必要）
+            # 例：同じチームIDまたは組織IDを持つ場合
+            return True  # 簡易実装
+            
+        except Exception as e:
+            logger.error(f"権限チェックに失敗: {e}")
+            return False
+
 
 # グローバルインスタンス
 feedback_approval_service = FeedbackApprovalService()

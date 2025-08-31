@@ -171,4 +171,30 @@ export const apiPut = apiClient.put;
 export const apiDelete = apiClient.delete;
 export const apiPatch = apiClient.patch;
 
+// アバターアップロード用の関数
+export async function uploadAvatar(file: File): Promise<{ avatar_url: string }> {
+  const token = await getAuthToken();
+  if (!token) {
+    throw new Error("認証トークンが取得できません");
+  }
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch(buildUrl('/users/avatar'), {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+  }
+
+  return response.json();
+}
+
 export default apiClient;

@@ -6,9 +6,12 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
-import { ArrowLeft, Building2, Calendar, MapPin, Heart, Music, BookOpen, Target, MessageSquare, Star, TrendingUp } from "lucide-react";
+import { ArrowLeft, Building2, Calendar, MapPin, Heart, Music, BookOpen, Target } from "lucide-react";
 import Link from "next/link";
 import { getMemberProfile, MemberProfile } from "@/lib/api/teamMembers";
+import { MemberFeedbackList } from "@/components/team/MemberFeedbackList";
+import { getDepartmentColor } from "@/lib/utils/departmentColors";
+import { getAvatarUrl } from "@/lib/utils/avatarUtils";
 
 export default function MemberProfilePage() {
   const params = useParams();
@@ -75,27 +78,27 @@ export default function MemberProfilePage() {
     }
   };
 
-  // AI分析フィードバックのモックデータ
-  const feedbackData = [
-    {
-      icon: <MessageSquare className="h-5 w-5 text-green-600" />,
-      title: "過去の実績",
-      content: "家電量販店に勤務しているとき、月間売上日本一に輝いた",
-      category: "AI分析結果"
-    },
-    {
-      icon: <Star className="h-5 w-5 text-yellow-600" />,
-      title: "コミュニケーション",
-      content: "常に様々な話題を提供している",
-      category: "AI分析結果"
-    },
-    {
-      icon: <TrendingUp className="h-5 w-5 text-blue-600" />,
-      title: "最近の活動",
-      content: "先週サッカー野球観戦で東京ドームに行った",
-      category: "AI分析結果"
-    }
-  ];
+  // AI分析フィードバックのモックデータ（コメントアウト）
+  // const feedbackData = [
+  //   {
+  //     icon: <MessageSquare className="h-5 w-5 text-green-600" />,
+  //     title: "過去の実績",
+  //     content: "家電量販店に勤務しているとき、月間売上日本一に輝いた",
+  //     category: "AI分析結果"
+  //   },
+  //   {
+  //     icon: <Star className="h-5 w-5 text-yellow-600" />,
+  //     title: "コミュニケーション",
+  //     content: "常に様々な話題を提供している",
+  //     category: "AI分析結果"
+  //   },
+  //   {
+  //     icon: <TrendingUp className="h-5 w-5 text-blue-600" />,
+  //     title: "最近の活動",
+  //     content: "先週サッカー野球観戦で東京ドームに行った",
+  //     category: "AI分析結果"
+  //   }
+  // ];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -130,7 +133,10 @@ export default function MemberProfilePage() {
             <CardContent className="p-8">
               <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
                 <Avatar className="h-24 w-24">
-                  <AvatarImage src={profile.avatar_url} alt={profile.display_name} />
+                  <AvatarImage 
+                    src={getAvatarUrl(profile.avatar_url, profile.display_name, 96)} 
+                    alt={profile.display_name} 
+                  />
                   <AvatarFallback className="text-2xl">
                     {profile.display_name.charAt(0).toUpperCase()}
                   </AvatarFallback>
@@ -144,7 +150,7 @@ export default function MemberProfilePage() {
                   
                   <div className="flex flex-wrap gap-2 justify-center md:justify-start">
                     {profile.department && (
-                      <Badge variant="outline" className="flex items-center gap-1">
+                      <Badge variant="outline" className={`flex items-center gap-1 ${getDepartmentColor(profile.department)}`}>
                         <Building2 className="h-4 w-4" />
                         {profile.department}
                       </Badge>
@@ -263,8 +269,8 @@ export default function MemberProfilePage() {
             </Card>
           </div>
 
-          {/* AI分析フィードバック欄 */}
-          <div className="mb-8">
+          {/* AI分析フィードバック欄（コメントアウト） */}
+          {/* <div className="mb-8">
             <h3 className="text-xl font-semibold text-gray-900 mb-4">AI分析フィードバック</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {feedbackData.map((feedback, index) => (
@@ -284,6 +290,14 @@ export default function MemberProfilePage() {
                 </Card>
               ))}
             </div>
+          </div> */}
+
+          {/* 承認されたフィードバック一覧 */}
+          <div className="mb-8">
+            <MemberFeedbackList 
+              memberId={memberId} 
+              memberName={profile.display_name}
+            />
           </div>
         </div>
       </main>
