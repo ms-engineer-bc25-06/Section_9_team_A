@@ -1,10 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from sqlalchemy.orm import aliased
 from typing import Optional, Dict, Any, List
 import structlog
 from datetime import datetime, date
+import os
+import uuid
+from pathlib import Path
 
 from app.api.deps import get_session, get_current_user
 from app.schemas.team import UserOut, UserProfileOut
@@ -84,9 +87,25 @@ async def update_user_profile(
         if profile_update.department is not None:
             current_user.department = profile_update.department.strip() if profile_update.department else None
         if profile_update.join_date is not None:
-            current_user.join_date = profile_update.join_date if profile_update.join_date else None
+            if profile_update.join_date:
+                try:
+                    from datetime import datetime
+                    current_user.join_date = datetime.strptime(profile_update.join_date, '%Y-%m-%d').date()
+                except ValueError:
+                    logger.error(f"Invalid join_date format: {profile_update.join_date}")
+                    current_user.join_date = None
+            else:
+                current_user.join_date = None
         if profile_update.birth_date is not None:
-            current_user.birth_date = profile_update.birth_date if profile_update.birth_date else None
+            if profile_update.birth_date:
+                try:
+                    from datetime import datetime
+                    current_user.birth_date = datetime.strptime(profile_update.birth_date, '%Y-%m-%d').date()
+                except ValueError:
+                    logger.error(f"Invalid birth_date format: {profile_update.birth_date}")
+                    current_user.birth_date = None
+            else:
+                current_user.birth_date = None
         if profile_update.hometown is not None:
             current_user.hometown = profile_update.hometown if profile_update.hometown else None
         if profile_update.residence is not None:
@@ -111,6 +130,8 @@ async def update_user_profile(
             current_user.motto = profile_update.motto if profile_update.motto else None
         if profile_update.future_goals is not None:
             current_user.future_goals = profile_update.future_goals if profile_update.future_goals else None
+        if profile_update.avatar_url is not None:
+            current_user.avatar_url = profile_update.avatar_url if profile_update.avatar_url else None
 
         await db.commit()
         await db.refresh(current_user)
@@ -178,77 +199,68 @@ async def get_team_members(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_session),
 ):
-    """現在のユーザーと同じチームのメンバー一覧を取得"""
+    """プロフィール登録済みの全ユーザー一覧を取得"""
     try:
         logger.info(f"Getting team members for user: {current_user.id}")
         
-        # 現在のユーザーが所属するチームIDを取得
-        team_query = select(OrganizationMember.team_id).where(
-            OrganizationMember.user_id == current_user.id
-        )
-        team_result = await db.execute(team_query)
-        user_teams = [row[0] for row in team_result.fetchall()]
-
-        logger.info(f"User teams: {user_teams}")
-
-        if not user_teams:
-            logger.info("No teams found for user")
-            return []
-
-        # 同じチームのメンバーを取得
-        members_query = (
-            select(User, OrganizationMember.role, OrganizationMember.status)
-            .join(OrganizationMember, User.id == OrganizationMember.user_id)
-            .where(OrganizationMember.team_id.in_(user_teams))
-            .distinct()
+        # プロフィール登録済みのアクティブなユーザーを取得
+        members_query = select(User).where(
+            and_(
+                User.is_active == True,
+                User.full_name.isnot(None),
+                User.full_name != "",
+                User.department.isnot(None),
+                User.department != ""
+            )
         )
 
         members_result = await db.execute(members_query)
+        users = members_result.scalars().all()
         members = []
 
-        for row in members_result.fetchall():
-            user, role, status = row
-            logger.info(f"Processing member: {user.id}, {user.full_name}")
-            logger.info(f"  - department: {getattr(user, 'department', 'NOT_FOUND')}")
-            logger.info(f"  - role: {role}")
-            
-            profile = UserProfileOut(
-                department=getattr(user, "department"),
-                position=role,
-                nickname=getattr(user, "nickname"),
-                join_date=str(getattr(user, "join_date"))
-                if getattr(user, "join_date")
-                else None,
-                birth_date=str(getattr(user, "birth_date"))
-                if getattr(user, "birth_date")
-                else None,
-                hometown=getattr(user, "hometown"),
-                residence=getattr(user, "residence"),
-                hobbies=getattr(user, "hobbies"),
-                student_activities=getattr(user, "student_activities"),
-                holiday_activities=getattr(user, "holiday_activities"),
-                favorite_food=getattr(user, "favorite_food"),
-                favorite_media=getattr(user, "favorite_media"),
-                favorite_music=getattr(user, "favorite_music"),
-                pets_oshi=getattr(user, "pets_oshi"),
-                respected_person=getattr(user, "respected_person"),
-                motto=getattr(user, "motto"),
-                future_goals=getattr(user, "future_goals"),
-            )
+        logger.info(f"Found {len(users)} users with profiles")
 
-            logger.info(f"  - profile.department: {profile.department}")
+        for user in users:
+            try:
+                logger.info(f"Processing member: {user.id}, {getattr(user, 'full_name', 'No name')}")
+                logger.info(f"  - department: {getattr(user, 'department', 'No department')}")
+                
+                profile = UserProfileOut(
+                    department=getattr(user, 'department', None),
+                    position="member",  # デフォルト値
+                    nickname=getattr(user, 'nickname', None),
+                    join_date=str(getattr(user, 'join_date', None)) if getattr(user, 'join_date', None) else None,
+                    birth_date=str(getattr(user, 'birth_date', None)) if getattr(user, 'birth_date', None) else None,
+                    hometown=getattr(user, 'hometown', None),
+                    residence=getattr(user, 'residence', None),
+                    hobbies=getattr(user, 'hobbies', None),
+                    student_activities=getattr(user, 'student_activities', None),
+                    holiday_activities=getattr(user, 'holiday_activities', None),
+                    favorite_food=getattr(user, 'favorite_food', None),
+                    favorite_media=getattr(user, 'favorite_media', None),
+                    favorite_music=getattr(user, 'favorite_music', None),
+                    pets_oshi=getattr(user, 'pets_oshi', None),
+                    respected_person=getattr(user, 'respected_person', None),
+                    motto=getattr(user, 'motto', None),
+                    future_goals=getattr(user, 'future_goals', None),
+                )
 
-            member_out = UserOut(
-                id=str(user.id),
-                display_name=getattr(user, "full_name")
-                or getattr(user, "username")
-                or "",
-                avatar_url=getattr(user, "avatar_url"),
-                profile=profile,
-            )
-            
-            members.append(member_out)
-            logger.info(f"Added member: {member_out.id}, {member_out.display_name}, department: {member_out.profile.department}")
+                logger.info(f"  - profile.department: {profile.department}")
+
+                member_out = UserOut(
+                    id=str(user.id),
+                    display_name=getattr(user, 'full_name', None) or getattr(user, 'username', None) or "",
+                    email=getattr(user, 'email', None),
+                    avatar_url=getattr(user, 'avatar_url', None),
+                    profile=profile,
+                )
+                
+                members.append(member_out)
+                logger.info(f"Added member: {member_out.id}, {member_out.display_name}, department: {member_out.profile.department}")
+
+            except Exception as user_error:
+                logger.error(f"Error processing user {user.id}: {user_error}", exc_info=True)
+                continue
 
         logger.info(f"Returning {len(members)} members")
         return members
@@ -475,3 +487,53 @@ async def bulk_update_names(
             status_code=500,
             detail="一括名前更新に失敗しました"
     )
+
+
+@router.post("/avatar")
+async def upload_avatar(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+):
+    """アバター画像をアップロード"""
+    try:
+        # ファイル形式の検証
+        if not file.content_type or not file.content_type.startswith('image/'):
+            raise HTTPException(status_code=400, detail="画像ファイルをアップロードしてください")
+        
+        # ファイルサイズの制限（5MB）
+        if file.size and file.size > 5 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="ファイルサイズは5MB以下にしてください")
+        
+        # アップロードディレクトリを作成
+        upload_dir = Path("uploads/avatars")
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        
+        # ファイル名を生成（ユーザーID + UUID + 拡張子）
+        file_extension = Path(file.filename).suffix if file.filename else ".jpg"
+        unique_filename = f"{current_user.id}_{uuid.uuid4()}{file_extension}"
+        file_path = upload_dir / unique_filename
+        
+        # ファイルを保存
+        with open(file_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
+        
+        # アバターURLを生成（フロントエンドからアクセス可能なURL）
+        avatar_url = f"/uploads/avatars/{unique_filename}"
+        
+        # ユーザーのアバターURLを更新
+        current_user.avatar_url = avatar_url
+        await db.commit()
+        await db.refresh(current_user)
+        
+        logger.info(f"Avatar uploaded successfully for user: {current_user.id}")
+        
+        return {"avatar_url": avatar_url}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Avatar upload failed: {e}")
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Internal server error")

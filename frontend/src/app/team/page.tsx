@@ -16,7 +16,6 @@ export default function TeamPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // プレゼンテーション用：モックデータからデータを取得
     fetchMembers();
   }, []);
 
@@ -25,7 +24,6 @@ export default function TeamPage() {
       setLoading(true);
       setError(null);
       
-      // プレゼンテーション用：モックデータからデータを取得
       const apiMembers = await getTeamMembers();
       setMembers(apiMembers);
       

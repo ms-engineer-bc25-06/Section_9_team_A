@@ -4,22 +4,28 @@
 import { ProfileTabs } from "./ProfileTabs"
 import { useProfile } from "@/hooks/useProfile"
 import { useApprovalList } from "@/hooks/useFeedbackApproval"
-import { mockFeedbackApprovals, generateFeedbackMessages } from "@/data/mockProfileData"
 import Link from "next/link"
 import { useEffect, useState } from "react"
-
-// プレゼンテーション用：モックデータを使用
 
 export function ProfileView() {
   const { profile, isLoading: profileLoading, error: profileError } = useProfile()
   
-  // プレゼンテーション用：モックフィードバック承認データを使用
-  const [feedbackApprovals] = useState(mockFeedbackApprovals)
-  const [feedbackLoading] = useState(false)
-  const [feedbackError] = useState<string | null>(null)
+  // 実際のフィードバック承認データを使用
+  const {
+    approvals: feedbackApprovals,
+    loading: feedbackLoading,
+    error: feedbackError,
+    loadMyApprovals
+  } = useApprovalList()
 
-  // プレゼンテーション用：モックデータからフィードバックメッセージを生成
-  const feedbackMessages = generateFeedbackMessages(feedbackApprovals)
+  // フィードバックメッセージを生成（承認済みのもののみ）
+  const feedbackMessages = feedbackApprovals
+    .filter(approval => approval.approval_status === 'approved' && approval.is_confirmed)
+    .map(approval => approval.analysis_title || 'フィードバック')
+
+  useEffect(() => {
+    loadMyApprovals()
+  }, [loadMyApprovals])
 
   // プロフィールデータが読み込み中の場合はローディング表示
   if (profileLoading) {
@@ -80,7 +86,8 @@ export function ProfileView() {
     respectedPerson: profile.respected_person,
     motto: profile.motto,
     futureGoals: profile.future_goals,
-    feedback: feedbackMessages
+    feedback: feedbackMessages,
+    avatarUrl: profile.avatar_url
   }
 
   return (

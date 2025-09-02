@@ -1,6 +1,6 @@
 "use client"
 
-import { mockTeamMembers, MockTeamMember, generateDepartments, filterMembersByDepartment, searchMembers } from '@/data/mockTeamData';
+import { apiGet } from '@/lib/apiClient';
 
 export interface DepartmentMember {
   id: string;
@@ -47,72 +47,60 @@ export interface MemberProfileResponse {
 }
 
 /**
- * プレゼンテーション用：モックデータからチームメンバーを取得
+ * 実際のAPIからチームメンバーを取得
  */
 export const getTeamMembers = async (): Promise<DepartmentMember[]> => {
   try {
-    // プレゼンテーション用：シミュレーション用の遅延（実際のAPI呼び出しを模擬）
-    await new Promise(resolve => setTimeout(resolve, 800))
-    
-    // モックデータを返す
-    return mockTeamMembers.map(member => ({
-      id: member.id,
-      user_id: member.user_id,
+    const response = await apiGet<any[]>('/users/members');
+    // UserOut形式からDepartmentMember形式に変換
+    return response.map(user => ({
+      id: user.id,
+      user_id: user.id,
       user: {
-        id: member.user.id,
-        display_name: member.user.display_name,
-        avatar_url: member.user.avatar_url,
+        id: user.id,
+        display_name: user.display_name,
+        avatar_url: user.avatar_url,
         profile: {
-          department: member.user.profile?.department
+          department: user.profile?.department
         }
       }
     }));
   } catch (error) {
     console.error('Failed to fetch team members:', error);
-    throw new Error('チームメンバーの取得に失敗しました');
+    const errorMessage = error instanceof Error ? error.message : 'チームメンバーの取得に失敗しました';
+    throw new Error(errorMessage);
   }
 };
 
 /**
- * プレゼンテーション用：モックデータから特定のメンバーのプロフィールを取得
+ * 実際のAPIから特定のメンバーのプロフィールを取得
  */
 export const getMemberProfile = async (memberId: string): Promise<MemberProfile> => {
   try {
     console.log(`Fetching member profile for ID: ${memberId}`);
     
-    // プレゼンテーション用：シミュレーション用の遅延（実際のAPI呼び出しを模擬）
-    await new Promise(resolve => setTimeout(resolve, 500))
-    
-    // モックデータから該当するメンバーを検索
-    const mockMember = mockTeamMembers.find(m => m.id === memberId)
-    
-    if (!mockMember) {
-      throw new Error('メンバーが見つかりません');
-    }
-    
-    console.log('Found mock member:', mockMember);
-    
-    // MemberProfileの形式に変換
+    const response = await apiGet<any>(`/users/${memberId}`);
+    // UserOut形式からMemberProfile形式に変換
     return {
-      id: mockMember.user.id,
-      display_name: mockMember.user.display_name,
-      email: `${mockMember.user.display_name.toLowerCase()}@example.com`, // モック用メールアドレス
-      avatar_url: mockMember.user.avatar_url,
-      department: mockMember.user.profile?.department,
-      join_date: mockMember.user.profile?.join_date,
-      birth_date: '1990-01-01', // モック用生年月日
-      hometown: '東京都', // モック用出身地
-      residence: '神奈川県', // モック用居住地
-      hobbies: mockMember.user.profile?.hobbies,
-      student_activities: 'テニス部', // モック用学生時代の活動
-      holiday_activities: 'カフェ巡り、散歩', // モック用休日の過ごし方
-      favorite_food: mockMember.user.profile?.favorite_food,
-      favorite_media: '映画、漫画、ドラマ', // モック用好きなメディア
-      favorite_music: 'J-POP、ロック', // モック用好きな音楽
-      pets_oshi: '犬、猫', // モック用ペット・推し
-      respected_person: '父親', // モック用尊敬する人
-      motto: mockMember.user.profile?.motto,
-      future_goals: 'キャリアアップ、スキル向上', // モック用将来の目標
+      id: response.id,
+      display_name: response.display_name,
+      email: response.email,
+      avatar_url: response.avatar_url,
+      department: response.profile?.department,
+      join_date: response.profile?.join_date,
+      birth_date: response.profile?.birth_date,
+      hometown: response.profile?.hometown,
+      residence: response.profile?.residence,
+      hobbies: response.profile?.hobbies,
+      student_activities: response.profile?.student_activities,
+      holiday_activities: response.profile?.holiday_activities,
+      favorite_food: response.profile?.favorite_food,
+      favorite_media: response.profile?.favorite_media,
+      favorite_music: response.profile?.favorite_music,
+      pets_oshi: response.profile?.pets_oshi,
+      respected_person: response.profile?.respected_person,
+      motto: response.profile?.motto,
+      future_goals: response.profile?.future_goals,
     };
   } catch (error) {
     console.error('Failed to fetch member profile:', error);
@@ -133,15 +121,22 @@ export const getMemberProfile = async (memberId: string): Promise<MemberProfile>
 };
 
 /**
- * プレゼンテーション用：モックデータから部署一覧を取得
+ * メンバー一覧から部署一覧を取得
  */
 export const getDepartments = async (): Promise<string[]> => {
   try {
-    // プレゼンテーション用：シミュレーション用の遅延（実際のAPI呼び出しを模擬）
-    await new Promise(resolve => setTimeout(resolve, 300))
+    // メンバー一覧を取得して部署一覧を抽出
+    const members = await getTeamMembers();
+    const departments = new Set<string>();
     
-    const departments = generateDepartments(mockTeamMembers);
-    return departments.map(d => d.name);
+    members.forEach(member => {
+      const department = member.user?.profile?.department;
+      if (department) {
+        departments.add(department);
+      }
+    });
+    
+    return Array.from(departments).sort();
   } catch (error) {
     console.error('Failed to fetch departments:', error);
     return [];
@@ -149,42 +144,40 @@ export const getDepartments = async (): Promise<string[]> => {
 };
 
 /**
- * プレゼンテーション用：モックデータから部署別メンバー数を取得
+ * メンバー一覧から部署別メンバー数を計算
  */
 export const getDepartmentCounts = async () => {
   try {
-    // プレゼンテーション用：シミュレーション用の遅延（実際のAPI呼び出しを模擬）
-    await new Promise(resolve => setTimeout(resolve, 200))
+    // メンバー一覧を取得して部署別にカウント
+    const members = await getTeamMembers();
+    const departmentCounts: {[key: string]: number} = {};
     
-    const departments = generateDepartments(mockTeamMembers);
-    return departments;
+    members.forEach(member => {
+      const department = member.user?.profile?.department || '未設定';
+      departmentCounts[department] = (departmentCounts[department] || 0) + 1;
+    });
+    
+    // 配列形式に変換
+    return Object.entries(departmentCounts).map(([name, count]) => ({
+      name,
+      count
+    }));
   } catch (error) {
-    console.error('Failed to fetch department counts:', error);
+    console.error('Failed to calculate department counts:', error);
     return [];
   }
 };
 
 /**
- * プレゼンテーション用：モックデータから部署別フィルタリングされたメンバーを取得
+ * メンバー一覧から部署別フィルタリングされたメンバーを取得
  */
 export const getMembersByDepartment = async (department: string): Promise<DepartmentMember[]> => {
   try {
-    // プレゼンテーション用：シミュレーション用の遅延
-    await new Promise(resolve => setTimeout(resolve, 400))
-    
-    const filteredMembers = filterMembersByDepartment(mockTeamMembers, department);
-    return filteredMembers.map(member => ({
-      id: member.id,
-      user_id: member.user_id,
-      user: {
-        id: member.user.id,
-        display_name: member.user.display_name,
-        avatar_url: member.user.avatar_url,
-        profile: {
-          department: member.user.profile?.department
-        }
-      }
-    }));
+    // メンバー一覧を取得して部署でフィルタリング
+    const members = await getTeamMembers();
+    return members.filter(member => 
+      member.user?.profile?.department === department
+    );
   } catch (error) {
     console.error('Failed to fetch members by department:', error);
     return [];
@@ -192,26 +185,19 @@ export const getMembersByDepartment = async (department: string): Promise<Depart
 };
 
 /**
- * プレゼンテーション用：モックデータから検索結果を取得
+ * メンバー一覧から検索結果を取得
  */
 export const searchTeamMembers = async (searchTerm: string): Promise<DepartmentMember[]> => {
   try {
-    // プレゼンテーション用：シミュレーション用の遅延
-    await new Promise(resolve => setTimeout(resolve, 600))
+    // メンバー一覧を取得して検索
+    const members = await getTeamMembers();
+    const searchLower = searchTerm.toLowerCase();
     
-    const searchResults = searchMembers(mockTeamMembers, searchTerm);
-    return searchResults.map(member => ({
-      id: member.id,
-      user_id: member.user_id,
-      user: {
-        id: member.user.id,
-        display_name: member.user.display_name,
-        avatar_url: member.user.avatar_url,
-        profile: {
-          department: member.user.profile?.department
-        }
-      }
-    }));
+    return members.filter(member => {
+      const displayName = member.user?.display_name?.toLowerCase() || '';
+      const department = member.user?.profile?.department?.toLowerCase() || '';
+      return displayName.includes(searchLower) || department.includes(searchLower);
+    });
   } catch (error) {
     console.error('Failed to search team members:', error);
     return [];

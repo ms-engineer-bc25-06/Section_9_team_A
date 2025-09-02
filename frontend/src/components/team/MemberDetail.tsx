@@ -3,6 +3,7 @@
 import { useEffect, useState, Fragment  } from "react";
 import { getMemberProfile } from "@/lib/api/teamMembers";
 import type { MemberProfile } from "@/lib/api/teamMembers";
+import { MemberFeedbackList } from "./MemberFeedbackList";
 import {
   User as UserIcon,
   Briefcase,
@@ -170,6 +171,14 @@ export function MemberDetail({ memberId }: Props) {
             </div>
           ))}
         </div>
+      </section>
+
+      {/* 承認されたフィードバック一覧 */}
+      <section className="border-t pt-6">
+        <MemberFeedbackList 
+          memberId={memberId} 
+          memberName={data.display_name}
+        />
       </section>
     </div>
   );

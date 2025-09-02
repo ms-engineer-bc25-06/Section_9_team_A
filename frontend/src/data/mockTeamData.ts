@@ -1,27 +1,29 @@
-export interface MockTeamMember {
-  id: string
-  user_id: string
-  user: {
-    id: string
-    display_name: string
-    avatar_url?: string
-    profile?: {
-      department?: string
-      nickname?: string
-      join_date?: string
-      hobbies?: string
-      favorite_food?: string
-      motto?: string
-    }
-  }
-}
+//モックデータのためコメントアウト
+// export interface MockTeamMember {
+//   id: string
+//   user_id: string
+//   user: {
+//     id: string
+//     display_name: string
+//     avatar_url?: string
+//     profile?: {
+//       department?: string
+//       nickname?: string
+//       join_date?: string
+//       hobbies?: string
+//       favorite_food?: string
+//       motto?: string
+//     }
+//   }
+// }
 
-export interface MockDepartment {
-  name: string
-  color: string
-  badgeColor: string
-  memberCount: number
-}
+// export interface MockDepartment {
+//   name: string
+//   color: string
+//   badgeColor: string
+//   memberCount: number
+// }
+
 
 // プレゼンテーション用のサンプルチームメンバーデータ
 export const mockTeamMembers: MockTeamMember[] = [
@@ -197,16 +199,18 @@ export const mockTeamMembers: MockTeamMember[] = [
   }
 ]
 
-// 部署情報の生成
-export const generateDepartments = (members: MockTeamMember[]): MockDepartment[] => {
-  const departmentMap = new Map<string, number>()
+
+// // 部署情報の生成
+// export const generateDepartments = (members: MockTeamMember[]): MockDepartment[] => {
+//   const departmentMap = new Map<string, number>()
   
-  // 各部署のメンバー数をカウント
-  members.forEach(member => {
-    const dept = member.user.profile?.department || '未設定'
-    departmentMap.set(dept, (departmentMap.get(dept) || 0) + 1)
-  })
+//   // 各部署のメンバー数をカウント
+//   members.forEach(member => {
+//     const dept = member.user.profile?.department || '未設定'
+//     departmentMap.set(dept, (departmentMap.get(dept) || 0) + 1)
+//   })
   
+
   // 部署の色定義
   const departmentColors = {
     'ウェルネス部': { color: 'bg-orange-500 hover:bg-orange-600', badgeColor: 'border-orange-500 text-orange-700 bg-orange-50' },
@@ -218,30 +222,31 @@ export const generateDepartments = (members: MockTeamMember[]): MockDepartment[]
     '総務部': { color: 'bg-indigo-500 hover:bg-indigo-600', badgeColor: 'border-indigo-500 text-indigo-700 bg-indigo-50' },
     '未設定': { color: 'bg-gray-500 hover:bg-gray-600', badgeColor: 'border-gray-500 text-gray-700 bg-gray-50' }
   }
-  
-  return Array.from(departmentMap.entries()).map(([name, count]) => ({
-    name,
-    color: departmentColors[name as keyof typeof departmentColors]?.color || 'bg-gray-500 hover:bg-gray-600',
-    badgeColor: departmentColors[name as keyof typeof departmentColors]?.badgeColor || 'border-gray-500 text-gray-700 bg-gray-50',
-    memberCount: count
-  }))
-}
 
-// 部署別フィルタリング用のヘルパー関数
-export const filterMembersByDepartment = (members: MockTeamMember[], department: string): MockTeamMember[] => {
-  if (department === 'all') return members
-  return members.filter(member => member.user.profile?.department === department)
-}
-
-// 検索用のヘルパー関数
-export const searchMembers = (members: MockTeamMember[], searchTerm: string): MockTeamMember[] => {
-  if (!searchTerm.trim()) return members
   
-  const term = searchTerm.toLowerCase()
-  return members.filter(member => 
-    member.user.display_name.toLowerCase().includes(term) ||
-    member.user.profile?.department?.toLowerCase().includes(term) ||
-    member.user.profile?.nickname?.toLowerCase().includes(term) ||
-    member.user.profile?.hobbies?.toLowerCase().includes(term)
-  )
-}
+//   return Array.from(departmentMap.entries()).map(([name, count]) => ({
+//     name,
+//     color: departmentColors[name as keyof typeof departmentColors]?.color || 'bg-gray-500 hover:bg-gray-600',
+//     badgeColor: departmentColors[name as keyof typeof departmentColors]?.badgeColor || 'border-gray-500 text-gray-700 bg-gray-50',
+//     memberCount: count
+//   }))
+// }
+
+// // 部署別フィルタリング用のヘルパー関数
+// export const filterMembersByDepartment = (members: MockTeamMember[], department: string): MockTeamMember[] => {
+//   if (department === 'all') return members
+//   return members.filter(member => member.user.profile?.department === department)
+// }
+
+// // 検索用のヘルパー関数
+// export const searchMembers = (members: MockTeamMember[], searchTerm: string): MockTeamMember[] => {
+//   if (!searchTerm.trim()) return members
+  
+//   const term = searchTerm.toLowerCase()
+//   return members.filter(member => 
+//     member.user.display_name.toLowerCase().includes(term) ||
+//     member.user.profile?.department?.toLowerCase().includes(term) ||
+//     member.user.profile?.nickname?.toLowerCase().includes(term) ||
+//     member.user.profile?.hobbies?.toLowerCase().includes(term)
+//   )
+// }

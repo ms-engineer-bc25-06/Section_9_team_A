@@ -95,6 +95,7 @@ class ProfileUpdate(BaseModel):
     respected_person: Optional[str] = None
     motto: Optional[str] = None
     future_goals: Optional[str] = None
+    avatar_url: Optional[str] = None
 
 
 class ProfileResponse(BaseModel):

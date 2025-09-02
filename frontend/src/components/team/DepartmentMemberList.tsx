@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar";
+import { getAvatarUrl } from "@/lib/utils/avatarUtils";
 import { 
   Table, 
   TableBody, 
@@ -18,10 +19,11 @@ import {
   Search, 
   Building2,
   Eye,
-  Users
+  Users,
+  User
 } from "lucide-react";
 import { getDepartmentCounts } from '@/lib/api/teamMembers';
-import { MockDepartment } from '@/data/mockTeamData';
+import { getDepartmentColor } from '@/lib/utils/departmentColors';
 
 interface DepartmentMember {
   id: string;
@@ -47,8 +49,11 @@ export default function DepartmentMemberList({
 }: DepartmentMemberListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
-  const [departments, setDepartments] = useState<MockDepartment[]>([]);
+  const [departments, setDepartments] = useState<{name: string, count: number}[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // 部署ごとの色を定義
+
 
   // プレゼンテーション用：部署情報を取得
   useEffect(() => {
@@ -79,6 +84,11 @@ export default function DepartmentMemberList({
       member.user.profile?.department === selectedDepartment;
     
     return matchesSearch && matchesDepartment;
+  }).sort((a, b) => {
+    // 五十音順でソート
+    const nameA = a.user?.display_name || '';
+    const nameB = b.user?.display_name || '';
+    return nameA.localeCompare(nameB, 'ja');
   });
 
   const handleViewProfile = (memberId: string) => {
@@ -137,10 +147,14 @@ export default function DepartmentMemberList({
                 variant={selectedDepartment === dept.name ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setSelectedDepartment(dept.name)}
-                className={`flex items-center gap-2 ${dept.name === 'all' ? '' : dept.color}`}
+                className={`flex items-center gap-2 ${
+                  selectedDepartment === dept.name 
+                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                    : getDepartmentColor(dept.name)
+                }`}
               >
                 <Building2 className="h-4 w-4" />
-                {dept.name} ({dept.memberCount})
+                {dept.name} ({dept.count})
               </Button>
             ))}
           </div>
@@ -167,47 +181,54 @@ export default function DepartmentMemberList({
               <p className="text-sm mt-1">検索条件やフィルターを変更してみてください</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="space-y-3">
               {filteredMembers.map((member) => (
                 <Card 
                   key={member.id} 
-                  className="hover:shadow-md transition-shadow cursor-pointer"
-                  onClick={() => handleViewProfile(member.id)}
+                  className="hover:shadow-md transition-shadow"
                 >
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      {/* アバター */}
-                      <Avatar className="h-12 w-12">
-                        <AvatarImage src={member.user?.avatar_url} />
-                        <AvatarFallback className="text-lg">
-                          {member.user?.display_name?.slice(0, 2) || '??'}
-                        </AvatarFallback>
-                      </Avatar>
-                      
-                      {/* メンバー情報 */}
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-gray-900 truncate">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      {/* 左側: アバターと名前 */}
+                      <div className="flex items-center gap-5 flex-1 mr-8">
+                        <Avatar className="h-16 w-16">
+                          <AvatarImage 
+                            src={getAvatarUrl(member.user?.avatar_url, member.user?.display_name || 'user', 64)} 
+                          />
+                          <AvatarFallback className="text-xl">
+                            {member.user?.display_name?.slice(0, 2) || '??'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <h3 className="font-semibold text-gray-900 text-xl">
                           {member.user?.display_name || '名前未設定'}
                         </h3>
+                      </div>
+                      
+                      {/* 中央: 部署バッジ */}
+                      <div className="flex-shrink-0">
                         {member.user?.profile?.department && (
-                          <Badge variant="outline" className="text-xs mt-1">
+                          <Badge 
+                            variant="outline" 
+                            className={`text-base px-4 py-2 ${getDepartmentColor(member.user.profile.department)}`}
+                          >
+                            <Building2 className="h-4 w-4 mr-2" />
                             {member.user.profile.department}
                           </Badge>
                         )}
                       </div>
                       
-                      {/* 詳細ボタン */}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="shrink-0"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleViewProfile(member.id);
-                        }}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
+                      {/* 右側: 詳細ボタン */}
+                      <div className="flex-shrink-0 flex-1 flex justify-end ml-8">
+                        <Button
+                          variant="outline"
+                          size="default"
+                          className="flex items-center gap-2 text-base px-4 py-2"
+                          onClick={() => handleViewProfile(member.id)}
+                        >
+                          <User className="h-5 w-5" />
+                          詳細
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

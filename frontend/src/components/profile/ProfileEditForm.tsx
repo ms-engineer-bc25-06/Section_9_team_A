@@ -13,7 +13,8 @@ import { Separator } from "@/components/ui/Separator"
 import { Camera, Save, List, AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth/AuthProvider"
-import { mockUserProfile } from "@/data/mockProfileData"
+import { apiGet, apiPut, uploadAvatar } from "@/lib/apiClient"
+import { getAvatarSrc } from "@/lib/utils/avatarUtils"
 
 interface ProfileData {
   full_name?: string
@@ -33,6 +34,8 @@ interface ProfileData {
   respected_person: string
   motto: string
   future_goals: string
+  avatar_url?: string
+  is_first_login?: boolean
 }
 
 const defaultProfile: ProfileData = {
@@ -53,6 +56,7 @@ const defaultProfile: ProfileData = {
   respected_person: "",
   motto: "",
   future_goals: "",
+  avatar_url: "",
 }
 
 export function ProfileEditForm() {
@@ -60,39 +64,42 @@ export function ProfileEditForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [isInitializing, setIsInitializing] = useState(true)
   const [isFirstLogin, setIsFirstLogin] = useState(false)
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [avatarPreview, setAvatarPreview] = useState<string>("")
   const router = useRouter()
   const { user } = useAuth()
 
-  // プレゼンテーション用：モックデータを初期値として使用
+  // 実際のAPIからプロフィールデータを取得
   useEffect(() => {
-    const fetchMockProfile = async () => {
+    const fetchProfile = async () => {
       if (!user) return
       
       try {
-        // シミュレーション用の遅延（実際のAPI呼び出しを模擬）
-        await new Promise(resolve => setTimeout(resolve, 300))
+        console.log("🔍 プロフィール情報を取得中...")
+        const data = await apiGet<ProfileData>("/users/profile")
+        console.log("📊 取得したプロフィール情報:", data)
         
-        // モックデータを設定
         setProfile({
-          full_name: mockUserProfile.full_name,
-          nickname: mockUserProfile.nickname,
-          department: mockUserProfile.department,
-          join_date: mockUserProfile.join_date,
-          birth_date: mockUserProfile.birth_date,
-          hometown: mockUserProfile.hometown,
-          residence: mockUserProfile.residence,
-          hobbies: mockUserProfile.hobbies,
-          student_activities: mockUserProfile.student_activities,
-          holiday_activities: mockUserProfile.holiday_activities,
-          favorite_food: mockUserProfile.favorite_food,
-          favorite_media: mockUserProfile.favorite_media,
-          favorite_music: mockUserProfile.favorite_music,
-          pets_oshi: mockUserProfile.pets_oshi,
-          respected_person: mockUserProfile.respected_person,
-          motto: mockUserProfile.motto,
-          future_goals: mockUserProfile.future_goals,
+          full_name: data.full_name || "",
+          nickname: data.nickname || "",
+          department: data.department || "",
+          join_date: data.join_date ? data.join_date.split('T')[0] : "", // ISO形式から日付部分のみ抽出
+          birth_date: data.birth_date ? data.birth_date.split('T')[0] : "", // ISO形式から日付部分のみ抽出
+          hometown: data.hometown || "",
+          residence: data.residence || "",
+          hobbies: data.hobbies || "",
+          student_activities: data.student_activities || "",
+          holiday_activities: data.holiday_activities || "",
+          favorite_food: data.favorite_food || "",
+          favorite_media: data.favorite_media || "",
+          favorite_music: data.favorite_music || "",
+          pets_oshi: data.pets_oshi || "",
+          respected_person: data.respected_person || "",
+          motto: data.motto || "",
+          future_goals: data.future_goals || "",
+          avatar_url: data.avatar_url || "",
         })
-        setIsFirstLogin(false)
+        setIsFirstLogin(data.is_first_login || false)
       } catch (error) {
         console.error("プロフィール取得エラー:", error)
       } finally {
@@ -100,11 +107,29 @@ export function ProfileEditForm() {
       }
     }
 
-    fetchMockProfile()
+    fetchProfile()
   }, [user])
 
   const handleInputChange = (field: string, value: string) => {
     setProfile((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      setAvatarFile(file)
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setAvatarPreview(e.target?.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const handleAvatarRemove = () => {
+    setAvatarFile(null)
+    setAvatarPreview("")
+    setProfile((prev) => ({ ...prev, avatar_url: "" }))
   }
 
   const handleSave = async () => {
@@ -113,18 +138,45 @@ export function ProfileEditForm() {
     setIsLoading(true)
     
     try {
-      // プレゼンテーション用：シミュレーション用の遅延
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      console.log("💾 プロフィール保存中...", profile)
       
-      // プレゼンテーション用：成功メッセージを表示
+      // アバターファイルがある場合は、まずアップロード処理を行う
+      let avatarUrl = profile.avatar_url
+      if (avatarFile) {
+        console.log("📤 アバター画像をアップロード中...")
+        try {
+          const uploadResult = await uploadAvatar(avatarFile)
+          avatarUrl = uploadResult.avatar_url
+          console.log("✅ アバターアップロード完了:", avatarUrl)
+        } catch (uploadError) {
+          console.error("❌ アバターアップロードエラー:", uploadError)
+          throw new Error(`アバターのアップロードに失敗しました: ${uploadError instanceof Error ? uploadError.message : '不明なエラー'}`)
+        }
+      }
+      
+      // プロフィールデータにアバターURLを設定し、日付形式を適切に処理
+      const profileData = {
+        ...profile,
+        avatar_url: avatarUrl,
+        // 日付が空文字列の場合はnullに変換
+        join_date: profile.join_date || null,
+        birth_date: profile.birth_date || null
+      }
+      
+      // 実際のAPIを呼び出してプロフィールを保存
+      await apiPut('/users/profile', profileData)
+      
+      console.log("✅ プロフィール保存完了")
       alert("プロフィールが保存されました！")
       
-      // 実際の実装ではここでAPIを呼び出す
-      // await apiClient.put('/users/profile', profile)
+      // アバターファイルの状態をリセット
+      setAvatarFile(null)
+      setAvatarPreview("")
       
     } catch (error) {
       console.error("プロフィール保存エラー:", error)
-      alert("プロフィールの保存に失敗しました")
+      const errorMessage = error instanceof Error ? error.message : "プロフィールの保存に失敗しました"
+      alert(`プロフィールの保存に失敗しました: ${errorMessage}`)
     } finally {
       setIsLoading(false)
     }
@@ -151,16 +203,37 @@ export function ProfileEditForm() {
       <Card>
         <CardHeader>
           <div className="flex items-center space-x-6">
-            <div className="relative">
-              <Avatar className="h-24 w-24">
-                <AvatarImage src={`/placeholder.svg?height=96&width=96&query=${profile.full_name || profile.nickname}`} />
-                <AvatarFallback className="text-2xl">
-                  {(profile.full_name || profile.nickname || "ユ").slice(0, 2)}
-                </AvatarFallback>
-              </Avatar>
-              <Button size="sm" className="absolute -bottom-2 -right-2 rounded-full w-8 h-8 p-0">
-                <Camera className="h-4 w-4" />
-              </Button>
+            <div className="relative group">
+                          <Avatar className="h-24 w-24">
+              <AvatarImage 
+                src={getAvatarSrc(avatarPreview, profile.avatar_url, profile.full_name || profile.nickname, 96)} 
+              />
+              <AvatarFallback className="text-2xl">
+                {(profile.full_name || profile.nickname || "ユ").slice(0, 2)}
+              </AvatarFallback>
+            </Avatar>
+              <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <label htmlFor="avatar-upload" className="cursor-pointer">
+                  <Camera className="h-6 w-6 text-white" />
+                </label>
+                <input
+                  id="avatar-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarChange}
+                  className="hidden"
+                />
+              </div>
+              {(avatarPreview || profile.avatar_url) && (
+                <Button 
+                  size="sm" 
+                  variant="destructive"
+                  className="absolute -bottom-2 -right-2 rounded-full w-8 h-8 p-0"
+                  onClick={handleAvatarRemove}
+                >
+                  ×
+                </Button>
+              )}
             </div>
             <div>
               <CardTitle className="text-3xl mb-2">
