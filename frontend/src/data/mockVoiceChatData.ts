@@ -32,45 +32,47 @@
 //   };
 // }
 
-// // プレゼンテーション用：参加者モックデータ
-// export const mockParticipants: MockParticipant[] = [
-//   {
-//     id: "1",
-//     name: "加瀬賢一郎",
-//     status: "away",
-//     avatar_url: "/placeholder.svg?height=40&width=40&query=加瀬賢一郎",
-//     department: "法務部",
-//     isSpeaking: false,
-//     audioLevel: 0.8
-//   },
-//   {
-//     id: "2",
-//     name: "真田梨央",
-//     status: "online",
-//     avatar_url: "/placeholder.svg?height=40&width=40&query=真田梨央",
-//     department: "ウェルネス部",
-//     isSpeaking: false,
-//     audioLevel: 0.3
-//   },
-//   {
-//     id: "3",
-//     name: "宮崎大輝",
-//     status: "away",
-//     avatar_url: "/placeholder.svg?height=40&width=40&query=宮崎大輝",
-//     department: "警備部",
-//     isSpeaking: false,
-//     audioLevel: 0.1
-//   },
-//   {
-//     id: "4",
-//     name: "橘しおり",
-//     status: "away",
-//     avatar_url: "/placeholder.svg?height=40&width=40&query=橘しおり",
-//     department: "広報部",
-//     isSpeaking: false,
-//     audioLevel: 0.0
-//   },
-// ];
+
+// プレゼンテーション用：参加者モックデータ
+export const mockParticipants: MockParticipant[] = [
+  {
+    id: "1",
+    name: "加瀬賢一郎",
+    status: "away",
+    avatar_url: "/placeholder.svg?height=40&width=40&query=加瀬賢一郎",
+    department: "法務部",
+    isSpeaking: false,
+    audioLevel: 0.8
+  },
+  {
+    id: "2",
+    name: "真田梨央",
+    status: "online",
+    avatar_url: "/placeholder.svg?height=40&width=40&query=真田梨央",
+    department: "ウェルネス部",
+    isSpeaking: false,
+    audioLevel: 0.3
+  },
+  {
+    id: "3",
+    name: "宮崎大輝",
+    status: "away",
+    avatar_url: "/placeholder.svg?height=40&width=40&query=宮崎大輝",
+    department: "警備部",
+    isSpeaking: false,
+    audioLevel: 0.1
+  },
+  {
+    id: "4",
+    name: "橘しおり",
+    status: "away",
+    avatar_url: "/placeholder.svg?height=40&width=40&query=橘しおり",
+    department: "広報部",
+    isSpeaking: false,
+    audioLevel: 0.0
+  },
+];
+
 
 // // プレゼンテーション用：トピックモックデータ
 // export const mockTopics: MockTopic[] = [
