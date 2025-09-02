@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
 import { Badge } from "@/components/ui/Badge"
 import { Separator } from "@/components/ui/Separator"
 import { Button } from "@/components/ui/Button"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar"
+import { getAvatarUrl } from "@/lib/utils/avatarUtils"
 import Link from "next/link"
 import { PersonalGrowthEmbed } from "./PersonalGrowthEmbed"
 import { AIAnalysisEmbed } from "./AIAnalysisEmbed"
@@ -27,7 +29,12 @@ import {
   Star,
   Quote,
   Target,
-  BarChart3
+  BarChart3,
+  Building2,
+  Edit,
+  Shield,
+  Bell,
+  Palette
 } from "lucide-react"
 
 interface ProfileTabsProps {
@@ -50,6 +57,7 @@ interface ProfileTabsProps {
     motto: string
     futureGoals: string
     feedback: string[]
+    avatarUrl?: string
   }
   children: React.ReactNode
 }
@@ -65,7 +73,9 @@ export function ProfileTabs({ profile, children }: ProfileTabsProps) {
   const [activeTab, setActiveTab] = useState("basic")
 
   const profileItems = [
+    { icon: User, label: "お名前", value: profile.name },
     { icon: User, label: "ニックネーム", value: profile.nickname },
+    { icon: Building2, label: "部署", value: profile.department || "未設定" },
     { icon: Calendar, label: "入社年月", value: profile.joinDate },
     { icon: Calendar, label: "生年月日", value: profile.birthDate },
     { icon: MapPin, label: "出身地", value: profile.hometown },
@@ -128,12 +138,105 @@ export function ProfileTabs({ profile, children }: ProfileTabsProps) {
       case "settings":
         return (
           <div className="space-y-6">
+            {/* プロフィール編集セクション */}
             <Card>
               <CardHeader>
-                <CardTitle>プロフィール設定</CardTitle>
+                <div className="flex items-center space-x-2">
+                  <Edit className="h-5 w-5 text-blue-600" />
+                  <CardTitle>プロフィール編集</CardTitle>
+                </div>
               </CardHeader>
-              <CardContent>
-                <p className="text-gray-600">プロフィールの編集機能は現在開発中です。</p>
+              <CardContent className="space-y-4">
+                <p className="text-gray-600 mb-4">
+                  プロフィール情報を編集・更新できます。
+                </p>
+                <Link href="/profile/edit">
+                  <Button className="w-full sm:w-auto">
+                    <Edit className="h-4 w-4 mr-2" />
+                    プロフィールを編集
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+
+            {/* プライバシー設定セクション */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center space-x-2">
+                  <Shield className="h-5 w-5 text-green-600" />
+                  <CardTitle>プライバシー設定</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-gray-600 mb-4">
+                  プロフィールの公開範囲やAI分析結果の表示設定を管理できます。
+                </p>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <Brain className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm font-medium">AI分析結果の公開</span>
+                    </div>
+                    <Badge variant="secondary">公開中</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <MessageSquare className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm font-medium">フィードバックの表示</span>
+                    </div>
+                    <Badge variant="secondary">表示中</Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 通知設定セクション */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center space-x-2">
+                  <Bell className="h-5 w-5 text-orange-600" />
+                  <CardTitle>通知設定</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-gray-600 mb-4">
+                  プロフィール関連の通知設定を管理できます。
+                </p>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <span className="text-sm font-medium">新しいフィードバック</span>
+                    <Badge variant="outline">有効</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <span className="text-sm font-medium">AI分析完了</span>
+                    <Badge variant="outline">有効</Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 表示設定セクション */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center space-x-2">
+                  <Palette className="h-5 w-5 text-purple-600" />
+                  <CardTitle>表示設定</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-gray-600 mb-4">
+                  プロフィールの表示方法をカスタマイズできます。
+                </p>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <span className="text-sm font-medium">ダークモード</span>
+                    <Badge variant="outline">システム設定</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <span className="text-sm font-medium">コンパクト表示</span>
+                    <Badge variant="outline">無効</Badge>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -150,14 +253,26 @@ export function ProfileTabs({ profile, children }: ProfileTabsProps) {
       <Card className="mb-6">
         <CardHeader>
           <div className="flex items-center space-x-6">
-            <div className="h-24 w-24 rounded-full bg-gray-200 flex items-center justify-center">
-              <span className="text-2xl text-gray-600">{profile.name.slice(0, 2)}</span>
-            </div>
+            <Avatar className="h-24 w-24">
+              <AvatarImage 
+                src={getAvatarUrl(profile.avatarUrl, profile.name, 96)} 
+                alt={profile.name} 
+              />
+              <AvatarFallback className="text-2xl">
+                {profile.name.slice(0, 2)}
+              </AvatarFallback>
+            </Avatar>
             <div>
               <CardTitle className="text-3xl mb-2">{profile.name}</CardTitle>
-              <Badge variant="secondary" className="text-lg px-3 py-1">
-                {profile.department}
-              </Badge>
+              {profile.department ? (
+                <Badge variant="secondary" className="text-lg px-3 py-1">
+                  {profile.department}
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-lg px-3 py-1 text-gray-500">
+                  部署未設定
+                </Badge>
+              )}
             </div>
           </div>
         </CardHeader>

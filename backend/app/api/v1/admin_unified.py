@@ -5,17 +5,23 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
+import stripe
 from typing import List, Optional, Dict, Any
+from sqlalchemy import func, select, text
+from datetime import datetime
 
 from app.core.database import get_db
 from app.core.auth import get_current_active_user, get_current_admin_user
 from app.models.user import User
+from app.models.organization import Organization
+from app.models.organization_member import OrganizationMember
 from app.schemas.admin_role import (
     RoleCreate, RoleUpdate, RoleResponse, RoleListResponse
 )
 from app.schemas.admin_billing import (
     AdminBillingCreate, AdminBillingUpdate, AdminBillingResponse,
-    AdminBillingListResponse, BillingSummary
+    AdminBillingListResponse, BillingSummary, UserCountInfo,
+    CreateCheckoutSessionRequest, CheckoutSessionResponse
 )
 from app.schemas.audit_log import (
     AuditLogResponse, AuditLogListResponse, AuditLogFilter
@@ -23,9 +29,13 @@ from app.schemas.audit_log import (
 from app.services.role_service import RoleService
 from app.services.billing_service import BillingService
 from app.services.audit_log_service import AuditLogService
+from app.config import settings
 
 router = APIRouter()
 logger = structlog.get_logger()
+
+# Stripe設定
+stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
 # ==================== 管理者ロール管理 ====================
@@ -261,6 +271,148 @@ async def update_admin_billing(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="管理者決済の更新に失敗しました"
+        )
+
+
+@router.get("/billing/user-count", response_model=UserCountInfo)
+async def get_user_count(
+    current_admin: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    管理者用：システム全体の利用者数を取得
+    """
+    try:
+        # まず、usersテーブルから総ユーザー数を取得してみる
+        try:
+            result = await db.execute(
+                select(func.count()).select_from(text("users"))
+            )
+            total_users = result.scalar() or 0
+            logger.info(f"usersテーブルから取得した総ユーザー数: {total_users}")
+        except Exception as e:
+            logger.warning(f"usersテーブルからの取得でエラー: {e}")
+            total_users = 0
+        
+        # 組織関連の情報を取得してみる
+        organizations_over_limit = 0
+        total_additional_cost = 0
+        
+        try:
+            # organizationsテーブルが存在するか確認
+            result = await db.execute(
+                select(func.count()).select_from(text("organizations"))
+            )
+            org_count = result.scalar() or 0
+            logger.info(f"organizationsテーブルから取得した組織数: {org_count}")
+            
+            if org_count > 0:
+                # 組織が存在する場合、基本的な計算を行う
+                # 仮定: 各組織は10人まで無料、超過分は500円/人
+                free_limit = 10
+                cost_per_user = 500
+                
+                if total_users > free_limit:
+                    organizations_over_limit = 1
+                    total_additional_cost = (total_users - free_limit) * cost_per_user
+                    
+        except Exception as e:
+            logger.warning(f"organizationsテーブルからの取得でエラー: {e}")
+            # 組織情報が取得できない場合のデフォルト計算
+            free_limit = 10
+            cost_per_user = 500
+            
+            if total_users > free_limit:
+                organizations_over_limit = 1
+                total_additional_cost = (total_users - free_limit) * cost_per_user
+        
+        return UserCountInfo(
+            total_users=total_users,
+            organizations_over_limit=organizations_over_limit,
+            total_additional_cost=total_additional_cost
+        )
+        
+    except Exception as e:
+        logger.error("利用者数の取得でエラー", error=str(e), admin_id=current_admin.id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"利用者数の取得に失敗しました: {str(e)}"
+        )
+
+
+# ==================== Stripe決済管理 ====================
+
+@router.post("/billing/checkout", response_model=CheckoutSessionResponse)
+async def create_checkout_session(
+    request: CreateCheckoutSessionRequest,
+    current_admin: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Stripe Checkoutセッションを作成"""
+    try:
+        # 日本円の場合は円単位のまま（Stripeの日本円は円単位で処理）
+        amount_for_stripe = int(request.amount)
+        
+        # デバッグ用ログ
+        logger.info(
+            "決済セッション作成リクエスト",
+            admin_id=current_admin.id,
+            original_amount=request.amount,
+            amount_for_stripe=amount_for_stripe,
+            additional_users=request.additional_users
+        )
+        
+        # Stripe Checkoutセッションを作成
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': 'jpy',  # 日本円に戻す
+                    'product_data': {
+                        'name': f'追加ユーザー {request.additional_users}人',
+                        'description': f'月額利用料金（{request.additional_users}人分）',
+                    },
+                    'unit_amount': amount_for_stripe,
+                },
+                'quantity': 1,
+            }],
+            mode='payment',
+            success_url=f"{settings.FRONTEND_URL}/admin/billing/success?session_id={{CHECKOUT_SESSION_ID}}&amount={request.amount}&additional_users={request.additional_users}&organization_id={request.organization_id}",
+            cancel_url=f"{settings.FRONTEND_URL}/admin/billing?canceled=true",
+            metadata={
+                'additional_users': str(request.additional_users),
+                'organization_id': str(request.organization_id),
+                'admin_id': str(current_admin.id)
+            },
+            customer_email=current_admin.email,
+            locale='ja'
+        )
+        
+        logger.info(
+            "Stripe Checkoutセッション作成完了",
+            admin_id=current_admin.id,
+            session_id=checkout_session.id,
+            amount=request.amount,
+            additional_users=request.additional_users
+        )
+        
+        return CheckoutSessionResponse(
+            session_id=checkout_session.id,
+            checkout_url=checkout_session.url,
+            expires_at=datetime.fromtimestamp(checkout_session.expires_at) if checkout_session.expires_at else None
+        )
+        
+    except stripe.error.StripeError as e:
+        logger.error("Stripe決済エラー", error=str(e), admin_id=current_admin.id)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"決済セッションの作成に失敗しました: {str(e)}"
+        )
+    except Exception as e:
+        logger.error("決済セッション作成でエラー", error=str(e), admin_id=current_admin.id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="決済セッションの作成に失敗しました"
         )
 
 

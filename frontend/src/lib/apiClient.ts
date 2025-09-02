@@ -22,8 +22,33 @@ export async function getAuthToken(): Promise<string | null> {
   try {
     const auth = getAuth();
     const user = auth.currentUser;
-    if (!user) return null;
-    return await user.getIdToken();
+    if (!user) {
+      console.warn("getAuthToken: ユーザーが認証されていません")
+      return null;
+    }
+    
+    const token = await user.getIdToken();
+    
+    // トークンの妥当性チェック
+    if (!token || typeof token !== 'string') {
+      console.warn("getAuthToken: 無効なトークンが取得されました")
+      return null;
+    }
+    
+    // トークンの長さチェック（異常に長いトークンを防ぐ）
+    if (token.length > 5000) {
+      console.error("getAuthToken: トークンが異常に長いです。認証に問題がある可能性があります")
+      return null;
+    }
+    
+    // JWTトークンの形式チェック（基本的な検証）
+    if (!token.includes('.') || token.split('.').length !== 3) {
+      console.error("getAuthToken: トークンの形式が不正です")
+      return null;
+    }
+    
+    console.log("getAuthToken: 有効なFirebase IDトークンを取得しました（長さ:", token.length, "文字）")
+    return token;
   } catch (error) {
     console.error("Firebaseトークン取得エラー:", error);
     return null;
@@ -100,6 +125,7 @@ async function handleResponse<T>(res: Response, label: string): Promise<T> {
 
 // 基本的なAPI関数
 export const apiClient = {
+  // 個別の関数としてもエクスポート
   get: async <T = any>(url: string, options?: RequestInit): Promise<T> => {
     const response = await fetchWithAuth(url, { ...options, method: 'GET' });
     return handleResponse<T>(response, `GET ${url}`);
@@ -137,5 +163,38 @@ export const apiClient = {
     return handleResponse<T>(response, `PATCH ${url}`);
   },
 };
+
+// 個別の関数としてもエクスポート（useProfile.tsとの互換性のため）
+export const apiGet = apiClient.get;
+export const apiPost = apiClient.post;
+export const apiPut = apiClient.put;
+export const apiDelete = apiClient.delete;
+export const apiPatch = apiClient.patch;
+
+// アバターアップロード用の関数
+export async function uploadAvatar(file: File): Promise<{ avatar_url: string }> {
+  const token = await getAuthToken();
+  if (!token) {
+    throw new Error("認証トークンが取得できません");
+  }
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch(buildUrl('/users/avatar'), {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+  }
+
+  return response.json();
+}
 
 export default apiClient;

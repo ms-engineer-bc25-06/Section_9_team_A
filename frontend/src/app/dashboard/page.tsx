@@ -49,7 +49,11 @@ const DashboardPage: React.FC = () => {
     )
   }
 
-  return <DashboardCards />
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <DashboardCards />
+    </div>
+  )
 }
 
 export default DashboardPage

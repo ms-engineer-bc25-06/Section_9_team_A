@@ -64,3 +64,69 @@ class BillingSummary(BaseModel):
     currency: str
     period_start: datetime
     period_end: datetime
+
+
+# 管理者用決済・課金APIで使用するスキーマ
+
+class OrganizationBillingInfo(BaseModel):
+    """組織の決済・課金情報スキーマ"""
+    organization_id: int
+    organization_name: str
+    organization_slug: str
+    member_count: int
+    free_user_limit: int
+    cost_per_user: int
+    is_over_limit: bool
+    additional_users: int
+    additional_cost: int
+    subscription_status: Optional[str] = None
+    stripe_customer_id: Optional[str] = None
+    last_payment_date: Optional[datetime] = None
+    last_payment_amount: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
+class BillingSummaryResponse(BaseModel):
+    """決済・課金サマリーレスポンススキーマ"""
+    total_organizations: int
+    total_users: int
+    total_additional_cost: int
+    organizations_over_limit: int
+    organizations: List[OrganizationBillingInfo]
+
+    class Config:
+        from_attributes = True
+
+
+class UserCountInfo(BaseModel):
+    """利用者数情報スキーマ"""
+    total_users: int
+    organizations_over_limit: int
+    total_additional_cost: int
+
+    class Config:
+        from_attributes = True
+
+
+class CreateCheckoutSessionRequest(BaseModel):
+    """Stripe Checkout Session作成リクエストスキーマ"""
+    organization_id: int
+    additional_users: int
+    amount: int  # セント単位
+    currency: str = "JPY"
+    return_url: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class CheckoutSessionResponse(BaseModel):
+    """Stripe Checkout Session作成レスポンススキーマ"""
+    session_id: str
+    checkout_url: str
+    expires_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True

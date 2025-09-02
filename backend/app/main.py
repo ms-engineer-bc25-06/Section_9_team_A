@@ -1,9 +1,11 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 import structlog
+import os
 
 from app.config import settings
 from app.api.v1.api import api_router
@@ -38,6 +40,18 @@ async def lifespan(app: FastAPI):
     """アプリケーションのライフサイクル管理"""
     # 起動時
     logger.info("Starting Bridge Line API server")
+
+    # Firebase初期化を確実に実行
+    try:
+        from app.core.auth import get_firebase_app
+
+        firebase_app = get_firebase_app()
+        if firebase_app:
+            logger.info("Firebase initialized successfully during startup")
+        else:
+            logger.warning("Firebase initialization failed during startup")
+    except Exception as e:
+        logger.error(f"Firebase initialization error during startup: {e}")
 
     # データベースマイグレーションは Alembic を使用（自動作成は行わない）
     logger.info("Skipping automatic table creation. Use Alembic migrations instead.")
@@ -92,6 +106,11 @@ app.add_middleware(
 # Trusted Host設定（開発環境では無効化）
 if settings.ENVIRONMENT == "production":
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=["localhost", "127.0.0.1"])
+
+# 静的ファイルの提供設定
+uploads_dir = "uploads"
+if os.path.exists(uploads_dir):
+    app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
 
 # 例外ハンドラー追加

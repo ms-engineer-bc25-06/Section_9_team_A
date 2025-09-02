@@ -10,12 +10,14 @@ import { Textarea } from "@/components/ui/Textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar"
 import { Badge } from "@/components/ui/Badge"
 import { Separator } from "@/components/ui/Separator"
-import { Camera, Save, List } from "lucide-react"
+import { Camera, Save, List, AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth/AuthProvider"
-import { fetchWithAuth } from "@/lib/auth"
+import { apiGet, apiPut, uploadAvatar } from "@/lib/apiClient"
+import { getAvatarSrc } from "@/lib/utils/avatarUtils"
 
 interface ProfileData {
+  full_name?: string
   nickname: string
   department: string
   join_date: string
@@ -32,9 +34,12 @@ interface ProfileData {
   respected_person: string
   motto: string
   future_goals: string
+  avatar_url?: string
+  is_first_login?: boolean
 }
 
 const defaultProfile: ProfileData = {
+  full_name: "",
   nickname: "",
   department: "",
   join_date: "",
@@ -51,28 +56,50 @@ const defaultProfile: ProfileData = {
   respected_person: "",
   motto: "",
   future_goals: "",
+  avatar_url: "",
 }
 
 export function ProfileEditForm() {
   const [profile, setProfile] = useState<ProfileData>(defaultProfile)
   const [isLoading, setIsLoading] = useState(false)
   const [isInitializing, setIsInitializing] = useState(true)
+  const [isFirstLogin, setIsFirstLogin] = useState(false)
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [avatarPreview, setAvatarPreview] = useState<string>("")
   const router = useRouter()
   const { user } = useAuth()
 
-  // 初期データの取得
+  // 実際のAPIからプロフィールデータを取得
   useEffect(() => {
     const fetchProfile = async () => {
       if (!user) return
       
       try {
-        const response = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/api/v1/users/profile`)
-        if (response.ok) {
-          const data = await response.json()
-          setProfile(data)
-        } else {
-          console.warn("プロフィール取得に失敗しました")
-        }
+        console.log("🔍 プロフィール情報を取得中...")
+        const data = await apiGet<ProfileData>("/users/profile")
+        console.log("📊 取得したプロフィール情報:", data)
+        
+        setProfile({
+          full_name: data.full_name || "",
+          nickname: data.nickname || "",
+          department: data.department || "",
+          join_date: data.join_date ? data.join_date.split('T')[0] : "", // ISO形式から日付部分のみ抽出
+          birth_date: data.birth_date ? data.birth_date.split('T')[0] : "", // ISO形式から日付部分のみ抽出
+          hometown: data.hometown || "",
+          residence: data.residence || "",
+          hobbies: data.hobbies || "",
+          student_activities: data.student_activities || "",
+          holiday_activities: data.holiday_activities || "",
+          favorite_food: data.favorite_food || "",
+          favorite_media: data.favorite_media || "",
+          favorite_music: data.favorite_music || "",
+          pets_oshi: data.pets_oshi || "",
+          respected_person: data.respected_person || "",
+          motto: data.motto || "",
+          future_goals: data.future_goals || "",
+          avatar_url: data.avatar_url || "",
+        })
+        setIsFirstLogin(data.is_first_login || false)
       } catch (error) {
         console.error("プロフィール取得エラー:", error)
       } finally {
@@ -87,33 +114,69 @@ export function ProfileEditForm() {
     setProfile((prev) => ({ ...prev, [field]: value }))
   }
 
-  const handleSave = async () => {
-    if (!user) {
-      alert("ログインが必要です")
-      return
+  const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      setAvatarFile(file)
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setAvatarPreview(e.target?.result as string)
+      }
+      reader.readAsDataURL(file)
     }
+  }
+
+  const handleAvatarRemove = () => {
+    setAvatarFile(null)
+    setAvatarPreview("")
+    setProfile((prev) => ({ ...prev, avatar_url: "" }))
+  }
+
+  const handleSave = async () => {
+    if (!user) return
 
     setIsLoading(true)
     
     try {
-      const response = await fetchWithAuth(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/api/v1/users/profile`,
-        {
-          method: "PUT",
-          body: JSON.stringify(profile)
+      console.log("💾 プロフィール保存中...", profile)
+      
+      // アバターファイルがある場合は、まずアップロード処理を行う
+      let avatarUrl = profile.avatar_url
+      if (avatarFile) {
+        console.log("📤 アバター画像をアップロード中...")
+        try {
+          const uploadResult = await uploadAvatar(avatarFile)
+          avatarUrl = uploadResult.avatar_url
+          console.log("✅ アバターアップロード完了:", avatarUrl)
+        } catch (uploadError) {
+          console.error("❌ アバターアップロードエラー:", uploadError)
+          throw new Error(`アバターのアップロードに失敗しました: ${uploadError instanceof Error ? uploadError.message : '不明なエラー'}`)
         }
-      )
-
-      if (response.ok) {
-        alert("プロフィールを更新しました")
-        router.push("/profile")
-      } else {
-        const errorData = await response.json()
-        alert(`更新に失敗しました: ${errorData.detail || "エラーが発生しました"}`)
       }
+      
+      // プロフィールデータにアバターURLを設定し、日付形式を適切に処理
+      const profileData = {
+        ...profile,
+        avatar_url: avatarUrl,
+        // 日付が空文字列の場合はnullに変換
+        join_date: profile.join_date || null,
+        birth_date: profile.birth_date || null
+      }
+      
+      // 実際のAPIを呼び出してプロフィールを保存
+      await apiPut('/users/profile', profileData)
+      
+      console.log("✅ プロフィール保存完了")
+      alert("プロフィールが保存されました！")
+      
+      // アバターファイルの状態をリセット
+      setAvatarFile(null)
+      setAvatarPreview("")
+      
     } catch (error) {
-      console.error("保存エラー:", error)
-      alert("保存中にエラーが発生しました")
+      console.error("プロフィール保存エラー:", error)
+      const errorMessage = error instanceof Error ? error.message : "プロフィールの保存に失敗しました"
+      alert(`プロフィールの保存に失敗しました: ${errorMessage}`)
     } finally {
       setIsLoading(false)
     }
@@ -140,17 +203,45 @@ export function ProfileEditForm() {
       <Card>
         <CardHeader>
           <div className="flex items-center space-x-6">
-            <div className="relative">
-              <Avatar className="h-24 w-24">
-                <AvatarImage src={`/placeholder.svg?height=96&width=96&query=${profile.nickname}`} />
-                <AvatarFallback className="text-2xl">{profile.nickname.slice(0, 2) || "ユ"}</AvatarFallback>
-              </Avatar>
-              <Button size="sm" className="absolute -bottom-2 -right-2 rounded-full w-8 h-8 p-0">
-                <Camera className="h-4 w-4" />
-              </Button>
+            <div className="relative group">
+                          <Avatar className="h-24 w-24">
+              <AvatarImage 
+                src={getAvatarSrc(avatarPreview, profile.avatar_url, profile.full_name || profile.nickname, 96)} 
+              />
+              <AvatarFallback className="text-2xl">
+                {(profile.full_name || profile.nickname || "ユ").slice(0, 2)}
+              </AvatarFallback>
+            </Avatar>
+              <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <label htmlFor="avatar-upload" className="cursor-pointer">
+                  <Camera className="h-6 w-6 text-white" />
+                </label>
+                <input
+                  id="avatar-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarChange}
+                  className="hidden"
+                />
+              </div>
+              {(avatarPreview || profile.avatar_url) && (
+                <Button 
+                  size="sm" 
+                  variant="destructive"
+                  className="absolute -bottom-2 -right-2 rounded-full w-8 h-8 p-0"
+                  onClick={handleAvatarRemove}
+                >
+                  ×
+                </Button>
+              )}
             </div>
             <div>
-              <CardTitle className="text-3xl mb-2">{profile.nickname || "ニックネーム未設定"}</CardTitle>
+              <CardTitle className="text-3xl mb-2">
+                {profile.full_name || profile.nickname || "名前未設定"}
+              </CardTitle>
+              {profile.nickname && profile.nickname !== profile.full_name && (
+                <p className="text-lg text-gray-600 mb-2">({profile.nickname})</p>
+              )}
               <Badge variant="secondary" className="text-lg px-3 py-1">
                 {profile.department || "部署未設定"}
               </Badge>
@@ -161,16 +252,40 @@ export function ProfileEditForm() {
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <Label htmlFor="nickname">ニックネーム</Label>
-              <Input id="nickname" value={profile.nickname} onChange={(e) => handleInputChange("nickname", e.target.value)} />
+              <Label htmlFor="full_name" className="flex items-center gap-2">
+                お名前
+                {isFirstLogin && <span className="text-red-500 text-sm">*</span>}
+              </Label>
+              <Input 
+                id="full_name" 
+                value={profile.full_name || ""} 
+                onChange={(e) => handleInputChange("full_name", e.target.value)}
+                placeholder="田中太郎"
+              />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="department">部署</Label>
+              <Label htmlFor="nickname">
+                ニックネーム
+              </Label>
+              <Input 
+                id="nickname" 
+                value={profile.nickname || ""} 
+                onChange={(e) => handleInputChange("nickname", e.target.value)}
+                placeholder="たなちゃん"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="department" className="flex items-center gap-2">
+                部署
+                {isFirstLogin && <span className="text-red-500 text-sm">*</span>}
+              </Label>
               <Input
                 id="department"
                 value={profile.department}
                 onChange={(e) => handleInputChange("department", e.target.value)}
+                placeholder="開発部"
               />
             </div>
 
@@ -323,9 +438,12 @@ export function ProfileEditForm() {
               フィードバック一覧
             </Button>
 
-            <Button onClick={handleSave} disabled={isLoading}>
-              <Save className="h-4 w-4 mr-2" />
-              {isLoading ? "保存中..." : "保存"}
+            <Button 
+              onClick={handleSave} 
+              disabled={isLoading || (isFirstLogin && (!profile.full_name?.trim() || !profile.department?.trim()))}
+              className={isFirstLogin ? "bg-blue-600 hover:bg-blue-700" : ""}
+            >
+              {isLoading ? "保存中..." : "プロフィールを更新"}
             </Button>
           </div>
         </CardContent>

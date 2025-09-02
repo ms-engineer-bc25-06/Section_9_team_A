@@ -149,6 +149,8 @@ class FirebaseAuthResponse(BaseModel):
     access_token: str
     token_type: str
     expires_in: int
+    has_temporary_password: bool
+    needs_password_setup: bool
     user: UserResponse
 
 

@@ -177,25 +177,32 @@ export default function PersonalGrowthPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* マイプロフィールに戻るリンク */}
-      <div className="mb-6">
-        <Link href="/profile">
-          <Button variant="ghost" size="sm">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            マイプロフィールに戻る
-          </Button>
-        </Link>
-      </div>
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-sm border-b">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <Link href="/dashboard">
+              <Button variant="ghost" size="sm">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                ダッシュボードへ戻る
+              </Button>
+            </Link>
+            <h1 className="text-2xl font-bold text-gray-900 absolute left-1/2 transform -translate-x-1/2">
+              個人成長支援
+            </h1>
+            <div className="w-32">
+              {/* 右側のスペースを確保して中央配置を維持 */}
+            </div>
+          </div>
+        </div>
+      </header>
 
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          個人成長支援
-        </h1>
-        <p className="text-gray-600">
-          AI分析に基づく個別化された成長計画で、あなたのスキル向上をサポートします
-        </p>
-      </div>
+      <main className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <p className="text-gray-600">
+            AI分析に基づく個別化された成長計画で、あなたのスキル向上をサポートします
+          </p>
+        </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList className="grid w-full grid-cols-6">
@@ -717,6 +724,7 @@ export default function PersonalGrowthPage() {
           </Card>
         </TabsContent>
       </Tabs>
+      </main>
     </div>
   );
 }

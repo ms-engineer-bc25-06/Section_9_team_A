@@ -15,7 +15,7 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     if (!user && !isLoading) {
-      router.push("/")
+      router.push("/admin/login")
     }
   }, [user, isLoading, router])
 
@@ -29,16 +29,17 @@ export default function AdminUsersPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-gradient-to-br from-orange-50 to-amber-50 shadow-sm border-b border-orange-200">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center justify-between">
             <Link href="/admin/dashboard">
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 ダッシュボードへ戻る
               </Button>
             </Link>
-            <h1 className="text-2xl font-bold text-gray-900">ユーザー管理</h1>
+            <h1 className="text-2xl font-bold text-orange-900 flex-1 text-center">ユーザー管理</h1>
+            <div className="w-32"></div>
           </div>
         </div>
       </header>

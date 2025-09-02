@@ -13,13 +13,15 @@ import {
   Plus,
   Download,
   Share2,
-  Settings
+  Settings,
+  ArrowLeft
 } from "lucide-react"
 import { AnalysisHistory } from "@/components/analytics/AnalysisHistory"
 import { AIAnalysisReport } from "@/components/analytics/AIAnalysisReport"
 import { useAIAnalysis } from "@/hooks/useAIAnalysis"
 import { useRealtimeAnalysis } from "@/hooks/useRealtimeAnalysis"
 import { AnalysisResponse } from "@/lib/api/analytics"
+import Link from "next/link"
 
 export default function AnalyticsPage() {
   const { analyses, isLoading, error, createAnalysis } = useAIAnalysis()
@@ -118,16 +120,35 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="space-y-8">
-        {/* ページヘッダー */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">AI分析ダッシュボード</h1>
-            <p className="text-gray-600 mt-2">
-              コミュニケーション分析結果の詳細な洞察と成長の可視化
-            </p>
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-sm border-b">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <Link href="/dashboard">
+              <Button variant="ghost" size="sm">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                ダッシュボードへ戻る
+              </Button>
+            </Link>
+            <h1 className="text-2xl font-bold text-gray-900 absolute left-1/2 transform -translate-x-1/2">
+              AI分析ダッシュボード
+            </h1>
+            <div className="w-32">
+              {/* 右側のスペースを確保して中央配置を維持 */}
+            </div>
           </div>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-4 py-8">
+        <div className="space-y-8">
+          {/* ページヘッダー */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-gray-600">
+                コミュニケーション分析結果の詳細な洞察と成長の可視化
+              </p>
+            </div>
           <div className="flex items-center space-x-3">
             <Button
               variant="outline"
@@ -386,7 +407,8 @@ export default function AnalyticsPage() {
             )}
           </TabsContent>
         </Tabs>
-      </div>
+        </div>
+      </main>
     </div>
   )
 }

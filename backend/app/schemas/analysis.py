@@ -97,6 +97,13 @@ class AnalysisCreate(AnalysisBase):
     user_id: int = Field(..., description="ユーザーID")
 
 
+class AnalysisRequest(BaseModel):
+    """分析リクエスト用スキーマ"""
+    text_content: str = Field(..., description="分析対象のテキスト")
+    analysis_types: List[str] = Field(..., description="分析タイプのリスト")
+    user_context: Optional[Dict[str, Any]] = Field(None, description="ユーザーコンテキスト")
+
+
 class AnalysisUpdate(BaseModel):
     """分析更新用スキーマ"""
     title: Optional[str] = Field(None, description="分析タイトル")

@@ -32,13 +32,35 @@ export function AnalysisSelectionDialog({ isOpen, onClose, onSelect }: AnalysisS
   const [loading, setLoading] = useState(false)
   const [selectedAnalysis, setSelectedAnalysis] = useState<Analysis | null>(null)
 
-  // モックデータ（実際の実装ではAPIから取得）
+  // 実際のAPIからデータを取得
   useEffect(() => {
     if (isOpen) {
-      setLoading(true)
-      // シミュレーション用の遅延
-      setTimeout(() => {
-        const mockAnalyses: Analysis[] = [
+      const fetchAnalyses = async () => {
+        try {
+          setLoading(true)
+          // TODO: 実際のAPIエンドポイントに置き換える
+          // const response = await apiGet<Analysis[]>('/analyses/my');
+          // setAnalyses(response);
+          // setFilteredAnalyses(response);
+          
+          // 一時的に空のデータを設定
+          setAnalyses([]);
+          setFilteredAnalyses([]);
+        } catch (error) {
+          console.error('分析データの取得に失敗:', error);
+          setAnalyses([]);
+          setFilteredAnalyses([]);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchAnalyses();
+    }
+  }, [isOpen]);
+
+  // モックデータ（開発用）
+  const mockAnalyses: Analysis[] = [
           {
             id: 1,
             title: "コミュニケーションスタイル分析",
@@ -80,12 +102,10 @@ export function AnalysisSelectionDialog({ isOpen, onClose, onSelect }: AnalysisS
             user_name: "田中太郎"
           }
         ]
-        setAnalyses(mockAnalyses)
-        setFilteredAnalyses(mockAnalyses)
-        setLoading(false)
-      }, 500)
-    }
-  }, [isOpen])
+        // モックデータは使用しない
+        // setAnalyses(mockAnalyses)
+        // setFilteredAnalyses(mockAnalyses)
+        // setLoading(false)
 
   // 検索フィルタリング
   useEffect(() => {

@@ -1,7 +1,8 @@
-from typing import Optional, List, Dict, Any, Literal
-from pydantic import BaseModel, Field
+from typing import Optional, List, Dict, Any, Literal, Union
+from pydantic import BaseModel, Field, validator, root_validator
 from datetime import datetime
 from enum import Enum
+import re
 
 
 class WebSocketMessageType(str, Enum):
@@ -98,6 +99,202 @@ class WebSocketMessageType(str, Enum):
     # エラー関連
     ERROR = "error"
     WARNING = "warning"
+
+
+class WebSocketMessageValidator:
+    """WebSocketメッセージのバリデーションクラス"""
+
+    @staticmethod
+    def validate_message_structure(
+        message: Dict[str, Any],
+    ) -> tuple[bool, Optional[str]]:
+        """メッセージの基本構造を検証"""
+        if not isinstance(message, dict):
+            return False, "Message must be a JSON object"
+
+        if "type" not in message:
+            return False, "Message must contain 'type' field"
+
+        if not isinstance(message["type"], str):
+            return False, "Message type must be a string"
+
+        return True, None
+
+    @staticmethod
+    def validate_message_type(message_type: str) -> tuple[bool, Optional[str]]:
+        """メッセージタイプの妥当性を検証"""
+        try:
+            WebSocketMessageType(message_type)
+            return True, None
+        except ValueError:
+            return False, f"Invalid message type: {message_type}"
+
+    @staticmethod
+    def validate_required_fields(
+        message: Dict[str, Any], required_fields: List[str]
+    ) -> tuple[bool, Optional[str]]:
+        """必須フィールドの存在を検証"""
+        missing_fields = []
+        for field in required_fields:
+            if field not in message:
+                missing_fields.append(field)
+
+        if missing_fields:
+            return False, f"Missing required fields: {', '.join(missing_fields)}"
+
+        return True, None
+
+    @staticmethod
+    def validate_field_types(
+        message: Dict[str, Any], field_types: Dict[str, type]
+    ) -> tuple[bool, Optional[str]]:
+        """フィールドの型を検証"""
+        for field, expected_type in field_types.items():
+            if field in message:
+                if not isinstance(message[field], expected_type):
+                    return (
+                        False,
+                        f"Field '{field}' must be of type {expected_type.__name__}",
+                    )
+
+        return True, None
+
+    @staticmethod
+    def validate_session_id(session_id: str) -> tuple[bool, Optional[str]]:
+        """セッションIDの形式を検証"""
+        if not session_id:
+            return False, "Session ID cannot be empty"
+
+        # UUID形式または英数字ハイフンの組み合わせを許可
+        if not re.match(r"^[a-zA-Z0-9\-_]+$", session_id):
+            return False, "Session ID contains invalid characters"
+
+        if len(session_id) > 100:
+            return False, "Session ID too long (max 100 characters)"
+
+        return True, None
+
+    @staticmethod
+    def validate_user_id(user_id: Union[str, int]) -> tuple[bool, Optional[str]]:
+        """ユーザーIDの妥当性を検証"""
+        if isinstance(user_id, str):
+            try:
+                user_id_int = int(user_id)
+                if user_id_int <= 0:
+                    return False, "User ID must be positive"
+            except ValueError:
+                return False, "User ID must be a valid integer"
+        elif isinstance(user_id, int):
+            if user_id <= 0:
+                return False, "User ID must be positive"
+        else:
+            return False, "User ID must be string or integer"
+
+        return True, None
+
+    @staticmethod
+    def validate_timestamp(timestamp: str) -> tuple[bool, Optional[str]]:
+        """タイムスタンプの形式を検証"""
+        try:
+            datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+            return True, None
+        except ValueError:
+            return False, "Invalid timestamp format"
+
+    @staticmethod
+    def validate_audio_data(audio_data: str) -> tuple[bool, Optional[str]]:
+        """音声データの妥当性を検証"""
+        if not audio_data:
+            return False, "Audio data cannot be empty"
+
+        # Base64エンコードされたデータかチェック
+        try:
+            import base64
+
+            base64.b64decode(audio_data)
+        except Exception:
+            return False, "Audio data must be valid base64 encoded"
+
+        if len(audio_data) > 1024 * 1024:  # 1MB制限
+            return False, "Audio data too large (max 1MB)"
+
+        return True, None
+
+    @staticmethod
+    def validate_message(message: Dict[str, Any]) -> tuple[bool, Optional[str]]:
+        """メッセージ全体の妥当性を検証"""
+        # 基本構造の検証
+        is_valid, error = WebSocketMessageValidator.validate_message_structure(message)
+        if not is_valid:
+            return False, error
+
+        # メッセージタイプの検証
+        is_valid, error = WebSocketMessageValidator.validate_message_type(
+            message["type"]
+        )
+        if not is_valid:
+            return False, error
+
+        # メッセージタイプ別の詳細検証
+        message_type = message["type"]
+
+        if message_type in [
+            WebSocketMessageType.JOIN_SESSION,
+            WebSocketMessageType.LEAVE_SESSION,
+        ]:
+            # セッション関連メッセージの検証
+            required_fields = ["roomId", "session_id"]
+            is_valid, error = WebSocketMessageValidator.validate_required_fields(
+                message, required_fields
+            )
+            if not is_valid:
+                return False, error
+
+            # セッションIDの検証
+            session_id = message.get("roomId") or message.get("session_id")
+            if session_id:
+                is_valid, error = WebSocketMessageValidator.validate_session_id(
+                    session_id
+                )
+                if not is_valid:
+                    return False, error
+
+        elif message_type in [WebSocketMessageType.AUDIO_DATA]:
+            # 音声データメッセージの検証
+            required_fields = ["data", "session_id"]
+            is_valid, error = WebSocketMessageValidator.validate_required_fields(
+                message, required_fields
+            )
+            if not is_valid:
+                return False, error
+
+            # 音声データの検証
+            if "data" in message:
+                is_valid, error = WebSocketMessageValidator.validate_audio_data(
+                    message["data"]
+                )
+                if not is_valid:
+                    return False, error
+
+        elif message_type in [WebSocketMessageType.PING, WebSocketMessageType.PONG]:
+            # ハートビートメッセージの検証
+            if "timestamp" in message:
+                is_valid, error = WebSocketMessageValidator.validate_timestamp(
+                    message["timestamp"]
+                )
+                if not is_valid:
+                    return False, error
+
+        return True, None
+
+
+class ValidationError(Exception):
+    """バリデーションエラー"""
+
+    def __init__(self, message: str, field: Optional[str] = None):
+        self.message = message
+        self.field = field
+        super().__init__(self.message)
 
 
 class WebSocketBaseMessage(BaseModel):
