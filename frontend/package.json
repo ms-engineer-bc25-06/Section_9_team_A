@@ -16,6 +16,8 @@
     "test:ci": "jest --ci --coverage --watchAll=false",
     "cypress:open": "cypress open",
     "cypress:run": "cypress run",
+    "test:e2e": "cypress run",
+    "test:e2e:open": "cypress open",
     "type-check": "tsc --noEmit",
     "quality": "npm run lint && npm run format && npm run test:ci",
     "quality:quick": "npm run lint && npm run format:check"
@@ -64,13 +66,14 @@
     "@testing-library/react": "^14.3.1",
     "@testing-library/user-event": "^14.5.2",
     "@types/jest": "^30.0.0",
+    "@types/mocha": "^10.0.10",
     "@types/node": "^20.12.7",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.0",
     "@typescript-eslint/eslint-plugin": "^8.40.0",
     "@typescript-eslint/parser": "^8.40.0",
     "autoprefixer": "^10.4.21",
-    "cypress": "^13.7.2",
+    "cypress": "^15.0.0",
     "eslint": "^8.57.0",
     "eslint-config-next": "^14.2.3",
     "eslint-plugin-import": "^2.32.0",
@@ -82,6 +85,7 @@
     "postcss": "^8.5.6",
     "prettier": "^3.2.5",
     "tailwindcss": "^4.1.11",
+    "ts-jest": "^29.4.1",
     "typescript": "^5.4.3"
   }
 }

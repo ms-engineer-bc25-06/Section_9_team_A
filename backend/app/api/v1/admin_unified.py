@@ -15,6 +15,7 @@ from app.core.auth import get_current_active_user, get_current_admin_user
 from app.models.user import User
 from app.models.organization import Organization
 from app.models.organization_member import OrganizationMember
+from app.services.billing_service import BillingService
 from app.schemas.admin_role import (
     RoleCreate, RoleUpdate, RoleResponse, RoleListResponse
 )
@@ -350,16 +351,35 @@ async def create_checkout_session(
 ):
     """Stripe Checkoutセッションを作成"""
     try:
+        # 現在のユーザー数を取得
+        user_count_result = await db.execute(
+            select(func.count(OrganizationMember.id))
+            .join(Organization)
+            .where(Organization.id == request.organization_id)
+        )
+        current_user_count = user_count_result.scalar() or 0
+        
+        # 追加後のユーザー数に基づいてプランを決定
+        new_user_count = current_user_count + request.additional_users
+        plan_type = BillingService.get_plan_by_user_count(new_user_count)
+        plan_info = BillingService.get_plan_info(plan_type)
+        
+        # プラン料金を計算
+        plan_cost = BillingService.calculate_plan_cost(plan_type, "monthly")
+        
         # 日本円の場合は円単位のまま（Stripeの日本円は円単位で処理）
-        amount_for_stripe = int(request.amount)
+        amount_for_stripe = int(plan_cost)
         
         # デバッグ用ログ
         logger.info(
             "決済セッション作成リクエスト",
             admin_id=current_admin.id,
-            original_amount=request.amount,
-            amount_for_stripe=amount_for_stripe,
-            additional_users=request.additional_users
+            current_user_count=current_user_count,
+            additional_users=request.additional_users,
+            new_user_count=new_user_count,
+            plan_type=plan_type,
+            plan_cost=plan_cost,
+            amount_for_stripe=amount_for_stripe
         )
         
         # Stripe Checkoutセッションを作成
@@ -369,18 +389,21 @@ async def create_checkout_session(
                 'price_data': {
                     'currency': 'jpy',  # 日本円に戻す
                     'product_data': {
-                        'name': f'追加ユーザー {request.additional_users}人',
-                        'description': f'月額利用料金（{request.additional_users}人分）',
+                        'name': f'{plan_info["name"]} 月額料金',
+                        'description': f'{plan_info["name"]} 月額サブスクリプション料金（最大{plan_info["max_users"] or "無制限"}名）',
                     },
                     'unit_amount': amount_for_stripe,
                 },
                 'quantity': 1,
             }],
             mode='payment',
-            success_url=f"{settings.FRONTEND_URL}/admin/billing/success?session_id={{CHECKOUT_SESSION_ID}}&amount={request.amount}&additional_users={request.additional_users}&organization_id={request.organization_id}",
+            success_url=f"{settings.FRONTEND_URL}/admin/billing/success?session_id={{CHECKOUT_SESSION_ID}}&amount={plan_cost}&organization_id={request.organization_id}&plan_type={plan_type}",
             cancel_url=f"{settings.FRONTEND_URL}/admin/billing?canceled=true",
             metadata={
-                'additional_users': str(request.additional_users),
+                'plan_type': plan_type,
+                'plan_name': plan_info["name"],
+                'current_user_count': str(current_user_count),
+                'new_user_count': str(new_user_count),
                 'organization_id': str(request.organization_id),
                 'admin_id': str(current_admin.id)
             },
@@ -392,8 +415,10 @@ async def create_checkout_session(
             "Stripe Checkoutセッション作成完了",
             admin_id=current_admin.id,
             session_id=checkout_session.id,
-            amount=request.amount,
-            additional_users=request.additional_users
+            plan_type=plan_type,
+            plan_cost=plan_cost,
+            current_user_count=current_user_count,
+            new_user_count=new_user_count
         )
         
         return CheckoutSessionResponse(

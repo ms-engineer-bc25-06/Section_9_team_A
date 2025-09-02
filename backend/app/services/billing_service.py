@@ -11,6 +11,54 @@ logger = structlog.get_logger()
 
 class BillingService:
     """請求サービス"""
+    
+    # プラン定義
+    PLANS = {
+        "basic": {
+            "name": "Basic Plan",
+            "monthly_price": 980,
+            "yearly_price": 9800,
+            "max_users": 10,
+            "max_sessions": 50
+        },
+        "premium": {
+            "name": "Premium Plan", 
+            "monthly_price": 2980,
+            "yearly_price": 29800,
+            "max_users": 50,
+            "max_sessions": 200
+        },
+        "enterprise": {
+            "name": "Enterprise Plan",
+            "monthly_price": 9800,
+            "yearly_price": 98000,
+            "max_users": None,
+            "max_sessions": None
+        }
+    }
+    
+    @classmethod
+    def get_plan_by_user_count(cls, user_count: int) -> str:
+        """ユーザー数に基づいてプランを決定"""
+        if user_count <= cls.PLANS["basic"]["max_users"]:
+            return "basic"
+        elif user_count <= cls.PLANS["premium"]["max_users"]:
+            return "premium"
+        else:
+            return "enterprise"
+    
+    @classmethod
+    def get_plan_info(cls, plan_id: str) -> Dict[str, Any]:
+        """プラン情報を取得"""
+        return cls.PLANS.get(plan_id, cls.PLANS["basic"])
+    
+    @classmethod
+    def calculate_plan_cost(cls, plan_id: str, billing_cycle: str = "monthly") -> int:
+        """プラン料金を計算"""
+        plan_info = cls.get_plan_info(plan_id)
+        if billing_cycle == "yearly":
+            return plan_info["yearly_price"]
+        return plan_info["monthly_price"]
 
     async def create_invoice(
         self,
@@ -123,11 +171,11 @@ class BillingService:
     ) -> Dict[str, Any]:
         """サブスクリプション料金を計算"""
         try:
-            # 基本料金
+            # プラン体系の基本料金
             base_prices = {
-                "basic": {"monthly": 1000, "yearly": 10000},
-                "pro": {"monthly": 3000, "yearly": 30000},
-                "enterprise": {"monthly": 10000, "yearly": 100000}
+                "basic": {"monthly": 980, "yearly": 9800},
+                "premium": {"monthly": 2980, "yearly": 29800},
+                "enterprise": {"monthly": 9800, "yearly": 98000}
             }
 
             base_price = base_prices.get(plan_type, {}).get(billing_cycle, 0)
@@ -220,6 +268,4 @@ class BillingService:
             logger.error(f"Failed to get billing summary: {str(e)}")
             return {}
 
-
-# シングルトンインスタンス
 billing_service = BillingService()

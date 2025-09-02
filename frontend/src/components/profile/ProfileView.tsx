@@ -87,7 +87,7 @@ export function ProfileView() {
     motto: profile.motto,
     futureGoals: profile.future_goals,
     feedback: feedbackMessages,
-    avatarUrl: profile.avatar_url
+    avatarUrl: null // avatar_urlプロパティが存在しないため、nullに設定
   }
 
   return (

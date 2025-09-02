@@ -12,6 +12,7 @@ import { generateTemporaryPassword } from "@/lib/utils"
 import { getAuth } from "firebase/auth"
 import { apiClient } from "@/lib/apiClient"
 import { useAuth } from "@/components/auth/AuthProvider"
+import { PlanService } from "@/services/planService"
 
 interface UserInput {
   email: string
@@ -35,6 +36,8 @@ export default function AddUsersPage() {
   const [currentUserCount, setCurrentUserCount] = useState(0) // 現在のユーザー数（APIから取得）
   const [isLoadingUserCount, setIsLoadingUserCount] = useState(true)
   const [showPasswords, setShowPasswords] = useState<boolean[]>([false])
+
+
 
   // 認証チェック
   useEffect(() => {
@@ -112,13 +115,7 @@ export default function AddUsersPage() {
       // 現在のユーザー数を更新
       setCurrentUserCount(prev => prev + 1)
       
-      // 追加料金が発生する場合の通知
-      const newTotalUsers = currentUserCount + 1
-      if (newTotalUsers > freeUserLimit) {
-        const additionalUsers = newTotalUsers - freeUserLimit
-        const additionalCost = additionalUsers * costPerUser
-        alert(`追加料金が発生しています\n追加料金対象ユーザー: ${additionalUsers}人\n追加料金: ${additionalCost}円`)
-      }
+
       
       // 入力欄をクリア
       const updatedUsers = [...newUsers]
@@ -217,13 +214,15 @@ export default function AddUsersPage() {
     }
   }
 
-  // 料金計算
-  const freeUserLimit = 10
-  const costPerUser = 500
+  // 料金計算（動的プラン情報を使用）
+  const currentPlan = PlanService.getCurrentPlanByUserCount(currentUserCount)
+  const planInfo = PlanService.getPlanDisplayInfo(currentPlan)
+  const maxUsers = planInfo.maxUsers === '無制限' ? 999999 : parseInt(planInfo.maxUsers.replace('名', ''))
+  
   const totalUsersAfter = currentUserCount + newUsers.length
-  const overLimit = totalUsersAfter > freeUserLimit
-  const additionalUsers = Math.max(0, totalUsersAfter - freeUserLimit)
-  const additionalCost = additionalUsers * costPerUser
+  const overLimit = totalUsersAfter > maxUsers
+  const additionalUsers = Math.max(0, totalUsersAfter - maxUsers)
+  const additionalCost = 0 // プラン料金ベースなので追加料金は0
 
     return (
     <div className="min-h-screen bg-slate-50">
@@ -244,8 +243,6 @@ export default function AddUsersPage() {
 
       <main className="container mx-auto px-4 py-8">
         <div className="space-y-8">
-          {/* セッション期限切れアラート */}
-          {/* SessionExpiredAlertコンポーネントはuseAuthに統合されたため削除 */}
 
           {/* ユーザー入力フォーム */}
           <div className="space-y-6">
@@ -409,33 +406,7 @@ export default function AddUsersPage() {
             </Card>
           </div>
 
-          {/* 追加料金通知 */}
-          {!isLoadingUserCount && currentUserCount > freeUserLimit && (
-            <Card className="bg-yellow-50 border-yellow-200">
-              <CardContent className="pt-6">
-                <div className="text-sm text-yellow-800">
-                  <h4 className="font-semibold mb-2 flex items-center">
-                    <span className="text-yellow-600 mr-2">💰</span>
-                    追加料金が発生しています
-                  </h4>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span>追加料金対象ユーザー:</span>
-                      <span className="font-semibold text-yellow-700">
-                        {currentUserCount - freeUserLimit}人
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span>追加料金:</span>
-                      <span className="font-semibold text-yellow-700">
-                        {(currentUserCount - freeUserLimit) * costPerUser}円
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+
 
           {/* 料金計算・決済 */}
           <div className="max-w-2xl space-y-6">
@@ -457,20 +428,14 @@ export default function AddUsersPage() {
                       <span className="font-semibold">{currentUserCount}人</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-600">無料枠</span>
-                      <span className="font-semibold">{freeUserLimit}人</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">追加ユーザー</span>
-                      <span className="font-semibold">
-                        {Math.max(0, currentUserCount - freeUserLimit)}人
-                      </span>
+                      <span className="text-gray-600">現在のプラン</span>
+                      <span className="font-semibold">{PlanService.getPlanDisplayInfo(PlanService.getCurrentPlanByUserCount(currentUserCount)).name}</span>
                     </div>
                     <div className="border-t pt-2">
                       <div className="flex justify-between items-center">
                         <span className="text-gray-600">現在の月額料金</span>
                         <span className="font-semibold">
-                          {Math.max(0, currentUserCount - freeUserLimit) * costPerUser}円
+                          {PlanService.getPlanDisplayInfo(PlanService.getCurrentPlanByUserCount(currentUserCount)).monthlyPrice.toLocaleString()}円
                         </span>
                       </div>
                     </div>

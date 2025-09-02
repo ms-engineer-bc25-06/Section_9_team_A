@@ -13,8 +13,39 @@
 // https://on.cypress.io/configuration
 // ***********************************************************
 
-// グローバルな設定
+// Import commands.js using ES2015 syntax:
+import './commands'
+
+// Alternatively you can use CommonJS syntax:
+// require('./commands')
+
+// グローバル設定
 Cypress.on('uncaught:exception', (err, runnable) => {
-  // 予期しないエラーを無視する（必要に応じて調整）
+  // テストで予期しないエラーを無視
   return false
 })
+
+// カスタムコマンドの型定義
+declare global {
+  namespace Cypress {
+    interface Chainable {
+      /**
+       * カスタムコマンド: ログイン
+       * @example cy.login('test@example.com', 'password123')
+       */
+      login(email: string, password: string): Chainable<void>
+      
+      /**
+       * カスタムコマンド: ログアウト
+       * @example cy.logout()
+       */
+      logout(): Chainable<void>
+      
+      /**
+       * カスタムコマンド: データ属性で要素を取得
+       * @example cy.getByTestId('login-button')
+       */
+      getByTestId(testId: string): Chainable<JQuery<HTMLElement>>
+    }
+  }
+}

@@ -39,7 +39,9 @@ const customJestConfig = {
     'src/**/*.{js,jsx,ts,tsx}',
     '!src/**/*.d.ts',
     '!src/**/*.stories.{js,jsx,ts,tsx}',
-    '!src/**/index.{js,jsx,ts,tsx}',
+    '!src/**/__tests__/**',
+    '!src/**/*.test.{js,jsx,ts,tsx}',
+    '!src/**/*.spec.{js,jsx,ts,tsx}',
   ],
   
   // カバレッジの閾値
@@ -57,7 +59,7 @@ const customJestConfig = {
   
   // 変換対象外
   transformIgnorePatterns: [
-    '/node_modules/(?!(.*\\.mjs$|@babel|@swc|@next|@radix-ui|@mui|@emotion|zustand|class-variance-authority|clsx|tailwind-merge|tailwindcss-animate|lucide-react))',
+    '/node_modules/(?!(.*\\.mjs$|@babel|@swc|@next|@radix-ui|@mui|@emotion|zustand|class-variance-author|clsx|tailwind-merge|tailwindcss-animate|lucide-react))',
   ],
   
   // テストタイムアウト
@@ -65,6 +67,14 @@ const customJestConfig = {
   
   // 詳細な出力
   verbose: true,
+
+  // TypeScript設定
+  preset: 'ts-jest',
+  transform: {
+    '^.+\\.(ts|tsx)$': ['ts-jest', {
+      tsconfig: 'tsconfig.test.json',
+    }],
+  }
 }
 
 module.exports = createJestConfig(customJestConfig)
