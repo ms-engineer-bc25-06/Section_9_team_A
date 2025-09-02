@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
 import { Badge } from "@/components/ui/Badge"
 import { Separator } from "@/components/ui/Separator"
 import { Button } from "@/components/ui/Button"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar"
+import { getAvatarUrl } from "@/lib/utils/avatarUtils"
 import Link from "next/link"
 import { PersonalGrowthEmbed } from "./PersonalGrowthEmbed"
 import { AIAnalysisEmbed } from "./AIAnalysisEmbed"
@@ -55,6 +57,7 @@ interface ProfileTabsProps {
     motto: string
     futureGoals: string
     feedback: string[]
+    avatarUrl?: string
   }
   children: React.ReactNode
 }
@@ -250,9 +253,15 @@ export function ProfileTabs({ profile, children }: ProfileTabsProps) {
       <Card className="mb-6">
         <CardHeader>
           <div className="flex items-center space-x-6">
-            <div className="h-24 w-24 rounded-full bg-gray-200 flex items-center justify-center">
-              <span className="text-2xl text-gray-600">{profile.name.slice(0, 2)}</span>
-            </div>
+            <Avatar className="h-24 w-24">
+              <AvatarImage 
+                src={getAvatarUrl(profile.avatarUrl, profile.name, 96)} 
+                alt={profile.name} 
+              />
+              <AvatarFallback className="text-2xl">
+                {profile.name.slice(0, 2)}
+              </AvatarFallback>
+            </Avatar>
             <div>
               <CardTitle className="text-3xl mb-2">{profile.name}</CardTitle>
               {profile.department ? (

@@ -64,62 +64,26 @@ export function AIAnalysisEmbed() {
   const [analysisResult, setAnalysisResult] = useState<AIAnalysisResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // サンプルデータ（実際のAPIから取得）
+  // 実際のAPIからデータを取得
   useEffect(() => {
-    const mockData: AIAnalysisResult = {
-      personality: {
-        personality_type: 'INTJ - 建築家型',
-        description: '戦略的思考者で、論理的で創造的な問題解決を好む。独立心が強く、長期的な視点で物事を考える。',
-        strengths: [
-          '戦略的思考と計画性',
-          '論理的分析能力',
-          '創造的問題解決',
-          '独立性と自己管理',
-          '深い洞察力'
-        ],
-        weaknesses: [
-          '感情的な意思決定が苦手',
-          '細かい作業への忍耐力不足',
-          'チームワークでの柔軟性不足',
-          '感情表現の苦手さ'
-        ],
-        communication_style: '直接的で論理的',
-        team_role_preference: '戦略立案・問題解決'
-      },
-      skills: {
-        technical_skills: [
-          { name: 'プログラミング', level: 85, category: '技術' },
-          { name: 'データ分析', level: 78, category: '技術' },
-          { name: 'システム設計', level: 82, category: '技術' },
-          { name: 'プロジェクト管理', level: 70, category: '技術' }
-        ],
-        soft_skills: [
-          { name: '論理的思考', level: 90, category: '思考' },
-          { name: '問題解決', level: 85, category: '思考' },
-          { name: 'コミュニケーション', level: 65, category: '対人' },
-          { name: 'リーダーシップ', level: 60, category: '対人' },
-          { name: 'チームワーク', level: 70, category: '対人' }
-        ],
-        overall_score: 78
-      },
-      behavior: {
-        leadership_style: '民主的リーダー',
-        problem_solving_approach: '分析的・体系的',
-        stress_tolerance: 75,
-        motivation_factors: [
-          '知的挑戦',
-          '問題解決',
-          '自己成長',
-          '成果の可視化'
-        ],
-        work_style: '計画的な・効率的'
-      },
-      last_updated: '2024-01-15',
-      confidence_score: 92
+    const fetchAnalysisData = async () => {
+      try {
+        setIsLoading(true);
+        // TODO: 実際のAPIエンドポイントに置き換える
+        // const response = await apiGet<AIAnalysisResult>('/analyses/ai-analysis');
+        // setAnalysisResult(response);
+        
+        // 一時的に空のデータを設定
+        setAnalysisResult(null);
+      } catch (error) {
+        console.error('AI分析データの取得に失敗:', error);
+        setAnalysisResult(null);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
-    setAnalysisResult(mockData);
-    setIsLoading(false);
+    fetchAnalysisData();
   }, []);
 
   if (isLoading) {

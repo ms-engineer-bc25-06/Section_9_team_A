@@ -167,6 +167,21 @@ export const feedbackApprovalApi = {
     return response;
   },
 
+  // 特定のメンバーの公開されたフィードバック一覧を取得
+  getMemberPublishedFeedback: async (
+    memberId: number,
+    page: number = 1,
+    pageSize: number = 20
+  ): Promise<FeedbackApprovalListResponse> => {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      page_size: pageSize.toString(),
+    });
+
+    const response = await apiGet<FeedbackApprovalListResponse>(`/feedback-approvals/member/${memberId}/published?${params.toString()}`);
+    return response;
+  },
+
   // 承認リクエストを削除
   deleteApproval: async (approvalId: number): Promise<{ message: string }> => {
     // apiDeleteが存在しないため、fetchを使用
