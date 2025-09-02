@@ -54,7 +54,7 @@
 | 外部API        | OpenAI API, Firebase Authentication, Stripe API |
 | 認証           | Firebase Authentication |
 | 決済        　　| Stripe |
-| テスト         | Vitest（FE）, Pytest（BE） |
+| テスト         | Jest,Cypress（FE）, Pytest（BE） |
 | Linter         | ESLint（FE）, PyLint（BE） |
 | Formatter      | Prettier（FE）, Black（BE） |
 | インフラ       | Docker, Docker Compose |
