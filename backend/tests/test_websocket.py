@@ -91,7 +91,7 @@ class TestWebSocketConnection:
             assert connection_id is not None
 
         # 制限を超えた接続は失敗
-            with pytest.raises(Exception):
+        with pytest.raises(Exception):
             await manager.connect(mock_websocket, "session-limit", mock_user)
 
         # クリーンアップ

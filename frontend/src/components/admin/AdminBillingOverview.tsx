@@ -4,24 +4,33 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card"
 import { Badge } from "@/components/ui/Badge"
 import { Users, Calendar, CreditCard, TrendingUp } from "lucide-react"
+import { PlanService } from "@/services/planService"
 
 interface AdminBillingOverviewProps {
   userCount: number
   isFreeTier: boolean
   additionalUsers: number
   additionalCost: number
+  currentPlan?: string 
 }
 
 export function AdminBillingOverview({
   userCount,
   isFreeTier,
   additionalUsers,
-  additionalCost
+  additionalCost,
+  currentPlan = 'premium'
 }: AdminBillingOverviewProps) {
-  const freeLimit = 10
-  const remainingFreeSlots = Math.max(0, freeLimit - userCount)
+  const planInfo = PlanService.getPlanDisplayInfo(currentPlan)
+  const planUsage = PlanService.checkPlanUsage(userCount, currentPlan)
+  const remainingSlots = Math.max(0, planUsage.maxUsers - userCount)
+  
+  // 請求日を毎月10日に設定
   const nextBillingDate = new Date()
-  nextBillingDate.setDate(nextBillingDate.getDate() + 30) // 30日後
+  nextBillingDate.setDate(10)
+  if (nextBillingDate <= new Date()) {
+    nextBillingDate.setMonth(nextBillingDate.getMonth() + 1)
+  }
 
   return (
     <div className="space-y-6">
@@ -46,42 +55,40 @@ export function AdminBillingOverview({
             </div>
             
             <div className="flex justify-between items-center">
-              <span className="text-gray-600">無料枠</span>
+              <span className="text-gray-600">プラン上限</span>
               <div className="text-right">
-                <div className="font-medium">{freeLimit}人まで</div>
+                <div className="font-medium">{planInfo.maxUsers}</div>
                 <div className="text-sm text-gray-500">
-                  {remainingFreeSlots > 0 
-                    ? `${remainingFreeSlots}人分の余裕`
+                  {remainingSlots > 0 
+                    ? `${remainingSlots}人分の余裕`
                     : '上限に達しています'
                   }
                 </div>
         </div>
       </div>
             
-            {additionalUsers > 0 && (
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">超過人数</span>
-                <Badge variant="destructive" className="text-lg px-3 py-1">
-                  +{additionalUsers}人
-                </Badge>
-              </div>
-            )}
+
             
             <div className="pt-2 border-t">
-              <div className="flex justify-between items-center">
-                <span className="font-medium">利用率</span>
-                <span className="font-bold text-blue-600">
-                  {Math.round((userCount / freeLimit) * 100)}%
-                </span>
-              </div>
+                          <div className="flex justify-between items-center">
+              <span className="font-medium">利用率</span>
+              <span className="font-bold text-blue-600">
+                {planUsage.maxUsers === Number.MAX_SAFE_INTEGER 
+                  ? '無制限' 
+                  : `${Math.round((userCount / planUsage.maxUsers) * 100)}%`
+                }
+              </span>
+            </div>
+            {planUsage.maxUsers !== Number.MAX_SAFE_INTEGER && (
               <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
                 <div 
                   className={`h-2 rounded-full transition-all duration-300 ${
-                    userCount <= freeLimit ? 'bg-blue-600' : 'bg-orange-500'
+                    userCount <= planUsage.maxUsers ? 'bg-blue-600' : 'bg-orange-500'
                   }`}
-                  style={{ width: `${Math.min(100, (userCount / freeLimit) * 100)}%` }}
+                  style={{ width: `${Math.min(100, (userCount / planUsage.maxUsers) * 100)}%` }}
                 ></div>
-          </div>
+              </div>
+            )}
         </div>
             
 
@@ -99,31 +106,13 @@ export function AdminBillingOverview({
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex justify-between items-center">
-              <span className="text-gray-600">基本料金</span>
+              <span className="text-gray-600">プラン料金</span>
               <Badge variant="secondary" className="text-lg px-3 py-1">
-                無料
+                ¥{planInfo.monthlyPrice.toLocaleString()}/月
               </Badge>
       </div>
 
-      <div className="flex justify-between items-center">
-              <span className="text-gray-600">追加料金</span>
-              <div className="text-right">
-                {additionalUsers > 0 ? (
-                  <>
-                    <div className="font-bold text-orange-600">
-                      ¥{additionalCost.toLocaleString()}/月
-                    </div>
-        <div className="text-sm text-gray-500">
-                      {additionalUsers}人 × ¥500
-                    </div>
-                  </>
-                ) : (
-                  <Badge variant="outline" className="text-lg px-3 py-1">
-                    なし
-                  </Badge>
-                )}
-        </div>
-      </div>
+
 
             <div className="flex justify-between items-center">
               <span className="text-gray-600">次回請求日</span>
@@ -140,10 +129,8 @@ export function AdminBillingOverview({
             <div className="pt-2 border-t">
               <div className="flex justify-between items-center">
                 <span className="font-medium">月額合計</span>
-                <span className={`text-xl font-bold ${
-                  additionalCost > 0 ? 'text-orange-600' : 'text-green-600'
-                }`}>
-                  {additionalCost > 0 ? `¥${additionalCost.toLocaleString()}` : '無料'}
+                <span className="text-xl font-bold text-green-600">
+                  ¥{planInfo.monthlyPrice.toLocaleString()}
                 </span>
             </div>
           </div>
@@ -163,28 +150,47 @@ export function AdminBillingOverview({
         <CardContent>
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="text-center p-4 bg-blue-50 rounded-lg">
-                <div className="text-2xl font-bold text-blue-600 mb-2">10人まで</div>
-                <div className="text-sm text-gray-600">無料で利用可能</div>
-                <div className="text-xs text-gray-500 mt-1">基本機能すべて利用</div>
-      </div>
-
-              <div className="text-center p-4 bg-orange-50 rounded-lg">
-                <div className="text-2xl font-bold text-orange-600 mb-2">11人以降</div>
-                <div className="text-sm text-gray-600">1人500円/月</div>
-                <div className="text-xs text-gray-500 mt-1">追加料金が発生</div>
-              </div>
-              
-              <div className="text-center p-4 bg-green-50 rounded-lg">
-                <div className="text-2xl font-bold text-green-600 mb-2">柔軟な拡張</div>
-                <div className="text-sm text-gray-600">必要に応じて追加</div>
-                <div className="text-xs text-gray-500 mt-1">月単位で調整可能</div>
-          </div>
+              {PlanService.getAllPlans().map((plan) => {
+                const displayInfo = PlanService.getPlanDisplayInfo(plan.id)
+                const isCurrentPlan = plan.id === currentPlan
+                return (
+                  <div 
+                    key={plan.id}
+                    className={`text-center p-4 rounded-lg border-2 ${
+                      isCurrentPlan 
+                        ? 'bg-blue-100 border-blue-500' 
+                        : plan.id === 'basic' 
+                          ? 'bg-blue-50 border-blue-200'
+                          : plan.id === 'premium'
+                            ? 'bg-orange-50 border-orange-200'
+                            : 'bg-green-50 border-green-200'
+                    }`}
+                  >
+                    <div className={`text-2xl font-bold mb-2 ${
+                      isCurrentPlan 
+                        ? 'text-blue-700' 
+                        : plan.id === 'basic' 
+                          ? 'text-blue-600'
+                          : plan.id === 'premium'
+                            ? 'text-orange-600'
+                            : 'text-green-600'
+                    }`}>
+                      {displayInfo.name}
+                      {isCurrentPlan && <span className="text-sm ml-2">(現在)</span>}
+                    </div>
+                    <div className="text-sm text-gray-600">月額{displayInfo.monthlyPrice.toLocaleString()}円</div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {displayInfo.maxUsers}、{displayInfo.maxSessions}
+                    </div>
+                  </div>
+                )
+              })}
         </div>
             
             <div className="text-sm text-gray-600 bg-gray-50 p-4 rounded-lg">
-              <strong>注意事項:</strong> 料金は月額で計算され、月初に請求されます。
-              利用者数の変更は即座に反映され、次回請求時に調整されます。
+              <strong>支払いについて:</strong> 料金は月額で計算され、毎月10日に請求されます。
+              プラン変更は即座に反映され、次回請求時に調整されます。
+              決済はStripeを通じて安全に処理されます。
       </div>
     </div>
         </CardContent>

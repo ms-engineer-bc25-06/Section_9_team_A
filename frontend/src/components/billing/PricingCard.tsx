@@ -2,6 +2,7 @@
 'use client';
 
 import React from 'react';
+import { PlanService } from '@/services/planService';
 
 interface PricingCardProps {
   memberCount: number;
@@ -11,6 +12,7 @@ interface PricingCardProps {
   excessMembers: number;
   isPaymentRequired: boolean;
   onPaymentClick: () => void;
+  currentPlan?: string;
 }
 
 export default function PricingCard({
@@ -20,10 +22,13 @@ export default function PricingCard({
   currentAmount,
   excessMembers,
   isPaymentRequired,
-  onPaymentClick
+  onPaymentClick,
+  currentPlan = 'premium'
 }: PricingCardProps) {
   
-  const isOverLimit = memberCount > freeLimit;
+  const planInfo = PlanService.getPlanDisplayInfo(currentPlan)
+  const planUsage = PlanService.checkPlanUsage(memberCount, currentPlan)
+  const isOverLimit = planUsage.isOverLimit;
 
   return (
     <div className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
@@ -67,33 +72,28 @@ export default function PricingCard({
           {/* 料金詳細 */}
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-gray-600">無料枠</span>
-              <span className="font-medium">{freeLimit}人まで</span>
+              <span className="text-gray-600">現在のプラン</span>
+              <span className="font-medium">{planInfo.name}</span>
             </div>
             
-            {isOverLimit && (
-              <>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">超過人数</span>
-                  <span className="font-medium text-orange-600">{excessMembers}人</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">追加料金</span>
-                  <span className="font-medium">¥{costPerUser}/人</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">超過分小計</span>
-                  <span className="font-medium">¥{(excessMembers * costPerUser).toLocaleString()}</span>
-                </div>
-              </>
-            )}
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">利用者数</span>
+              <span className="font-medium">{memberCount}人</span>
+            </div>
+            
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">プラン上限</span>
+              <span className="font-medium">最大{planInfo.maxUsers}</span>
+            </div>
+            
+
             
             <hr className="my-3" />
             
             <div className="flex justify-between items-center text-lg font-bold">
               <span>月額料金</span>
-              <span className={isOverLimit ? 'text-red-600' : 'text-green-600'}>
-                ¥{currentAmount.toLocaleString()}
+              <span className="text-green-600">
+                ¥{planInfo.monthlyPrice.toLocaleString()}
               </span>
             </div>
           </div>
@@ -106,13 +106,13 @@ export default function PricingCard({
                 <svg className="w-4 h-4 text-green-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                 </svg>
-                {freeLimit}人まで無料
+                {planInfo.maxUsers}まで利用可能
               </li>
               <li className="flex items-center">
                 <svg className="w-4 h-4 text-green-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                 </svg>
-                超過分は1人あたり¥{costPerUser}/月
+                {planInfo.maxSessions}
               </li>
               <li className="flex items-center">
                 <svg className="w-4 h-4 text-green-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
@@ -140,7 +140,7 @@ export default function PricingCard({
                   <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                   </svg>
-                  ¥{currentAmount.toLocaleString()}を決済する
+                  ¥{planInfo.monthlyPrice.toLocaleString()}を決済する
                 </div>
               </button>
             ) : (
@@ -149,7 +149,7 @@ export default function PricingCard({
                   <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <span className="font-medium">決済不要（無料枠内）</span>
+                  <span className="font-medium">決済不要（プラン上限内）</span>
                 </div>
               </div>
             )}
@@ -163,9 +163,9 @@ export default function PricingCard({
                   <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                 </svg>
                 <div>
-                  <p className="text-sm text-yellow-800 font-medium">課金が必要です</p>
+                  <p className="text-sm text-yellow-800 font-medium">プラン上限を超過しています</p>
                   <p className="text-xs text-yellow-700 mt-1">
-                    メンバー数が無料枠を超過しているため、月額料金が発生します。
+                    メンバー数がプラン上限を超過しているため、上位プランへの変更が必要です。
                   </p>
                 </div>
               </div>

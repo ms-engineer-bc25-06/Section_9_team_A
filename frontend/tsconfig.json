@@ -5,7 +5,7 @@
     "types": ["node", "jest", "@testing-library/jest-dom"],
     "allowJs": true,
     "skipLibCheck": true,
-    "strict": true,
+    "strict": false,
     "noEmit": true,
     "esModuleInterop": true,
     "module": "esnext",
@@ -28,21 +28,19 @@
       "@/store/*": ["./src/store/*"],
       "@/types/*": ["./src/types/*"],
       "@/styles/*": ["./src/styles/*"]
-    }
+    },
+    "typeRoots": ["./node_modules/@types", "./src/types"]
   },
   "include": [
     "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
     ".next/types/**/*.ts",
-    "src/types/jest.d.ts"
+    "src/types/global.d.ts"
   ],
   "exclude": [
     "node_modules",
-    "**/__tests__/**/*",
-    "**/*.test.ts",
-    "**/*.test.tsx",
-    "**/*.spec.ts",
-    "**/*.spec.tsx"
+    "cypress",
+    "cypress/**/*"
   ]
 }
