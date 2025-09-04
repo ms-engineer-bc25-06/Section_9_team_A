@@ -152,3 +152,11 @@ class User(Base):
         if not self.temporary_password_expires_at:
             return False
         return self.temporary_password_expires_at < datetime.utcnow()
+
+    def remaining_voice_minutes(self) -> int:
+        """残りの音声利用時間を取得"""
+        return max(0, self.monthly_voice_minutes)
+
+    def remaining_analysis_count(self) -> int:
+        """残りの分析回数を取得"""
+        return max(0, self.monthly_analysis_count)

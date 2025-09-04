@@ -1,15 +1,5 @@
-/// <reference types="jest" />
-/// <reference types="@testing-library/jest-dom" />
-
 import { render, screen, fireEvent } from '@testing-library/react'
 import { Button } from '../Button'
-
-// Jestの型定義を明示的に宣言
-declare global {
-  const jest: {
-    fn: () => jest.Mock
-  }
-}
 
 describe('Button Component', () => {
   it('renders button with text', () => {

@@ -13,6 +13,7 @@ import { getAuthToken } from "@/lib/apiClient"
 interface AdminStripeCheckoutProps {
   amount: number
   additionalUsers: number
+  currentUserCount: number
   onSuccess: (paymentIntentId: string) => void
   onError: (errorMessage: string) => void
   onCancel: () => void
@@ -21,6 +22,7 @@ interface AdminStripeCheckoutProps {
 export function AdminStripeCheckout({
   amount,
   additionalUsers,
+  currentUserCount,
   onSuccess,
   onError,
   onCancel
@@ -59,7 +61,7 @@ export function AdminStripeCheckout({
       // デバッグ用ログ
       console.log('送信する決済データ:', {
         amount,
-        additionalUsers,
+        current_user_count: currentUserCount,
         organization_id: 1,
         currency: 'jpy'
       })
@@ -72,7 +74,7 @@ export function AdminStripeCheckout({
         },
         body: JSON.stringify({
           amount: amount, // 円単位のまま送信
-          additional_users: additionalUsers,
+          additional_users: 0, // プラン料金ベースなので0
           organization_id: 1, // TODO: 実際の組織IDを取得
           currency: 'jpy'
         })
@@ -112,7 +114,7 @@ export function AdminStripeCheckout({
                   <span>決済手続き</span>
                 </CardTitle>
                 <CardDescription>
-                  {additionalUsers}人分の追加料金を決済します
+                  月額プラン料金を決済します
                 </CardDescription>
               </div>
               <Button
@@ -136,7 +138,7 @@ export function AdminStripeCheckout({
                 </span>
               </div>
               <div className="text-sm text-gray-500">
-                {additionalUsers}人 × ¥500/月
+                Premium Plan 月額料金
               </div>
             </div>
 

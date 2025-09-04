@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/Badge"
 import { Users, CreditCard, ArrowLeft, CheckCircle, AlertCircle } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { StripeCheckout } from "@/components/billing/StripeCheckout"
+import { PlanService } from "@/services/planService"
+import { apiClient } from "@/lib/apiClient"
 
 interface SubscriptionDetails {
   additionalUsers: number
@@ -16,6 +18,8 @@ interface SubscriptionDetails {
   returnUrl: string
   currentUsers: number
   newTotal: number
+  currentPlan: string
+  recommendedPlan: string
 }
 
 function SubscriptionContent() {
@@ -25,25 +29,64 @@ function SubscriptionContent() {
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
 
+
+
+
+
   useEffect(() => {
-    // URLパラメータから詳細を取得
-    const additionalUsers = parseInt(searchParams.get('additionalUsers') || '0')
-    const cost = parseInt(searchParams.get('cost') || '0')
-    const returnUrl = searchParams.get('returnUrl') || '/admin/billing'
-    
-    if (additionalUsers > 0 && cost > 0) {
-      // TODO: APIから現在のユーザー数を取得
-      const currentUsers = 10 // 例: APIから取得
-      
-      setSubscriptionDetails({
-        additionalUsers,
-        cost,
-        returnUrl,
-        currentUsers,
-        newTotal: currentUsers + additionalUsers
-      })
+    const fetchSubscriptionDetails = async () => {
+      try {
+        // URLパラメータから詳細を取得
+        const additionalUsers = parseInt(searchParams.get('additionalUsers') || '0')
+        const cost = parseInt(searchParams.get('cost') || '0')
+        const returnUrl = searchParams.get('returnUrl') || '/admin/billing'
+        
+        if (additionalUsers > 0 && cost > 0) {
+          // APIから現在のユーザー数を取得
+          const userCountData = await apiClient.get('/admin/billing/user-count')
+          const currentUsers = userCountData.total_users || 0
+          const newTotal = currentUsers + additionalUsers
+          
+          // プラン情報を動的に決定
+          const currentPlan = PlanService.getCurrentPlanByUserCount(currentUsers)
+          const recommendedPlan = PlanService.getCurrentPlanByUserCount(newTotal)
+          
+          setSubscriptionDetails({
+            additionalUsers,
+            cost,
+            returnUrl,
+            currentUsers,
+            newTotal,
+            currentPlan,
+            recommendedPlan
+          })
+        }
+      } catch (error) {
+        console.error('ユーザー数取得エラー:', error)
+        // エラー時はデフォルト値を使用
+        const additionalUsers = parseInt(searchParams.get('additionalUsers') || '0')
+        const cost = parseInt(searchParams.get('cost') || '0')
+        const returnUrl = searchParams.get('returnUrl') || '/admin/billing'
+        const currentUsers = 15 // デフォルト値
+        const newTotal = currentUsers + additionalUsers
+        
+        if (additionalUsers > 0 && cost > 0) {
+          setSubscriptionDetails({
+            additionalUsers,
+            cost,
+            returnUrl,
+            currentUsers,
+            newTotal,
+            currentPlan: PlanService.getCurrentPlanByUserCount(currentUsers),
+            recommendedPlan: PlanService.getCurrentPlanByUserCount(newTotal)
+          })
+        }
+      } finally {
+        setLoading(false)
+      }
     }
-    setLoading(false)
+
+    fetchSubscriptionDetails()
   }, [searchParams])
 
   const handlePaymentSuccess = async (paymentIntentId: string) => {
@@ -159,8 +202,14 @@ function SubscriptionContent() {
             </span>
           </div>
           <div className="text-sm text-gray-600">
-            ※ 料金は1人あたり¥500です（10人まで無料）
+            ※ 現在のプラン: {PlanService.getPlanDisplayInfo(subscriptionDetails.currentPlan).name}
+            （月額{PlanService.getPlanDisplayInfo(subscriptionDetails.currentPlan).monthlyPrice.toLocaleString()}円、最大{PlanService.getPlanDisplayInfo(subscriptionDetails.currentPlan).maxUsers}）
           </div>
+          {subscriptionDetails.currentPlan !== subscriptionDetails.recommendedPlan && (
+            <div className="text-sm text-orange-600 mt-2">
+              ⚠️ 追加後は{PlanService.getPlanDisplayInfo(subscriptionDetails.recommendedPlan).name}への変更を推奨します
+            </div>
+          )}
         </CardContent>
       </Card>
 

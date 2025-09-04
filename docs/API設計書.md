@@ -1338,9 +1338,10 @@ Copy{
       "name": "Basic Plan",
       "description": "小規模チーム向けの基本プラン",
       "monthly_price": 980.00,
+      "yearly_price": 9800.00,
       "currency": "JPY",
       "features": {
-        "max_team_members": 5,
+        "max_team_members": 10,
         "max_sessions_per_month": 50,
         "max_minutes_per_month": 3000,
         "transcription_included": true,
@@ -1355,9 +1356,10 @@ Copy{
       "name": "Premium Plan",
       "description": "中規模チーム向けの高機能プラン",
       "monthly_price": 2980.00,
+      "yearly_price": 29800.00,
       "currency": "JPY",
       "features": {
-        "max_team_members": 20,
+        "max_team_members": 50,
         "max_sessions_per_month": 200,
         "max_minutes_per_month": 12000,
         "transcription_included": true,
@@ -1373,6 +1375,7 @@ Copy{
       "name": "Enterprise Plan",
       "description": "大規模組織向けのエンタープライズプラン",
       "monthly_price": 9800.00,
+      "yearly_price": 98000.00,
       "currency": "JPY",
       "features": {
         "max_team_members": "unlimited",
@@ -1391,6 +1394,42 @@ Copy{
   ]
 }
 
+```
+
+### **GET /admin/billing/user-count**
+
+現在のユーザー数を取得 (admin)
+
+**レスポンス (200)**
+
+```json
+{
+  "total_users": 15,
+  "organization_id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+### **POST /admin/billing/checkout**
+
+Stripe Checkout Session作成 (admin)
+
+**リクエスト**
+
+```json
+{
+  "organization_id": "550e8400-e29b-41d4-a716-446655440000",
+  "additional_users": 5
+}
+```
+
+**レスポンス (200)**
+
+```json
+{
+  "session_id": "cs_test_1234567890",
+  "checkout_url": "https://checkout.stripe.com/pay/cs_test_1234567890",
+  "expires_at": "2024-01-15T10:30:00Z"
+}
 ```
 
 ### **POST /subscriptions/teams/{team_id}/subscribe**

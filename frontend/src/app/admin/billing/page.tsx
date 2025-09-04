@@ -14,6 +14,7 @@ import { AdminBillingActions } from "@/components/admin/AdminBillingActions"
 import Link from "next/link"
 import { getAuth, onAuthStateChanged } from "firebase/auth"
 import { apiClient } from "@/lib/apiClient"
+import { PlanService } from "@/services/planService"
 
 export default function AdminBillingPage() {
   const { user, isLoading } = useAuth()
@@ -22,6 +23,8 @@ export default function AdminBillingPage() {
   const [isLoadingData, setIsLoadingData] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+
+
 
   // 認証チェック
   useEffect(() => {
@@ -58,7 +61,8 @@ export default function AdminBillingPage() {
       console.error('ユーザー数取得エラー:', err)
       // 開発環境ではエラーでもモックデータを使用
       if (process.env.NODE_ENV === 'development') {
-        setUserCount(15)
+        const mockUserCount = 15
+        setUserCount(mockUserCount)
         setError(null)
       } else {
         setError(err instanceof Error ? err.message : 'エラーが発生しました')
@@ -68,11 +72,14 @@ export default function AdminBillingPage() {
     }
   }
 
-  // 実データを使用
-  const isFreeTier = userCount <= 10
-  const overLimit = userCount > 10
-  const additionalUsers = Math.max(0, userCount - 10)
-  const additionalCost = additionalUsers * 500
+  const currentPlan = PlanService.getCurrentPlanByUserCount(userCount)
+  const planInfo = PlanService.getPlanDisplayInfo(currentPlan)
+  const maxUsers = planInfo.maxUsers === '無制限' ? 999999 : parseInt(planInfo.maxUsers.replace('名', ''))
+  
+  const isFreeTier = userCount <= maxUsers
+  const overLimit = userCount > maxUsers
+  const additionalUsers = Math.max(0, userCount - maxUsers)
+  const additionalCost = 0
 
   if (isLoading || !user) {
     return (
@@ -143,6 +150,7 @@ export default function AdminBillingPage() {
           isFreeTier={isFreeTier}
           additionalUsers={additionalUsers}
           additionalCost={additionalCost}
+          currentPlan={currentPlan}
         />
 
         {/* 決済情報 */}
@@ -152,6 +160,7 @@ export default function AdminBillingPage() {
             additionalUsers={additionalUsers}
             additionalCost={additionalCost}
             onRefresh={fetchUserCount}
+            currentPlan={currentPlan}
           />
         </div>
 

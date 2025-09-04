@@ -77,8 +77,8 @@ export function useProfile() {
     if (!profile) return false
     
     // 基本的なプロフィール項目が設定されているかチェック
-    const hasBasicInfo = profile.nickname || profile.department
-    const hasPersonalInfo = profile.hobbies || profile.favorite_food || profile.motto
+    const hasBasicInfo = Boolean(profile.nickname || profile.department)
+    const hasPersonalInfo = Boolean(profile.hobbies || profile.favorite_food || profile.motto)
     
     return hasBasicInfo || hasPersonalInfo
   }
