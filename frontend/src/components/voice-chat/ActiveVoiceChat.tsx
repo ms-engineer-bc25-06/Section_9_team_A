@@ -4,12 +4,14 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
 import { Badge } from "@/components/ui/Badge"
-import { Phone, Users, Lightbulb, TrendingUp, Mic, MicOff, Volume2, VolumeX, Wifi, WifiOff } from "lucide-react"
+import { Phone, Users, Lightbulb, TrendingUp, Mic, MicOff, Volume2, VolumeX, Wifi, WifiOff, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { mockTopics, mockVoiceSession } from "@/data/mockVoiceChatData"
 import { useVoiceChat } from "@/hooks/useVoiceChat"
 import { useWebRTCQualityMonitor } from "@/hooks/useWebRTCQualityMonitor"
 import { useWebRTCErrorHandler } from "@/hooks/useWebRTCErrorHandler"
+import { useAuth } from "@/components/auth/AuthProvider"
+import { useVoiceSession } from "@/hooks/useVoiceSession"
 
 interface Props {
   roomId: string
@@ -20,7 +22,15 @@ export function ActiveVoiceChat({ roomId }: Props) {
   const [currentTopic, setCurrentTopic] = useState<{ text: string; category: string; description: string }>({ text: '', category: '', description: '' })
   const [showQualityMonitor, setShowQualityMonitor] = useState(false)
   const [showErrorHandler, setShowErrorHandler] = useState(false)
+  const [isInitializing, setIsInitializing] = useState(true)
+  const [initializationError, setInitializationError] = useState<string | null>(null)
   const router = useRouter()
+  
+  // 認証状態の確認
+  const { user, isLoading: authLoading, isAuthenticated, redirectToLogin } = useAuth()
+  
+  // 音声セッション管理
+  const { ensureSession, loading: sessionLoading, error: sessionError } = useVoiceSession()
   
   // 実際のWebRTC通話機能
   const {
@@ -73,15 +83,57 @@ export function ActiveVoiceChat({ roomId }: Props) {
   // プレゼンテーション用：モックデータで現在のトピックを設定
   const currentTopicData = currentTopic || availableTopics[1]
 
+  // 認証状態とセッション初期化
+  useEffect(() => {
+    const initializeSession = async () => {
+      try {
+        setIsInitializing(true)
+        setInitializationError(null)
+        
+        // 認証状態の確認
+        if (authLoading) {
+          return // 認証状態の読み込み中
+        }
+        
+        if (!isAuthenticated) {
+          console.log("認証されていません。ログインページにリダイレクトします。")
+          redirectToLogin()
+          return
+        }
+        
+        console.log(`認証済みユーザー: ${user?.email}`)
+        console.log(`ルームID: ${roomId}`)
+        
+        // セッション存在確認と自動作成
+        try {
+          const session = await ensureSession(roomId)
+          console.log("セッション確保完了:", session)
+        } catch (error) {
+          console.error("セッション確保エラー:", error)
+          setInitializationError("セッションの初期化に失敗しました")
+          return
+        }
+        
+        setIsInitializing(false)
+      } catch (error) {
+        console.error("初期化エラー:", error)
+        setInitializationError("初期化に失敗しました")
+        setIsInitializing(false)
+      }
+    }
+    
+    initializeSession()
+  }, [authLoading, isAuthenticated, user, roomId, ensureSession, redirectToLogin])
+
   // 実際のセッション時間を管理
   useEffect(() => {
-    if (isInitialized) {
+    if (isInitialized && !isInitializing) {
       const interval = setInterval(() => {
         setDuration(prev => prev + 1)
       }, 1000)
       return () => clearInterval(interval)
     }
-  }, [isInitialized])
+  }, [isInitialized, isInitializing])
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -129,6 +181,40 @@ export function ActiveVoiceChat({ roomId }: Props) {
     }
   }
 
+  // 初期化中の表示
+  if (isInitializing || authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-white mx-auto mb-4" />
+          <p className="text-white text-lg">初期化中...</p>
+          <p className="text-gray-300 text-sm mt-2">
+            {authLoading ? "認証状態を確認中..." : "セッションを準備中..."}
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // 初期化エラーの表示
+  if (initializationError) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="text-red-500 text-lg mb-4">⚠️ エラーが発生しました</div>
+          <p className="text-white mb-4">{initializationError}</p>
+          <Button 
+            onClick={() => window.location.reload()} 
+            variant="outline"
+            className="text-white border-white hover:bg-white hover:text-gray-900"
+          >
+            再試行
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* ヘッダー情報 */}
@@ -136,6 +222,9 @@ export function ActiveVoiceChat({ roomId }: Props) {
         <div>
           <h2 className="text-xl font-bold text-white">雑談ルーム #{roomId}</h2>
           <p className="text-gray-300">現在のトピック: {currentTopicData.text}</p>
+          {user && (
+            <p className="text-gray-400 text-sm">ユーザー: {user.email}</p>
+          )}
         </div>
         <div className="flex items-center gap-4">
           <div className="text-center">

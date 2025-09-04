@@ -24,11 +24,13 @@ export function VoiceChatRoom() {
       // 音声セッションを作成
       const sessionData = {
         session_id: `room-${Date.now()}`,
-        title: selectedTopic || "雑談ルーム",
-        description: selectedTopic ? `テーマ: ${selectedTopic}` : "自由な雑談ルーム",
+        title: (selectedTopic || "雑談ルーム").substring(0, 255), // 長さ制限
+        description: (selectedTopic ? `テーマ: ${selectedTopic}` : "自由な雑談ルーム").substring(0, 1000), // 長さ制限
         is_public: true,
         participant_count: 1
       }
+      
+      console.log("送信するセッションデータ:", sessionData) // デバッグ用
       
       const session = await createSession(sessionData)
       console.log("音声セッション作成完了:", session)

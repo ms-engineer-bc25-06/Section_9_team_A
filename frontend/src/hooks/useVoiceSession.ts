@@ -34,6 +34,8 @@ interface UseVoiceSessionReturn {
   // アクション
   createSession: (sessionData: VoiceSessionCreate) => Promise<VoiceSession>;
   getSession: (sessionId: string) => Promise<VoiceSession>;
+  getSessionBySessionId: (sessionId: string) => Promise<VoiceSession | null>;
+  ensureSession: (sessionId: string) => Promise<VoiceSession>;
   getSessions: () => Promise<VoiceSession[]>;
   updateSession: (sessionId: string, updates: Partial<VoiceSessionCreate>) => Promise<VoiceSession>;
   deleteSession: (sessionId: string) => Promise<void>;
@@ -60,10 +62,8 @@ export const useVoiceSession = (): UseVoiceSessionReturn => {
     setError(null);
     
     try {
-      // 開発環境では認証不要のエンドポイントを使用
-      const endpoint = process.env.NODE_ENV === 'development' 
-        ? '/api/v1/voice-sessions/dev' 
-        : '/api/v1/voice-sessions/';
+      // 音声セッション作成エンドポイント
+      const endpoint = '/api/v1/voice-sessions/';
         
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -74,7 +74,21 @@ export const useVoiceSession = (): UseVoiceSessionReturn => {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        // エラーレスポンスの詳細を取得
+        let errorDetail = `HTTP error! status: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorDetail += ` - ${JSON.stringify(errorData)}`;
+        } catch (e) {
+          // JSON解析に失敗した場合はテキストを取得
+          try {
+            const errorText = await response.text();
+            errorDetail += ` - ${errorText}`;
+          } catch (e2) {
+            // テキスト取得にも失敗した場合はそのまま
+          }
+        }
+        throw new Error(errorDetail);
       }
 
       const data = await response.json();
@@ -207,6 +221,104 @@ export const useVoiceSession = (): UseVoiceSessionReturn => {
     }
   }, [handleError, currentSession]);
 
+  // session_id（文字列）でセッション取得
+  const getSessionBySessionId = useCallback(async (sessionId: string): Promise<VoiceSession | null> => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch(`/api/v1/voice-sessions/by-session-id/${sessionId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          return null; // セッションが見つからない
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        return data.data;
+      } else if (data.id && data.session_id) {
+        return data; // 直接VoiceSessionResponseの場合
+      }
+      
+      throw new Error('セッションデータが取得できませんでした');
+    } catch (err) {
+      handleError(err, 'セッション取得');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [handleError]);
+
+  // セッション存在確認と自動作成
+  const ensureSession = useCallback(async (sessionId: string): Promise<VoiceSession> => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch(`/api/v1/voice-sessions/ensure/${sessionId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        // エラーレスポンスの詳細を取得
+        let errorDetail = `HTTP error! status: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorDetail += ` - ${JSON.stringify(errorData)}`;
+        } catch (e) {
+          // JSON解析に失敗した場合はテキストを取得
+          try {
+            const errorText = await response.text();
+            errorDetail += ` - ${errorText}`;
+          } catch (e2) {
+            // テキスト取得にも失敗した場合はそのまま
+          }
+        }
+        throw new Error(errorDetail);
+      }
+
+      const data = await response.json();
+      
+      let session;
+      if (data.success && data.data) {
+        session = data.data;
+      } else if (data.id && data.session_id) {
+        session = data; // 直接VoiceSessionResponseの場合
+      } else {
+        throw new Error('セッションデータが取得できませんでした');
+      }
+      
+      // セッションをリストに追加（重複チェック）
+      setSessions(prev => {
+        const exists = prev.some(s => s.session_id === sessionId);
+        if (!exists) {
+          return [session, ...prev];
+        }
+        return prev.map(s => s.session_id === sessionId ? session : s);
+      });
+      
+      setCurrentSession(session);
+      return session;
+    } catch (err) {
+      handleError(err, 'セッション確保');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [handleError]);
+
   // セッション削除
   const deleteSession = useCallback(async (sessionId: string): Promise<void> => {
     setLoading(true);
@@ -251,6 +363,8 @@ export const useVoiceSession = (): UseVoiceSessionReturn => {
     // アクション
     createSession,
     getSession,
+    getSessionBySessionId,
+    ensureSession,
     getSessions,
     updateSession,
     deleteSession,

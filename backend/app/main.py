@@ -119,6 +119,23 @@ async def bridge_line_exception_handler(request, exc: BridgeLineException):
     """BridgeLine例外のハンドラー"""
     return handle_bridge_line_exceptions(exc)
 
+# バリデーションエラーの詳細表示
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc: RequestValidationError):
+    """バリデーションエラーの詳細表示"""
+    logger.error(f"Validation error: {exc.errors()}")
+    return JSONResponse(
+        status_code=400,
+        content={
+            "message": "Validation error",
+            "errors": exc.errors(),
+            "body": exc.body
+        }
+    )
+
 
 # ヘルスチェックエンドポイント
 @app.get("/health")

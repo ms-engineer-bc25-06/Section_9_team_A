@@ -219,6 +219,33 @@ class VoiceSessionService:
             logger.error(f"Failed to update voice session {session_id}: {e}")
             raise ValidationException("Failed to update voice session")
 
+    async def update_session_by_session_id(
+        self, session_id: str, user_id: int, update_data: VoiceSessionUpdate
+    ) -> VoiceSessionResponse:
+        """セッションID（文字列）で音声セッションを更新"""
+        try:
+            # セッション取得
+            session = await self.repository.get_by_session_id(self.db, session_id)
+            if not session:
+                raise NotFoundException("Voice session not found")
+
+            # 権限チェック
+            if session.user_id != user_id:
+                raise PermissionException("Access denied")
+
+            # 更新
+            updated_session = await self.repository.update(
+                self.db, db_obj=session, obj_in=update_data
+            )
+
+            return VoiceSessionResponse.model_validate(updated_session)
+
+        except (NotFoundException, PermissionException):
+            raise
+        except Exception as e:
+            logger.error(f"Failed to update voice session {session_id}: {e}")
+            raise ValidationException("Failed to update voice session")
+
     async def update_audio_info(
         self, session_id: int, user_id: int, audio_data: VoiceSessionAudioUpdate
     ) -> VoiceSessionResponse:
@@ -450,14 +477,24 @@ class VoiceSessionService:
             return None
 
     async def get_session_by_session_id(
-        self, session_id: str
-    ) -> Optional[VoiceSession]:
+        self, session_id: str, user_id: int
+    ) -> VoiceSessionDetailResponse:
         """セッションIDで音声セッションを取得"""
         try:
-            return await self.repository.get_by_session_id(self.db, session_id)
+            session = await self.repository.get_by_session_id(self.db, session_id)
+            if not session:
+                raise NotFoundException("Voice session not found")
+            
+            # 権限チェック
+            if session.user_id != user_id:
+                raise PermissionException("Access denied")
+            
+            return VoiceSessionDetailResponse.model_validate(session)
+        except (NotFoundException, PermissionException):
+            raise
         except Exception as e:
             logger.error(f"Failed to get session by session_id {session_id}: {e}")
-            return None
+            raise ValidationException("Failed to get voice session")
 
     async def start_session(
         self, session_id: str, user_id: int
@@ -757,13 +794,44 @@ class VoiceSessionService:
 
         return False
 
+    async def _can_manage_recording(self, session: VoiceSession, user_id: int) -> bool:
+        """録音管理権限があるかチェック"""
+        # オーナーの場合
+        if session.user_id == user_id:
+            return True
+
+        # 参加者リストから権限をチェック
+        participants = self._parse_participants(session.participants)
+        for participant in participants:
+            if participant["user_id"] == user_id:
+                return participant["role"] in ["owner", "moderator"]
+
+        return False
+
+    async def _can_view_recording(self, session: VoiceSession, user_id: int) -> bool:
+        """録音状態閲覧権限があるかチェック"""
+        # オーナーの場合
+        if session.user_id == user_id:
+            return True
+
+        # 参加者の場合
+        participants = self._parse_participants(session.participants)
+        for participant in participants:
+            if participant["user_id"] == user_id:
+                return True
+
+        return False
+
     # 録音制御メソッド
     async def start_recording(
         self, session_id: str, user_id: int, quality: str = "high", format: str = "mp3"
     ) -> RecordingStatusResponse:
         """録音を開始"""
         try:
-            session = await self.get_session_by_session_id(session_id)
+            session_response = await self.get_session_by_session_id(session_id, user_id)
+            
+            # VoiceSessionDetailResponseからVoiceSessionオブジェクトを取得
+            session = await self.repository.get_by_session_id(self.db, session_id)
             if not session:
                 raise NotFoundException("Voice session not found")
 
@@ -811,7 +879,10 @@ class VoiceSessionService:
     ) -> RecordingStatusResponse:
         """録音を停止"""
         try:
-            session = await self.get_session_by_session_id(session_id)
+            session_response = await self.get_session_by_session_id(session_id, user_id)
+            
+            # VoiceSessionDetailResponseからVoiceSessionオブジェクトを取得
+            session = await self.repository.get_by_session_id(self.db, session_id)
             if not session:
                 raise NotFoundException("Voice session not found")
 
@@ -852,7 +923,10 @@ class VoiceSessionService:
     ) -> RecordingStatusResponse:
         """録音を一時停止"""
         try:
-            session = await self.get_session_by_session_id(session_id)
+            session_response = await self.get_session_by_session_id(session_id, user_id)
+            
+            # VoiceSessionDetailResponseからVoiceSessionオブジェクトを取得
+            session = await self.repository.get_by_session_id(self.db, session_id)
             if not session:
                 raise NotFoundException("Voice session not found")
 
@@ -893,7 +967,10 @@ class VoiceSessionService:
     ) -> RecordingStatusResponse:
         """録音を再開"""
         try:
-            session = await self.get_session_by_session_id(session_id)
+            session_response = await self.get_session_by_session_id(session_id, user_id)
+            
+            # VoiceSessionDetailResponseからVoiceSessionオブジェクトを取得
+            session = await self.repository.get_by_session_id(self.db, session_id)
             if not session:
                 raise NotFoundException("Voice session not found")
 
@@ -934,7 +1011,10 @@ class VoiceSessionService:
     ) -> RecordingStatusResponse:
         """録音状態を取得"""
         try:
-            session = await self.get_session_by_session_id(session_id)
+            session_response = await self.get_session_by_session_id(session_id, user_id)
+            
+            # VoiceSessionDetailResponseからVoiceSessionオブジェクトを取得
+            session = await self.repository.get_by_session_id(self.db, session_id)
             if not session:
                 raise NotFoundException("Voice session not found")
 

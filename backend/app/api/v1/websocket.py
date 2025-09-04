@@ -80,7 +80,7 @@ async def _handle_voice_session_connection(websocket: WebSocket, session_id: str
             async with AsyncSessionLocal() as db:
                 voice_session_service = VoiceSessionService(db)
                 session = await asyncio.wait_for(
-                    voice_session_service.get_session_by_session_id(session_id),
+                    voice_session_service.get_session_by_session_id(session_id),  # pyright: ignore[reportCallIssue]
                     timeout=WEBSOCKET_SESSION_CHECK_TIMEOUT,
                 )
                 if not session:
@@ -310,7 +310,7 @@ async def _handle_chat_room_connection(websocket: WebSocket, room_id: str):
             async with AsyncSessionLocal() as db:
                 voice_session_service = VoiceSessionService(db)
                 session = await asyncio.wait_for(
-                    voice_session_service.get_session_by_session_id(room_id),
+                    voice_session_service.get_session_by_session_id(room_id),  # pyright: ignore[reportCallIssue]
                     timeout=WEBSOCKET_SESSION_CHECK_TIMEOUT,
                 )
                 if not session:
