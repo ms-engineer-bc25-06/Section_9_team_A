@@ -12,6 +12,9 @@ from app.api.v1 import (
     webhooks,
     analytics,
     websocket,  # WebSocketルーターを追加
+    webrtc_config,  # WebRTC設定API
+    webrtc_quality,  # WebRTC品質監視API
+    webrtc_errors,  # WebRTCエラーハンドリングAPI
     # 統合されたAPI
     analysis_unified,
     admin_unified,
@@ -54,6 +57,15 @@ api_router.include_router(
 
 # WebSocket
 api_router.include_router(websocket.router, prefix="/websocket", tags=["WebSocket"])
+
+# WebRTC設定
+api_router.include_router(webrtc_config.router, prefix="/webrtc", tags=["WebRTC設定"])
+
+# WebRTC品質監視
+api_router.include_router(webrtc_quality.router, prefix="/webrtc", tags=["WebRTC品質監視"])
+
+# WebRTCエラーハンドリング
+api_router.include_router(webrtc_errors.router, prefix="/webrtc", tags=["WebRTCエラーハンドリング"])
 
 # プライバシー制御
 api_router.include_router(privacy.router, prefix="/privacy", tags=["プライバシー制御"])

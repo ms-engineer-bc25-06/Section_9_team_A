@@ -67,8 +67,8 @@ const DEFAULT_CONFIG: VoiceChatConfig = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    // 本番環境ではTURNサーバーも追加
-    // { urls: 'turn:your-turn-server.com:3478', username: 'username', credential: 'password' }
+    { urls: 'stun:stun2.l.google.com:19302' },
+    // TURNサーバーは動的に設定される
   ],
   iceCandidatePoolSize: 10,
   audioConstraints: {
@@ -90,6 +90,7 @@ export const useVoiceChat = (roomId: string): UseVoiceChatReturn => {
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [config, setConfig] = useState<VoiceChatConfig>(DEFAULT_CONFIG);
+  const [webrtcConfigLoaded, setWebrtcConfigLoaded] = useState(false);
   const [stats, setStats] = useState<VoiceChatStats>({
     totalPeers: 0,
     connectedPeers: 0,
@@ -122,6 +123,44 @@ export const useVoiceChat = (roomId: string): UseVoiceChatReturn => {
     onPeerJoined: (peerId: string) => {},
     onPeerLeft: (peerId: string) => {},
   });
+
+  // WebRTC設定をサーバーから取得
+  const loadWebRTCConfig = useCallback(async () => {
+    try {
+      const response = await fetch('/api/v1/webrtc/config', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success && data.config) {
+        const serverConfig = data.config;
+        
+        // サーバーから取得した設定をマージ
+        const newConfig: VoiceChatConfig = {
+          iceServers: serverConfig.rtcConfiguration?.iceServers || DEFAULT_CONFIG.iceServers,
+          iceCandidatePoolSize: serverConfig.rtcConfiguration?.iceCandidatePoolSize || DEFAULT_CONFIG.iceCandidatePoolSize,
+          audioConstraints: serverConfig.audioConstraints || DEFAULT_CONFIG.audioConstraints,
+        };
+        
+        setConfig(newConfig);
+        setWebrtcConfigLoaded(true);
+        
+        console.log('WebRTC設定をサーバーから取得しました:', newConfig);
+      }
+    } catch (error) {
+      console.error('WebRTC設定の取得に失敗しました:', error);
+      // エラーの場合はデフォルト設定を使用
+      setWebrtcConfigLoaded(true);
+    }
+  }, []);
 
   // 設定更新
   const updateConfig = useCallback((newConfig: Partial<VoiceChatConfig>) => {
@@ -412,9 +451,16 @@ export const useVoiceChat = (roomId: string): UseVoiceChatReturn => {
     }
   }, [roomId, sendJson]);
 
+  // WebRTC設定の読み込み
+  useEffect(() => {
+    if (!webrtcConfigLoaded) {
+      loadWebRTCConfig();
+    }
+  }, [webrtcConfigLoaded, loadWebRTCConfig]);
+
   // 初期化時にルーム参加
   useEffect(() => {
-    if (roomId && !isInitialized) {
+    if (roomId && !isInitialized && webrtcConfigLoaded) {
       joinRoom(roomId);
     }
     
@@ -423,7 +469,7 @@ export const useVoiceChat = (roomId: string): UseVoiceChatReturn => {
         leaveRoom();
       }
     };
-  }, [roomId, isInitialized, joinRoom, leaveRoom]);
+  }, [roomId, isInitialized, webrtcConfigLoaded, joinRoom, leaveRoom]);
 
   // WebSocket接続状態の監視
   useEffect(() => {
