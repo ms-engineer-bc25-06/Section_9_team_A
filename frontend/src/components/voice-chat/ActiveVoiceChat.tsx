@@ -4,9 +4,12 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
 import { Badge } from "@/components/ui/Badge"
-import { Phone, Users, Lightbulb, TrendingUp } from "lucide-react"
+import { Phone, Users, Lightbulb, TrendingUp, Mic, MicOff, Volume2, VolumeX, Wifi, WifiOff } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { mockTopics, mockVoiceSession } from "@/data/mockVoiceChatData"
+import { useVoiceChat } from "@/hooks/useVoiceChat"
+import { useWebRTCQualityMonitor } from "@/hooks/useWebRTCQualityMonitor"
+import { useWebRTCErrorHandler } from "@/hooks/useWebRTCErrorHandler"
 
 interface Props {
   roomId: string
@@ -15,15 +18,54 @@ interface Props {
 export function ActiveVoiceChat({ roomId }: Props) {
   const [duration, setDuration] = useState(0)
   const [currentTopic, setCurrentTopic] = useState<{ text: string; category: string; description: string }>({ text: '', category: '', description: '' })
+  const [showQualityMonitor, setShowQualityMonitor] = useState(false)
+  const [showErrorHandler, setShowErrorHandler] = useState(false)
   const router = useRouter()
+  
+  // 実際のWebRTC通話機能
+  const {
+    isConnected,
+    isInitialized,
+    connectionState,
+    isMuted,
+    isSpeakerOn,
+    toggleMute,
+    toggleSpeaker,
+    localStream,
+    remoteStreams,
+    participants,
+    joinRoom,
+    leaveRoom,
+    error,
+    clearError,
+    stats
+  } = useVoiceChat(roomId)
   
   // プレゼンテーション用：モックデータから初期トピックを設定
   useEffect(() => {
     setCurrentTopic(mockTopics[1]) // 週末の過ごし方
   }, [])
   
-  // プレゼンテーション用：モックデータで参加者情報を取得
-  const mockParticipants = mockVoiceSession.participants
+  // 実際の参加者情報とモックデータを組み合わせ
+  const actualParticipants = participants.map((participantId, index) => ({
+    id: participantId,
+    name: `参加者 ${participantId.slice(-4)}`,
+    status: "online" as const,
+    department: "エンジニア",
+    isSpeaking: remoteStreams.some(rs => rs.peerId === participantId && rs.isActive)
+  }))
+  
+  // モック参加者と実際の参加者を組み合わせ
+  const allParticipants = [
+    {
+      id: "self",
+      name: "あなた",
+      status: "online" as const,
+      department: "エンジニア",
+      isSpeaking: !isMuted && localStream
+    },
+    ...actualParticipants
+  ]
 
   // プレゼンテーション用：モックデータでトークテーマを取得
   const availableTopics = mockTopics
@@ -31,13 +73,15 @@ export function ActiveVoiceChat({ roomId }: Props) {
   // プレゼンテーション用：モックデータで現在のトピックを設定
   const currentTopicData = currentTopic || availableTopics[1]
 
-  // プレゼンテーション用：モックデータでセッション時間をシミュレート
+  // 実際のセッション時間を管理
   useEffect(() => {
-    const interval = setInterval(() => {
-      setDuration(prev => prev + 1)
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [])
+    if (isInitialized) {
+      const interval = setInterval(() => {
+        setDuration(prev => prev + 1)
+      }, 1000)
+      return () => clearInterval(interval)
+    }
+  }, [isInitialized])
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -46,8 +90,9 @@ export function ActiveVoiceChat({ roomId }: Props) {
   }
 
   const handleLeaveRoom = () => {
-    // プレゼンテーション用：ルーム退出をシミュレート
+    // 実際のルーム退出処理
     if (confirm("退出しますか？")) {
+      leaveRoom()
       router.push("/voice-chat")
     }
   }
@@ -97,6 +142,36 @@ export function ActiveVoiceChat({ roomId }: Props) {
             <div className="text-2xl font-bold text-white">{formatDuration(duration)}</div>
             <div className="text-sm text-gray-400">通話時間</div>
           </div>
+          
+          {/* 音声制御ボタン */}
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={toggleMute}
+              variant={isMuted ? "destructive" : "outline"}
+              size="sm"
+              className="text-white border-white hover:bg-white hover:text-gray-900"
+            >
+              {isMuted ? (
+                <MicOff className="h-4 w-4" />
+              ) : (
+                <Mic className="h-4 w-4" />
+              )}
+            </Button>
+            
+            <Button
+              onClick={toggleSpeaker}
+              variant={isSpeakerOn ? "default" : "outline"}
+              size="sm"
+              className={isSpeakerOn ? "bg-blue-600 hover:bg-blue-700" : "text-white border-white hover:bg-white hover:text-gray-900"}
+            >
+              {isSpeakerOn ? (
+                <Volume2 className="h-4 w-4" />
+              ) : (
+                <VolumeX className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+          
           <Button variant="outline" onClick={handleLeaveRoom} className="text-white border-white hover:bg-white hover:text-gray-900">
             <Phone className="h-4 w-4 mr-2" />
             退出
@@ -113,12 +188,39 @@ export function ActiveVoiceChat({ roomId }: Props) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-4">
-            <Badge variant="default" className="bg-green-600">WebSocket: 接続済み</Badge>
-            <Badge variant="default" className="bg-green-600">WebRTC: 接続済み</Badge>
-            <Badge variant="default" className="bg-green-600">音声: アクティブ</Badge>
-            <Badge variant="outline" className="text-white">参加者: {mockParticipants.length}人</Badge>
+          <div className="flex items-center gap-4 flex-wrap">
+            <Badge variant={isConnected ? "default" : "secondary"} className={isConnected ? "bg-green-600" : "bg-yellow-600"}>
+              WebSocket: {isConnected ? "接続済み" : "接続中"}
+            </Badge>
+            <Badge variant={connectionState === 'connected' ? "default" : "secondary"} className={connectionState === 'connected' ? "bg-green-600" : "bg-yellow-600"}>
+              WebRTC: {connectionState === 'connected' ? "接続済み" : connectionState}
+            </Badge>
+            <Badge variant={localStream ? "default" : "secondary"} className={localStream ? "bg-green-600" : "bg-red-600"}>
+              音声: {localStream ? "アクティブ" : "未取得"}
+            </Badge>
+            <Badge variant="outline" className="text-white">参加者: {allParticipants.length}人</Badge>
+            <Badge variant="outline" className="text-white">接続済み: {stats.connectedPeers}人</Badge>
           </div>
+          
+          {/* エラー表示 */}
+          {error && (
+            <div className="mt-4 p-3 bg-red-900/50 border border-red-600 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                  <span className="text-red-300">{error}</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearError}
+                  className="text-red-300 hover:text-red-100"
+                >
+                  ×
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -130,12 +232,12 @@ export function ActiveVoiceChat({ roomId }: Props) {
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                参加者 ({mockParticipants.length})
+                参加者 ({allParticipants.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {mockParticipants.map((participant) => (
+                {allParticipants.map((participant) => (
                   <div key={participant.id} className="flex items-center gap-3 p-3 bg-gray-700 rounded-lg">
                     <div className="relative">
                       <div className="w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center text-white font-medium">
@@ -236,6 +338,32 @@ export function ActiveVoiceChat({ roomId }: Props) {
             </CardContent>
           </Card>
         </div>
+      </div>
+      
+      {/* 隠し音声要素 */}
+      <div className="hidden">
+        <audio
+          ref={(el) => {
+            if (el && localStream) {
+              el.srcObject = localStream;
+              el.muted = true; // エコー防止のためミュート
+            }
+          }}
+          autoPlay
+          playsInline
+        />
+        {remoteStreams.map(({ peerId, stream }) => (
+          <audio
+            key={peerId}
+            ref={(el) => {
+              if (el) {
+                el.srcObject = stream;
+              }
+            }}
+            autoPlay
+            playsInline
+          />
+        ))}
       </div>
     </div>
   )

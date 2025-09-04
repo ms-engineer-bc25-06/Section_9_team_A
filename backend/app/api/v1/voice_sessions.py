@@ -105,6 +105,35 @@ async def create_voice_session(
         )
 
 
+@router.post(
+    "/dev", response_model=VoiceSessionResponse, status_code=status.HTTP_201_CREATED
+)
+async def create_voice_session_dev(
+    session_data: VoiceSessionCreate,
+    voice_session_service: VoiceSessionService = Depends(get_voice_session_service),
+):
+    """開発環境用：認証不要で音声セッションを作成"""
+    try:
+        # 開発環境用のダミーユーザーID
+        dummy_user_id = 1
+        
+        # サービス呼び出し
+        result = await voice_session_service.create_session(
+            user_id=dummy_user_id, session_data=session_data
+        )
+
+        return result
+
+    except BridgeLineException as e:
+        raise handle_bridge_line_exceptions(e)
+    except Exception as e:
+        logger.error(f"Failed to create voice session (dev): {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"message": "Internal server error"},
+        )
+
+
 @router.get("/{session_id}", response_model=VoiceSessionDetailResponse)
 async def get_voice_session(
     session_id: int,
