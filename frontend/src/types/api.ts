@@ -1,5 +1,4 @@
 // APIクライアント用の型定義
-
 // 認証ヘッダー付きのヘッダー型
 export type AuthHeaders = HeadersInit & {
   Authorization?: string;

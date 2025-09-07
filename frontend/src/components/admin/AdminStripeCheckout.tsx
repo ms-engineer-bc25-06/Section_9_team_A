@@ -1,4 +1,3 @@
-// 管理者用Stripe決済フォームコンポーネント
 "use client"
 
 import { useState, useEffect } from "react"
@@ -73,9 +72,9 @@ export function AdminStripeCheckout({
           'Authorization': `Bearer ${authToken}`,
         },
         body: JSON.stringify({
-          amount: amount, // 円単位のまま送信
+          amount: amount, 
           additional_users: 0, // プラン料金ベースなので0
-          organization_id: 1, // TODO: 実際の組織IDを取得
+          organization_id: 1, 
           currency: 'jpy'
         })
       })

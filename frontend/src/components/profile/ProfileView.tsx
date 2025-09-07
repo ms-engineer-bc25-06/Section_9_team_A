@@ -1,4 +1,3 @@
-//FIXME（プロフィール閲覧）
 "use client"
 
 import { ProfileTabs } from "./ProfileTabs"

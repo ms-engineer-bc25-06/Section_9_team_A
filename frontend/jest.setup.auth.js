@@ -1,6 +1,4 @@
-/**
- * 認証テスト用のJestセットアップファイル
- */
+// 認証テスト用のJestセットアップファイル
 
 import '@testing-library/jest-dom'
 

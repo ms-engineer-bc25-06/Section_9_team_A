@@ -1,3 +1,4 @@
+//Jestテスト用のFirebaseモック設定
 import '@testing-library/jest-dom'
 
 // Mock Next.js router

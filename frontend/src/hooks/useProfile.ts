@@ -76,7 +76,6 @@ export function useProfile() {
   const hasProfileData = () => {
     if (!profile) return false
     
-    // 基本的なプロフィール項目が設定されているかチェック
     const hasBasicInfo = Boolean(profile.nickname || profile.department)
     const hasPersonalInfo = Boolean(profile.hobbies || profile.favorite_food || profile.motto)
     

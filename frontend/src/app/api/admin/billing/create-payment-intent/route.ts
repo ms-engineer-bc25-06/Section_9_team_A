@@ -1,7 +1,6 @@
 // 管理者用Stripe決済Intent作成API
 import { NextRequest, NextResponse } from 'next/server'
 
-// 動的ルートとして明示的に設定（静的生成を無効化）
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {

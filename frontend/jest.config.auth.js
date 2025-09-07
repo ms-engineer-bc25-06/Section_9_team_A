@@ -1,7 +1,4 @@
-/**
- * 認証テスト用のJest設定
- */
-
+// 認証テスト用のJest設定
 const nextJest = require('next/jest')
 
 const createJestConfig = nextJest({

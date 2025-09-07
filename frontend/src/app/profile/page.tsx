@@ -1,4 +1,3 @@
-// プロフィール表示ページ
 import { ProfileView } from "@/components/profile/ProfileView"
 import { Button } from "@/components/ui/Button"
 import { ArrowLeft, Edit } from "lucide-react"
