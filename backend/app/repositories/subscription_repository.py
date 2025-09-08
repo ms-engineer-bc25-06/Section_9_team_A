@@ -13,14 +13,13 @@ class SubscriptionRepository(BaseRepository[Any, Any, Any]):
     """サブスクリプションリポジトリ"""
 
     def __init__(self):
-        super().__init__(None)  # モデルは後で実装
+        super().__init__(None) 
 
     async def get_user_subscription(
         self, db: AsyncSession, user_id: int
     ) -> Optional[Any]:
         """ユーザーのサブスクリプションを取得"""
         try:
-            # 仮実装 - 実際のモデルが実装されたら更新
             return None
         except Exception as e:
             logger.error(f"Failed to get user subscription: {str(e)}")
@@ -31,7 +30,6 @@ class SubscriptionRepository(BaseRepository[Any, Any, Any]):
     ) -> Any:
         """サブスクリプションを作成"""
         try:
-            # 仮実装 - 実際のモデルが実装されたら更新
             return {"id": 1, "status": "created"}
         except Exception as e:
             logger.error(f"Failed to create subscription: {str(e)}")
@@ -42,7 +40,6 @@ class SubscriptionRepository(BaseRepository[Any, Any, Any]):
     ) -> Optional[Any]:
         """サブスクリプションを更新"""
         try:
-            # 仮実装 - 実際のモデルが実装されたら更新
             return {"id": subscription_id, "status": "updated"}
         except Exception as e:
             logger.error(f"Failed to update subscription: {str(e)}")
@@ -53,7 +50,6 @@ class SubscriptionRepository(BaseRepository[Any, Any, Any]):
     ) -> bool:
         """サブスクリプションをキャンセル"""
         try:
-            # 仮実装 - 実際のモデルが実装されたら更新
             logger.info(f"Subscription {subscription_id} cancelled")
             return True
         except Exception as e:
@@ -65,7 +61,6 @@ class SubscriptionRepository(BaseRepository[Any, Any, Any]):
     ) -> List[Any]:
         """アクティブなサブスクリプションを取得"""
         try:
-            # 仮実装 - 実際のモデルが実装されたら更新
             return []
         except Exception as e:
             logger.error(f"Failed to get active subscriptions: {str(e)}")
@@ -76,7 +71,6 @@ class SubscriptionRepository(BaseRepository[Any, Any, Any]):
     ) -> Dict[str, Any]:
         """サブスクリプションの状態をチェック"""
         try:
-            # 仮実装 - 実際のモデルが実装されたら更新
             return {
                 "has_active_subscription": False,
                 "plan_type": "free",

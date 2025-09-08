@@ -1,4 +1,3 @@
-// 管理者用決済アクションコンポーネント
 "use client"
 
 import { useState } from "react"
@@ -53,11 +52,8 @@ export function AdminBillingActions({
     setTimeout(() => {
       setPaymentSuccess(false)
     }, 5000)
-    
     // データを再取得
     onRefresh()
-    
-
   }
 
   const handlePaymentError = (errorMessage: string) => {

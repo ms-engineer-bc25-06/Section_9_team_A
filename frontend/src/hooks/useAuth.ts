@@ -56,7 +56,6 @@ export const useAuth = (): AuthHook => {
     return () => unsubscribe()
   }, [auth])
 
-  // バリデーション関数
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     return emailRegex.test(email)
@@ -66,7 +65,6 @@ export const useAuth = (): AuthHook => {
     return password.length >= 6
   }
 
-  // ログイン
   const login = useCallback(async (email: string, password: string): Promise<void> => {
     if (!validateEmail(email)) {
       throw new Error('Invalid email format')
@@ -95,7 +93,6 @@ export const useAuth = (): AuthHook => {
     }
   }, [auth])
 
-  // 登録
   const register = useCallback(async (data: RegisterData): Promise<void> => {
     const { email, password, username, fullName } = data
 
@@ -127,7 +124,6 @@ export const useAuth = (): AuthHook => {
     }
   }, [auth])
 
-  // ログアウト
   const logout = useCallback(async (): Promise<void> => {
     try {
       await signOut(auth)
@@ -136,7 +132,6 @@ export const useAuth = (): AuthHook => {
     }
   }, [auth])
 
-  // パスワードリセット
   const resetPassword = useCallback(async (email: string): Promise<void> => {
     if (!validateEmail(email)) {
       throw new Error('Invalid email format')

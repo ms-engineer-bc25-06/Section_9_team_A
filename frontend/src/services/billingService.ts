@@ -82,7 +82,6 @@ interface PaymentMethod {
   }
 }
 
-// バリデーション関数
 const validatePlanId = (planId: string): void => {
   if (!planId || planId.trim() === '') {
     throw new Error('Plan ID is required')

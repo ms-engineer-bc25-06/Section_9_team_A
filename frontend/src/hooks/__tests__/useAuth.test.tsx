@@ -172,7 +172,7 @@ describe('useAuth Hook', () => {
         'newuser@example.com',
         'password123'
       )
-      // 登録成功後の状態を確認（onAuthStateChangedが呼ばれることを期待）
+      // 登録成功後の状態を確認
       expect(mockOnAuthStateChangedFn).toHaveBeenCalled()
     })
 
@@ -202,7 +202,6 @@ describe('useAuth Hook', () => {
     it('should validate registration data', async () => {
       const { result } = renderHook(() => useAuth())
 
-      // 各バリデーションエラーを個別にテスト
       await act(async () => {
         try {
           await result.current.register({
@@ -259,7 +258,6 @@ describe('useAuth Hook', () => {
 
   describe('Logout Functionality', () => {
     it('should handle successful logout', async () => {
-      // まずログイン状態をシミュレート
       const mockUser = {
         uid: 'test-user-123',
         email: 'test@example.com',
@@ -274,12 +272,10 @@ describe('useAuth Hook', () => {
 
       const { result } = renderHook(() => useAuth())
 
-      // ログイン
       await act(async () => {
         await result.current.login('test@example.com', 'password123')
       })
 
-      // ログアウト
       await act(async () => {
         await result.current.logout()
       })

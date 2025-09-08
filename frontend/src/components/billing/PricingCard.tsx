@@ -1,4 +1,3 @@
-// 料金プラン表示
 'use client';
 
 import React from 'react';

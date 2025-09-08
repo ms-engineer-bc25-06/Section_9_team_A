@@ -1,8 +1,8 @@
-// 認証状態をアプリ全体に提供するコンテキスト
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut, User as FirebaseUser } from "firebase/auth"
+import { useRouter } from "next/navigation"
 import { auth } from "@/lib/auth"
 
 interface AuthContextType {
@@ -17,6 +17,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+export { AuthContext }
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<FirebaseUser | null>(null)
   const [backendToken, setBackendToken] = useState<string | null>(null)
@@ -27,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let profileSyncCleanup: (() => void) | null = null
     
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser || null) // nullを明示
+      setUser(firebaseUser || null) 
       
       if (firebaseUser) {
         // Firebase認証が成功した場合、バックエンドトークンが既に存在するかチェック
@@ -138,7 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         console.error("プロフィール同期チェックでエラー:", error)
       }
-    }, 10 * 60 * 1000) // 10分ごと
+    }, 10 * 60 * 1000) 
     
     // クリーンアップ関数を返す
     return () => {
@@ -147,7 +149,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // ログイン
   const login = async (email: string, password: string): Promise<string | null> => {
     setIsLoading(true)
     try {
@@ -368,7 +369,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // ログアウト
   const logout = async () => {
     await signOut(auth)
     setUser(null)
@@ -385,8 +385,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext)
+  const router = useRouter()
+  
   if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider")
   }
-  return context
+  
+  // 追加の機能を提供
+  const requireAuth = (): boolean => {
+    return !!context.user
+  }
+  
+  const redirectToLogin = () => {
+    router.push('/auth/login')
+  }
+  
+  return {
+    ...context,
+    isAuthenticated: !!context.user,
+    requireAuth,
+    redirectToLogin,
+  }
 }

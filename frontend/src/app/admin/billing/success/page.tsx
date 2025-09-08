@@ -43,7 +43,7 @@ function BillingSuccessPageContent() {
   }
 
   const handleDownloadReceipt = () => {
-    // 実際の実装では、Stripeからレシートをダウンロード
+    // TODO:実際の実装では、Stripeからレシートをダウンロード
     alert('レシートのダウンロード機能は準備中です')
   }
 

@@ -1,4 +1,3 @@
-//メイン画面
 import { AdminDashboardCards } from "./AdminDashboardCards"
 import { AdminStats } from "./AdminStats"
 

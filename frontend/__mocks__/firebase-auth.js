@@ -1,5 +1,4 @@
 //テスト実施のためFirebase Auth のモックを作成
-
 export const getAuth = jest.fn(() => ({}))
 export const onAuthStateChanged = jest.fn()
 export const signInWithEmailAndPassword = jest.fn()

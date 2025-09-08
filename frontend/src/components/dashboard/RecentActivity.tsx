@@ -1,4 +1,4 @@
-// FIXME (最近のアクティビティ一覧)
+// TODO:最近のアクティビティ一覧モックデータの解除
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"

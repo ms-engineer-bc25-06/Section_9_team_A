@@ -1,4 +1,3 @@
-// 管理者用決済詳細情報コンポーネント
 "use client"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card"
@@ -66,9 +65,7 @@ export function AdminBillingOverview({
                 </div>
         </div>
       </div>
-            
-
-            
+                
             <div className="pt-2 border-t">
                           <div className="flex justify-between items-center">
               <span className="font-medium">利用率</span>
@@ -111,8 +108,6 @@ export function AdminBillingOverview({
                 ¥{planInfo.monthlyPrice.toLocaleString()}/月
               </Badge>
       </div>
-
-
 
             <div className="flex justify-between items-center">
               <span className="text-gray-600">次回請求日</span>

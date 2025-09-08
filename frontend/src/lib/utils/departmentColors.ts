@@ -1,6 +1,4 @@
-/**
- * 部署ごとの色を取得するユーティリティ関数
- */
+// 部署ごとの色を取得するユーティリティ関数
 
 export const getDepartmentColor = (departmentName: string): string => {
   const colors: Record<string, string> = {

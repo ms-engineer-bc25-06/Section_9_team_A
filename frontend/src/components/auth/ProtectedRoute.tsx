@@ -1,4 +1,3 @@
-// 認証が必要なページを保護するコンポーネント
 "use client"
 
 import { useEffect, useState } from "react"
@@ -96,7 +95,6 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     ) : null
   }
 
-  // 権限がない場合
   if (!hasPermission) {
     return null
   }

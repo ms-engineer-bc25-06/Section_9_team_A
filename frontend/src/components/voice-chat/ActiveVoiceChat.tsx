@@ -4,9 +4,14 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
 import { Badge } from "@/components/ui/Badge"
-import { Phone, Users, Lightbulb, TrendingUp } from "lucide-react"
+import { Phone, Users, Lightbulb, TrendingUp, Mic, MicOff, Volume2, VolumeX, Wifi, WifiOff, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { mockTopics, mockVoiceSession } from "@/data/mockVoiceChatData"
+import { useVoiceChat } from "@/hooks/useVoiceChat"
+import { useWebRTCQualityMonitor } from "@/hooks/useWebRTCQualityMonitor"
+import { useWebRTCErrorHandler } from "@/hooks/useWebRTCErrorHandler"
+import { useAuth } from "@/components/auth/AuthProvider"
+import { useVoiceSession } from "@/hooks/useVoiceSession"
 
 interface Props {
   roomId: string
@@ -15,15 +20,62 @@ interface Props {
 export function ActiveVoiceChat({ roomId }: Props) {
   const [duration, setDuration] = useState(0)
   const [currentTopic, setCurrentTopic] = useState<{ text: string; category: string; description: string }>({ text: '', category: '', description: '' })
+  const [showQualityMonitor, setShowQualityMonitor] = useState(false)
+  const [showErrorHandler, setShowErrorHandler] = useState(false)
+  const [isInitializing, setIsInitializing] = useState(true)
+  const [initializationError, setInitializationError] = useState<string | null>(null)
   const router = useRouter()
+  
+  // 認証状態の確認
+  const { user, isLoading: authLoading, isAuthenticated, redirectToLogin } = useAuth()
+  
+  // 音声セッション管理
+  const { ensureSession, loading: sessionLoading, error: sessionError } = useVoiceSession()
+  
+  // 実際のWebRTC通話機能
+  const {
+    isConnected,
+    isInitialized,
+    connectionState,
+    isMuted,
+    isSpeakerOn,
+    toggleMute,
+    toggleSpeaker,
+    localStream,
+    remoteStreams,
+    participants,
+    joinRoom,
+    leaveRoom,
+    error,
+    clearError,
+    stats
+  } = useVoiceChat(roomId)
   
   // プレゼンテーション用：モックデータから初期トピックを設定
   useEffect(() => {
     setCurrentTopic(mockTopics[1]) // 週末の過ごし方
   }, [])
   
-  // プレゼンテーション用：モックデータで参加者情報を取得
-  const mockParticipants = mockVoiceSession.participants
+  // 実際の参加者情報とモックデータを組み合わせ
+  const actualParticipants = participants.map((participantId, index) => ({
+    id: participantId,
+    name: `参加者 ${participantId.slice(-4)}`,
+    status: "online" as const,
+    department: "エンジニア",
+    isSpeaking: remoteStreams.some(rs => rs.peerId === participantId && rs.isActive)
+  }))
+  
+  // モック参加者と実際の参加者を組み合わせ
+  const allParticipants = [
+    {
+      id: "self",
+      name: "あなた",
+      status: "online" as const,
+      department: "エンジニア",
+      isSpeaking: !isMuted && localStream
+    },
+    ...actualParticipants
+  ]
 
   // プレゼンテーション用：モックデータでトークテーマを取得
   const availableTopics = mockTopics
@@ -31,13 +83,57 @@ export function ActiveVoiceChat({ roomId }: Props) {
   // プレゼンテーション用：モックデータで現在のトピックを設定
   const currentTopicData = currentTopic || availableTopics[1]
 
-  // プレゼンテーション用：モックデータでセッション時間をシミュレート
+  // 認証状態とセッション初期化
   useEffect(() => {
-    const interval = setInterval(() => {
-      setDuration(prev => prev + 1)
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [])
+    const initializeSession = async () => {
+      try {
+        setIsInitializing(true)
+        setInitializationError(null)
+        
+        // 認証状態の確認
+        if (authLoading) {
+          return // 認証状態の読み込み中
+        }
+        
+        if (!isAuthenticated) {
+          console.log("認証されていません。ログインページにリダイレクトします。")
+          redirectToLogin()
+          return
+        }
+        
+        console.log(`認証済みユーザー: ${user?.email}`)
+        console.log(`ルームID: ${roomId}`)
+        
+        // セッション存在確認と自動作成
+        try {
+          const session = await ensureSession(roomId)
+          console.log("セッション確保完了:", session)
+        } catch (error) {
+          console.error("セッション確保エラー:", error)
+          setInitializationError("セッションの初期化に失敗しました")
+          return
+        }
+        
+        setIsInitializing(false)
+      } catch (error) {
+        console.error("初期化エラー:", error)
+        setInitializationError("初期化に失敗しました")
+        setIsInitializing(false)
+      }
+    }
+    
+    initializeSession()
+  }, [authLoading, isAuthenticated, user, roomId, ensureSession, redirectToLogin])
+
+  // 実際のセッション時間を管理
+  useEffect(() => {
+    if (isInitialized && !isInitializing) {
+      const interval = setInterval(() => {
+        setDuration(prev => prev + 1)
+      }, 1000)
+      return () => clearInterval(interval)
+    }
+  }, [isInitialized, isInitializing])
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -46,8 +142,9 @@ export function ActiveVoiceChat({ roomId }: Props) {
   }
 
   const handleLeaveRoom = () => {
-    // プレゼンテーション用：ルーム退出をシミュレート
+    // 実際のルーム退出処理
     if (confirm("退出しますか？")) {
+      leaveRoom()
       router.push("/voice-chat")
     }
   }
@@ -84,6 +181,40 @@ export function ActiveVoiceChat({ roomId }: Props) {
     }
   }
 
+  // 初期化中の表示
+  if (isInitializing || authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-white mx-auto mb-4" />
+          <p className="text-white text-lg">初期化中...</p>
+          <p className="text-gray-300 text-sm mt-2">
+            {authLoading ? "認証状態を確認中..." : "セッションを準備中..."}
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // 初期化エラーの表示
+  if (initializationError) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="text-red-500 text-lg mb-4">⚠️ エラーが発生しました</div>
+          <p className="text-white mb-4">{initializationError}</p>
+          <Button 
+            onClick={() => window.location.reload()} 
+            variant="outline"
+            className="text-white border-white hover:bg-white hover:text-gray-900"
+          >
+            再試行
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* ヘッダー情報 */}
@@ -91,12 +222,45 @@ export function ActiveVoiceChat({ roomId }: Props) {
         <div>
           <h2 className="text-xl font-bold text-white">雑談ルーム #{roomId}</h2>
           <p className="text-gray-300">現在のトピック: {currentTopicData.text}</p>
+          {user && (
+            <p className="text-gray-400 text-sm">ユーザー: {user.email}</p>
+          )}
         </div>
         <div className="flex items-center gap-4">
           <div className="text-center">
             <div className="text-2xl font-bold text-white">{formatDuration(duration)}</div>
             <div className="text-sm text-gray-400">通話時間</div>
           </div>
+          
+          {/* 音声制御ボタン */}
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={toggleMute}
+              variant={isMuted ? "destructive" : "outline"}
+              size="sm"
+              className="text-white border-white hover:bg-white hover:text-gray-900"
+            >
+              {isMuted ? (
+                <MicOff className="h-4 w-4" />
+              ) : (
+                <Mic className="h-4 w-4" />
+              )}
+            </Button>
+            
+            <Button
+              onClick={toggleSpeaker}
+              variant={isSpeakerOn ? "default" : "outline"}
+              size="sm"
+              className={isSpeakerOn ? "bg-blue-600 hover:bg-blue-700" : "text-white border-white hover:bg-white hover:text-gray-900"}
+            >
+              {isSpeakerOn ? (
+                <Volume2 className="h-4 w-4" />
+              ) : (
+                <VolumeX className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+          
           <Button variant="outline" onClick={handleLeaveRoom} className="text-white border-white hover:bg-white hover:text-gray-900">
             <Phone className="h-4 w-4 mr-2" />
             退出
@@ -113,12 +277,39 @@ export function ActiveVoiceChat({ roomId }: Props) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-4">
-            <Badge variant="default" className="bg-green-600">WebSocket: 接続済み</Badge>
-            <Badge variant="default" className="bg-green-600">WebRTC: 接続済み</Badge>
-            <Badge variant="default" className="bg-green-600">音声: アクティブ</Badge>
-            <Badge variant="outline" className="text-white">参加者: {mockParticipants.length}人</Badge>
+          <div className="flex items-center gap-4 flex-wrap">
+            <Badge variant={isConnected ? "default" : "secondary"} className={isConnected ? "bg-green-600" : "bg-yellow-600"}>
+              WebSocket: {isConnected ? "接続済み" : "接続中"}
+            </Badge>
+            <Badge variant={connectionState === 'connected' ? "default" : "secondary"} className={connectionState === 'connected' ? "bg-green-600" : "bg-yellow-600"}>
+              WebRTC: {connectionState === 'connected' ? "接続済み" : connectionState}
+            </Badge>
+            <Badge variant={localStream ? "default" : "secondary"} className={localStream ? "bg-green-600" : "bg-red-600"}>
+              音声: {localStream ? "アクティブ" : "未取得"}
+            </Badge>
+            <Badge variant="outline" className="text-white">参加者: {allParticipants.length}人</Badge>
+            <Badge variant="outline" className="text-white">接続済み: {stats.connectedPeers}人</Badge>
           </div>
+          
+          {/* エラー表示 */}
+          {error && (
+            <div className="mt-4 p-3 bg-red-900/50 border border-red-600 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                  <span className="text-red-300">{error}</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearError}
+                  className="text-red-300 hover:text-red-100"
+                >
+                  ×
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -130,12 +321,12 @@ export function ActiveVoiceChat({ roomId }: Props) {
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                参加者 ({mockParticipants.length})
+                参加者 ({allParticipants.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {mockParticipants.map((participant) => (
+                {allParticipants.map((participant) => (
                   <div key={participant.id} className="flex items-center gap-3 p-3 bg-gray-700 rounded-lg">
                     <div className="relative">
                       <div className="w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center text-white font-medium">
@@ -236,6 +427,32 @@ export function ActiveVoiceChat({ roomId }: Props) {
             </CardContent>
           </Card>
         </div>
+      </div>
+      
+      {/* 隠し音声要素 */}
+      <div className="hidden">
+        <audio
+          ref={(el) => {
+            if (el && localStream) {
+              el.srcObject = localStream;
+              el.muted = true; // エコー防止のためミュート
+            }
+          }}
+          autoPlay
+          playsInline
+        />
+        {remoteStreams.map(({ peerId, stream }) => (
+          <audio
+            key={peerId}
+            ref={(el) => {
+              if (el) {
+                el.srcObject = stream;
+              }
+            }}
+            autoPlay
+            playsInline
+          />
+        ))}
       </div>
     </div>
   )

@@ -1,8 +1,4 @@
-/**
- * プラン管理サービス
- * プランの情報と料金計算を管理します
- */
-
+// プラン管理サービス
 export interface PlanFeatures {
   max_team_members: number | 'unlimited';
   max_sessions_per_month: number | 'unlimited';

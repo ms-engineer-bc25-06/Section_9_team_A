@@ -1,4 +1,3 @@
-//FIXME（プロフィール編集）
 "use client"
 
 import { useState, useEffect } from "react"

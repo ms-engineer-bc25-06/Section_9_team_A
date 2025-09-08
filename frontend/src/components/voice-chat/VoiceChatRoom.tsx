@@ -10,18 +10,37 @@ import { Play, Users, Lightbulb, Mic, Settings, TrendingUp } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { AudioEnhancement } from "./AudioEnhancement"
 import { mockParticipants, mockTopics } from "@/data/mockVoiceChatData"
+import { useVoiceSession } from "@/hooks/useVoiceSession"
 
 export function VoiceChatRoom() {
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null)
   const [showAudioEnhancement, setShowAudioEnhancement] = useState(false)
   const router = useRouter()
+  const { createSession, loading, error } = useVoiceSession()
 
-  const startVoiceChat = () => {
+  const startVoiceChat = async () => {
     console.log("Starting voice chat...") // デバッグ用
     try {
-      router.push("/voice-chat/room-1")
+      // 音声セッションを作成
+      const sessionData = {
+        session_id: `room-${Date.now()}`,
+        title: (selectedTopic || "雑談ルーム").substring(0, 255), // 長さ制限
+        description: (selectedTopic ? `テーマ: ${selectedTopic}` : "自由な雑談ルーム").substring(0, 1000), // 長さ制限
+        is_public: true,
+        participant_count: 1
+      }
+      
+      console.log("送信するセッションデータ:", sessionData) // デバッグ用
+      
+      const session = await createSession(sessionData)
+      console.log("音声セッション作成完了:", session)
+      
+      // 作成されたセッションのルームに移動
+      router.push(`/voice-chat/room-${session.session_id}`)
     } catch (error) {
-      console.error("Navigation error:", error)
+      console.error("音声セッション作成エラー:", error)
+      // エラーの場合はデフォルトのルームに移動
+      router.push("/voice-chat/room-1")
     }
   }
 
@@ -106,10 +125,22 @@ export function VoiceChatRoom() {
           </div>
 
           <div className="space-y-3 mt-6">
-            <Button onClick={startVoiceChat} className="w-full" size="lg" type="button">
+            <Button 
+              onClick={startVoiceChat} 
+              className="w-full" 
+              size="lg" 
+              type="button"
+              disabled={loading}
+            >
               <Play className="h-5 w-5 mr-2" />
-              雑談ルームに入室する
+              {loading ? "セッション作成中..." : "雑談ルームに入室する"}
             </Button>
+            
+            {error && (
+              <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm">
+                エラー: {error}
+              </div>
+            )}
             
             <Button 
               onClick={() => setShowAudioEnhancement(!showAudioEnhancement)} 

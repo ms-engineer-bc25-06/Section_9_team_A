@@ -7,10 +7,7 @@ export async function POST(request: NextRequest) {
     // 現在は簡易的な実装（実際の実装ではStripeの署名検証が必要）
     
     const body = await request.text()
-    
-    // Webhookイベントの処理
-    // TODO: Stripeの署名検証とイベント処理を実装
-    
+
     return NextResponse.json({ 
       message: "Stripe Webhook received",
       status: "success" 

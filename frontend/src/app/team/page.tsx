@@ -1,6 +1,4 @@
 "use client";
-
-// チームメンバー一覧
 import { useState, useEffect } from "react";
 import DepartmentMemberList from "@/components/team/DepartmentMemberList";
 import { Button } from "@/components/ui/Button";
@@ -46,7 +44,6 @@ export default function TeamPage() {
   };
 
   const handleViewProfile = (memberId: string) => {
-    // プロフィールページに遷移
     router.push(`/profile/${memberId}`);
   };
 

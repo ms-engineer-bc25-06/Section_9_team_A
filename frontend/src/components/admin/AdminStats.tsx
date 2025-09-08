@@ -1,4 +1,3 @@
-// 統計情報表示部品
 "use client"
 
 import { useState, useEffect } from "react"
@@ -50,8 +49,8 @@ export function AdminStats() {
       
       const maxUsers = planInfo.maxUsers === '無制限' ? 999999 : parseInt(planInfo.maxUsers.replace('名', ''))
       const monthlyRevenue = planInfo.monthlyPrice
-      const activeUsers = totalUsers // 現在は全ユーザーをアクティブとして扱う
-      const pendingPayments = 0 // 現在は未実装
+      const activeUsers = totalUsers 
+      const pendingPayments = 0 
 
       setStats({
         totalUsers,

@@ -5,6 +5,8 @@ import { ActiveVoiceChat } from "@/components/voice-chat/ActiveVoiceChat"
 import { Button } from "@/components/ui/Button"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
+import { useAuth } from "@/components/auth/AuthProvider"
+import { useEffect } from "react"
 
 interface Props {
   params: {
@@ -13,6 +15,33 @@ interface Props {
 }
 
 export default function VoiceChatRoomPage({ params }: Props) {
+  const { isAuthenticated, isLoading, redirectToLogin } = useAuth()
+
+  // 認証状態の確認
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      console.log("認証されていません。ログインページにリダイレクトします。")
+      redirectToLogin()
+    }
+  }, [isAuthenticated, isLoading, redirectToLogin])
+
+  // 認証状態の読み込み中
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
+          <p>認証状態を確認中...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // 認証されていない場合は何も表示しない（リダイレクト中）
+  if (!isAuthenticated) {
+    return null
+  }
+
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       <header className="bg-gray-800 border-b border-gray-700">

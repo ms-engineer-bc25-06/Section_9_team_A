@@ -1,4 +1,3 @@
-// 管理者ダッシュボードUI
 "use client"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card"
@@ -31,21 +30,6 @@ export function AdminDashboardCards() {
       action: () => router.push("/admin/billing"),
       color: "bg-purple-500",
     },
-   
-    // {
-    //   title: "システム分析",
-    //   description: "利用状況・パフォーマンス分析",
-    //   icon: BarChart3,
-    //   action: () => router.push("/admin/analytics"),
-    //   color: "bg-orange-500",
-    // },
-    // {
-    //   title: "システム設定",
-    //   description: "アプリケーション設定の管理",
-    //   icon: Settings,
-    //   action: () => router.push("/admin/settings"),
-    //   color: "bg-slate-500",
-    // },
   ]
 
   return (

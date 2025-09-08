@@ -46,9 +46,8 @@ export interface MemberProfileResponse {
   profile: MemberProfile;
 }
 
-/**
- * 実際のAPIからチームメンバーを取得
- */
+
+// 実際のAPIからチームメンバーを取得
 export const getTeamMembers = async (): Promise<DepartmentMember[]> => {
   try {
     const response = await apiGet<any[]>('/users/members');
@@ -72,9 +71,7 @@ export const getTeamMembers = async (): Promise<DepartmentMember[]> => {
   }
 };
 
-/**
- * 実際のAPIから特定のメンバーのプロフィールを取得
- */
+// 実際のAPIから特定のメンバーのプロフィールを取得
 export const getMemberProfile = async (memberId: string): Promise<MemberProfile> => {
   try {
     console.log(`Fetching member profile for ID: ${memberId}`);
@@ -120,9 +117,7 @@ export const getMemberProfile = async (memberId: string): Promise<MemberProfile>
   }
 };
 
-/**
- * メンバー一覧から部署一覧を取得
- */
+//メンバー一覧から部署一覧を取得
 export const getDepartments = async (): Promise<string[]> => {
   try {
     // メンバー一覧を取得して部署一覧を抽出
@@ -143,9 +138,7 @@ export const getDepartments = async (): Promise<string[]> => {
   }
 };
 
-/**
- * メンバー一覧から部署別メンバー数を計算
- */
+// メンバー一覧から部署別メンバー数を計算
 export const getDepartmentCounts = async () => {
   try {
     // メンバー一覧を取得して部署別にカウント
@@ -156,8 +149,7 @@ export const getDepartmentCounts = async () => {
       const department = member.user?.profile?.department || '未設定';
       departmentCounts[department] = (departmentCounts[department] || 0) + 1;
     });
-    
-    // 配列形式に変換
+
     return Object.entries(departmentCounts).map(([name, count]) => ({
       name,
       count
@@ -168,9 +160,7 @@ export const getDepartmentCounts = async () => {
   }
 };
 
-/**
- * メンバー一覧から部署別フィルタリングされたメンバーを取得
- */
+// メンバー一覧から部署別フィルタリングされたメンバーを取得
 export const getMembersByDepartment = async (department: string): Promise<DepartmentMember[]> => {
   try {
     // メンバー一覧を取得して部署でフィルタリング
@@ -184,9 +174,7 @@ export const getMembersByDepartment = async (department: string): Promise<Depart
   }
 };
 
-/**
- * メンバー一覧から検索結果を取得
- */
+// メンバー一覧から検索結果を取得
 export const searchTeamMembers = async (searchTerm: string): Promise<DepartmentMember[]> => {
   try {
     // メンバー一覧を取得して検索

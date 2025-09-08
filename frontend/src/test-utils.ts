@@ -1,6 +1,4 @@
-/**
- * フロントエンドテスト用の共通ヘルパー関数
- */
+// フロントエンドテスト用の共通ヘルパー関数
 
 import { render, RenderOptions } from '@testing-library/react'
 import { ReactElement } from 'react'
@@ -24,65 +22,65 @@ export function renderWithProviders(
 }
 
 // モックユーザーの作成
-export const createMockUser = (overrides: Partial<any> = {}) => ({
-  uid: 'test-user-123',
-  email: 'test@example.com',
-  displayName: 'Test User',
-  photoURL: null,
-  ...overrides
-})
+// export const createMockUser = (overrides: Partial<any> = {}) => ({
+//   uid: 'test-user-123',
+//   email: 'test@example.com',
+//   displayName: 'Test User',
+//   photoURL: null,
+//   ...overrides
+// })
 
 // モック認証状態の作成
-export const createMockAuthState = (overrides: Partial<any> = {}) => ({
-  user: createMockUser(),
-  isAuthenticated: true,
-  isLoading: false,
-  error: null,
-  ...overrides
-})
+// export const createMockAuthState = (overrides: Partial<any> = {}) => ({
+//   user: createMockUser(),
+//   isAuthenticated: true,
+//   isLoading: false,
+//   error: null,
+//   ...overrides
+// })
 
 // モックプロフィールの作成
-export const createMockProfile = (overrides: Partial<any> = {}) => ({
-  id: 1,
-  email: 'test@example.com',
-  username: 'testuser',
-  fullName: 'Test User',
-  avatar: null,
-  bio: 'Test bio',
-  ...overrides
-})
+// export const createMockProfile = (overrides: Partial<any> = {}) => ({
+//   id: 1,
+//   email: 'test@example.com',
+//   username: 'testuser',
+//   fullName: 'Test User',
+//   avatar: null,
+//   bio: 'Test bio',
+//   ...overrides
+// })
 
 // モックサブスクリプションプランの作成
-export const createMockPlan = (overrides: Partial<any> = {}) => ({
-  id: 'basic',
-  name: 'Basic Plan',
-  monthly_price: 980,
-  yearly_price: 9800,
-  features: ['10 members', '50 sessions/month'],
-  trial_days: 7,
-  ...overrides
-})
+// export const createMockPlan = (overrides: Partial<any> = {}) => ({
+//   id: 'basic',
+//   name: 'Basic Plan',
+//   monthly_price: 980,
+//   yearly_price: 9800,
+//   features: ['10 members', '50 sessions/month'],
+//   trial_days: 7,
+//   ...overrides
+// })
 
 // モック請求データの作成
-export const createMockBillingData = (overrides: Partial<any> = {}) => ({
-  id: 'inv_123',
-  amount: 2980,
-  currency: 'JPY',
-  status: 'pending',
-  due_date: new Date().toISOString(),
-  description: 'Premium Plan - Monthly Subscription',
-  ...overrides
-})
+// export const createMockBillingData = (overrides: Partial<any> = {}) => ({
+//   id: 'inv_123',
+//   amount: 2980,
+//   currency: 'JPY',
+//   status: 'pending',
+//   due_date: new Date().toISOString(),
+//   description: 'Premium Plan - Monthly Subscription',
+//   ...overrides
+// })
 
 // モック決済データの作成
-export const createMockPaymentData = (overrides: Partial<any> = {}) => ({
-  id: 'pi_test_123',
-  amount: 2980,
-  currency: 'jpy',
-  status: 'requires_payment_method',
-  client_secret: 'pi_test_secret_123',
-  ...overrides
-})
+// export const createMockPaymentData = (overrides: Partial<any> = {}) => ({
+//   id: 'pi_test_123',
+//   amount: 2980,
+//   currency: 'jpy',
+//   status: 'requires_payment_method',
+//   client_secret: 'pi_test_secret_123',
+//   ...overrides
+// })
 
 // モック音声セッションデータの作成
 export const createMockVoiceSession = (overrides: Partial<any> = {}) => ({
@@ -118,15 +116,15 @@ export const createMockAnalysis = (overrides: Partial<any> = {}) => ({
 })
 
 // モック通知データの作成
-export const createMockNotification = (overrides: Partial<any> = {}) => ({
-  id: 'notif_123',
-  type: 'info',
-  title: 'Test Notification',
-  message: 'This is a test notification',
-  is_read: false,
-  created_at: new Date().toISOString(),
-  ...overrides
-})
+// export const createMockNotification = (overrides: Partial<any> = {}) => ({
+//   id: 'notif_123',
+//   type: 'info',
+//   title: 'Test Notification',
+//   message: 'This is a test notification',
+//   is_read: false,
+//   created_at: new Date().toISOString(),
+//   ...overrides
+// })
 
 // モックアナウンスメントデータの作成
 export const createMockAnnouncement = (overrides: Partial<any> = {}) => ({
@@ -140,16 +138,16 @@ export const createMockAnnouncement = (overrides: Partial<any> = {}) => ({
 })
 
 // モックチームデータの作成
-export const createMockTeam = (overrides: Partial<any> = {}) => ({
-  id: 'team_123',
-  name: 'Test Team',
-  description: 'A test team',
-  owner_id: 1,
-  members: [],
-  is_active: true,
-  created_at: new Date().toISOString(),
-  ...overrides
-})
+// export const createMockTeam = (overrides: Partial<any> = {}) => ({
+//   id: 'team_123',
+//   name: 'Test Team',
+//   description: 'A test team',
+//   owner_id: 1,
+//   members: [],
+//   is_active: true,
+//   created_at: new Date().toISOString(),
+//   ...overrides
+// })
 
 // モック参加者データの作成
 export const createMockParticipant = (overrides: Partial<any> = {}) => ({
@@ -213,27 +211,27 @@ export const createMockApiClient = () => ({
 })
 
 // モックFirebase認証の作成
-export const createMockFirebaseAuth = () => ({
-  currentUser: null,
-  onAuthStateChanged: jest.fn(),
-  signInWithEmailAndPassword: jest.fn(),
-  createUserWithEmailAndPassword: jest.fn(),
-  signOut: jest.fn(),
-  sendPasswordResetEmail: jest.fn(),
-  updatePassword: jest.fn(),
-})
+// export const createMockFirebaseAuth = () => ({
+//   currentUser: null,
+//   onAuthStateChanged: jest.fn(),
+//   signInWithEmailAndPassword: jest.fn(),
+//   createUserWithEmailAndPassword: jest.fn(),
+//   signOut: jest.fn(),
+//   sendPasswordResetEmail: jest.fn(),
+//   updatePassword: jest.fn(),
+// })
 
 // モックStripeの作成
-export const createMockStripe = () => ({
-  createPaymentMethod: jest.fn(),
-  confirmCardPayment: jest.fn(),
-  createToken: jest.fn(),
-  createSource: jest.fn(),
-  retrieveSource: jest.fn(),
-  createCustomer: jest.fn(),
-  createSubscription: jest.fn(),
-  cancelSubscription: jest.fn(),
-})
+// export const createMockStripe = () => ({
+//   createPaymentMethod: jest.fn(),
+//   confirmCardPayment: jest.fn(),
+//   createToken: jest.fn(),
+//   createSource: jest.fn(),
+//   retrieveSource: jest.fn(),
+//   createCustomer: jest.fn(),
+//   createSubscription: jest.fn(),
+//   cancelSubscription: jest.fn(),
+// })
 
 // モックWebSocketの作成
 export const createMockWebSocket = () => ({
