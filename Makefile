@@ -38,6 +38,12 @@ help:
 	@echo "Backend:"
 	@echo "  make backend   - Show backend logs"
 	@echo ""
+	@echo "Testing:"
+	@echo "  make test-voice        - Run all voice chat tests"
+	@echo "  make test-voice-backend - Run backend voice tests"
+	@echo "  make test-voice-frontend - Run frontend voice tests"
+	@echo "  make test-voice-e2e    - Run voice E2E tests"
+	@echo ""
 	@echo "Cleanup:"
 	@echo "  make clean     - Remove containers and volumes"
 
@@ -157,6 +163,27 @@ test-frontend-unit:
 test-e2e:
 	@echo "🧪 Running E2E tests..."
 	@cd frontend && npm run cypress:run
+
+test-voice:
+	@echo "🎤 Running voice chat tests..."
+	@echo "🧪 Running backend voice tests..."
+	@cd backend && python -m pytest tests/test_voice_sessions.py tests/test_audio_quality.py tests/test_realtime_transcription.py tests/test_webrtc_*.py tests/test_voice_chat_integration.py -v --cov=app --cov-report=term-missing
+	@echo "🧪 Running frontend voice tests..."
+	@cd frontend && npm run test:voice:coverage
+	@echo "🧪 Running voice E2E tests..."
+	@cd frontend && npm run test:e2e:voice
+
+test-voice-backend:
+	@echo "🧪 Running backend voice tests..."
+	@cd backend && python -m pytest tests/test_voice_sessions.py tests/test_audio_quality.py tests/test_realtime_transcription.py tests/test_webrtc_*.py tests/test_voice_chat_integration.py -v --cov=app --cov-report=term-missing
+
+test-voice-frontend:
+	@echo "🧪 Running frontend voice tests..."
+	@cd frontend && npm run test:voice:coverage
+
+test-voice-e2e:
+	@echo "🧪 Running voice E2E tests..."
+	@cd frontend && npm run test:e2e:voice
 
 # Linting and Formatting
 lint: lint-backend lint-frontend
