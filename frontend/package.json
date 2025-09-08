@@ -18,6 +18,11 @@
     "cypress:run": "cypress run",
     "test:e2e": "cypress run",
     "test:e2e:open": "cypress open",
+    "test:voice": "jest --testPathPattern=voice",
+    "test:voice:watch": "jest --testPathPattern=voice --watch",
+    "test:voice:coverage": "jest --testPathPattern=voice --coverage",
+    "test:e2e:voice": "cypress run --spec 'cypress/e2e/voice-chat*.cy.ts'",
+    "test:e2e:voice:open": "cypress open --config specPattern='cypress/e2e/voice-chat*.cy.ts'",
     "type-check": "tsc --noEmit",
     "quality": "npm run lint && npm run format && npm run test:ci",
     "quality:quick": "npm run lint && npm run format:check"
