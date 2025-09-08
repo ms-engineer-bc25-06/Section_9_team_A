@@ -1,4 +1,3 @@
-// ダッシュボード共通レイアウト
 "use client"
 
 import type React from "react"

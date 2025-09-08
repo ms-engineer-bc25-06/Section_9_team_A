@@ -16,7 +16,6 @@ async def get_billing_info(
     db: AsyncSession = Depends(get_db),
 ):
     """ユーザーの決済情報を取得"""
-    # TODO: 決済モデルとサービスを実装後に完成
     return {"message": "Billing info endpoint - coming soon"}
 
 
@@ -26,7 +25,6 @@ async def create_payment_intent(
     db: AsyncSession = Depends(get_db),
 ):
     """Stripe決済インテントを作成"""
-    # TODO: Stripe決済機能を実装
     return {"message": "Create payment intent - coming soon"}
 
 
@@ -36,7 +34,6 @@ async def get_payment_history(
     db: AsyncSession = Depends(get_db),
 ):
     """支払い履歴を取得"""
-    # TODO: 支払い履歴取得機能を実装
     return {"message": "Payment history - coming soon"}
 
 
@@ -46,7 +43,6 @@ async def cancel_subscription(
     db: AsyncSession = Depends(get_db),
 ):
     """サブスクリプションをキャンセル"""
-    # TODO: サブスクリプションキャンセル機能を実装
     return {"message": "Cancel subscription - coming soon"}
 
 
@@ -56,5 +52,4 @@ async def update_payment_method(
     db: AsyncSession = Depends(get_db),
 ):
     """支払い方法を更新"""
-    # TODO: 支払い方法更新機能を実装
     return {"message": "Update payment method - coming soon"}

@@ -1,4 +1,3 @@
-// 決済処理とStripe連携
 "use client"
 
 import { useState, useEffect, Suspense } from "react"
@@ -93,7 +92,6 @@ function SubscriptionContent() {
     setProcessing(true)
     
     try {
-      // TODO: バックエンドAPIでユーザー枠の更新
       const response = await fetch('/api/billing/update-subscription', {
         method: 'POST',
         headers: {

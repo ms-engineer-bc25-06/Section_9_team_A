@@ -44,8 +44,6 @@ const DashboardHeader: React.FC = () => {
     router.push("/")
   }
 
-
-
   // ユーザーのイニシャルを取得（nickname、display_name、またはメールアドレスの最初の文字）
   const getUserInitial = () => {
     if (userProfileData?.nickname) {
@@ -59,8 +57,6 @@ const DashboardHeader: React.FC = () => {
     }
     return "U"
   }
-
-  
 
   return (
     <header className="bg-gradient-to-r from-blue-600 to-blue-700 shadow-lg">

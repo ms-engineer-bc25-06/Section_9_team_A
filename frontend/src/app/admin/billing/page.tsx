@@ -1,4 +1,3 @@
-// 管理者用決済・サブスクリプション管理ページ
 "use client"
 
 import { useState, useEffect } from "react"
@@ -24,8 +23,6 @@ export default function AdminBillingPage() {
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
-
-
   // 認証チェック
   useEffect(() => {
     if (!user && !isLoading) {
@@ -34,9 +31,8 @@ export default function AdminBillingPage() {
   }, [user, isLoading, router])
 
   useEffect(() => {
-    if (!user) return // 認証されていない場合はスキップ
+    if (!user) return
     
-    // 開発環境での認証状態を確認
     if (process.env.NODE_ENV === 'development') {
       const auth = getAuth()
       console.log('現在の認証状態:', auth.currentUser ? 'ログイン済み' : '未ログイン')
@@ -54,12 +50,11 @@ export default function AdminBillingPage() {
     try {
       setIsLoadingData(true)
       
-      // apiClientを使用してユーザー数を取得
       const data = await apiClient.get('/admin/billing/user-count')
       setUserCount(data.total_users)
     } catch (err) {
       console.error('ユーザー数取得エラー:', err)
-      // 開発環境ではエラーでもモックデータを使用
+
       if (process.env.NODE_ENV === 'development') {
         const mockUserCount = 15
         setUserCount(mockUserCount)

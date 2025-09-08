@@ -1,4 +1,3 @@
-// サブスクリプション状態表示
 'use client';
 
 import React from 'react';

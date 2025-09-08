@@ -1,4 +1,3 @@
-// メイン決済ページ
 'use client';
 
 import React from 'react';

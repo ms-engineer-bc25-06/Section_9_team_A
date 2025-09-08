@@ -22,7 +22,6 @@ export default function OrganizationMemberSettingsPage() {
   })
 
   const handleSave = () => {
-    // TODO: 設定の保存処理を実装
     console.log("設定を保存:", settings)
   }
 

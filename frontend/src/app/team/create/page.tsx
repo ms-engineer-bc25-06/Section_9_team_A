@@ -19,7 +19,6 @@ export default function CreateTeamPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // TODO: チーム作成処理を実装
     console.log("チーム作成:", teamData)
   }
 

@@ -52,10 +52,6 @@ export default function DepartmentMemberList({
   const [departments, setDepartments] = useState<{name: string, count: number}[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 部署ごとの色を定義
-
-
-  // プレゼンテーション用：部署情報を取得
   useEffect(() => {
     const fetchDepartments = async () => {
       try {

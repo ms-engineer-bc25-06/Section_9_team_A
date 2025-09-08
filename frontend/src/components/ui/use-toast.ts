@@ -1,4 +1,3 @@
-// トースト表示用フック
 "use client"
 
 import * as React from "react"

@@ -1,4 +1,3 @@
-// 課金成功後の確認ページ
 'use client';
 
 import React, { useEffect, useState, Suspense } from 'react';

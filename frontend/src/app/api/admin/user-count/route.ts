@@ -1,4 +1,3 @@
-// 管理者用ユーザー数取得API
 import { NextRequest, NextResponse } from 'next/server'
 
 // 動的ルートとして明示的に設定（静的生成を無効化）
@@ -15,15 +14,9 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // 実際の実装では、データベースからユーザー数を取得
-    // 現在はモックデータを返す
-    const mockUserCount = 15 // 仮の値
-
     return NextResponse.json({
-      userCount: mockUserCount,
       timestamp: new Date().toISOString()
     })
-
   } catch (error) {
     console.error('ユーザー数取得エラー:', error)
     return NextResponse.json(

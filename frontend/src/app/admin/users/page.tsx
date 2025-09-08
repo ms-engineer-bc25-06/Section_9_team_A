@@ -1,4 +1,3 @@
-// TODO この機能は将来的に実装する(登録されているユーザーの一覧を管理者が閲覧・編集できるページ)
 "use client"
 
 import { useEffect } from "react"

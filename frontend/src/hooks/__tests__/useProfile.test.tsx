@@ -2,7 +2,6 @@ import { renderHook, act, waitFor } from '@testing-library/react'
 import { useProfile } from '../useProfile'
 import '@testing-library/jest-dom'
 
-// モック
 jest.mock('@/lib/apiClient', () => ({
   apiGet: jest.fn()
 }))
@@ -210,7 +209,6 @@ describe('useProfile Hook', () => {
         expect(result.current.profile).toEqual(mockProfile)
       })
 
-      // 手動でリフレッシュ
       const updatedProfile = { ...mockProfile, nickname: 'Updated' }
       mockApiGet.mockResolvedValue(updatedProfile)
 
