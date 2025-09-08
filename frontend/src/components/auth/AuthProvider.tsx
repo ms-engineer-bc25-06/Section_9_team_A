@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut, User as FirebaseUser } from "firebase/auth"
+import { useRouter } from "next/navigation"
 import { auth } from "@/lib/auth"
 
 interface AuthContextType {
@@ -15,6 +16,8 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+export { AuthContext }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<FirebaseUser | null>(null)
@@ -382,8 +385,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext)
+  const router = useRouter()
+  
   if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider")
   }
-  return context
+  
+  // 追加の機能を提供
+  const requireAuth = (): boolean => {
+    return !!context.user
+  }
+  
+  const redirectToLogin = () => {
+    router.push('/auth/login')
+  }
+  
+  return {
+    ...context,
+    isAuthenticated: !!context.user,
+    requireAuth,
+    redirectToLogin,
+  }
 }

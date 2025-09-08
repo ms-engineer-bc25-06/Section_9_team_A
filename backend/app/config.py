@@ -84,6 +84,19 @@ class Settings(BaseSettings):
     WS_MESSAGE_QUEUE_URL: str = "redis://redis:6379"
     WEBSOCKET_URL: str = "ws://0.0.0.0:8000/ws"
 
+    # WebRTC設定
+    WEBRTC_STUN_SERVERS: List[str] = [
+        "stun:stun.l.google.com:19302",
+        "stun:stun1.l.google.com:19302",
+        "stun:stun2.l.google.com:19302",
+    ]
+    WEBRTC_TURN_SERVERS: List[str] = []
+    WEBRTC_TURN_USERNAME: Optional[str] = None
+    WEBRTC_TURN_CREDENTIAL: Optional[str] = None
+    WEBRTC_ICE_CANDIDATE_POOL_SIZE: int = 10
+    WEBRTC_CONNECTION_TIMEOUT: int = 30  # 秒
+    WEBRTC_ICE_GATHERING_TIMEOUT: int = 10  # 秒
+
     # ログ設定
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "json"

@@ -1,5 +1,6 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import status
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
@@ -73,7 +74,7 @@ async def get_voice_sessions(
     except Exception as e:
         logger.error(f"Failed to get voice sessions: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail={"message": "Internal server error"},
         )
 
@@ -100,7 +101,7 @@ async def create_voice_session(
     except Exception as e:
         logger.error(f"Failed to create voice session: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail={"message": "Internal server error"},
         )
 
@@ -125,7 +126,83 @@ async def get_voice_session(
     except Exception as e:
         logger.error(f"Failed to get voice session {session_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
+            detail={"message": "Internal server error"},
+        )
+
+
+@router.get("/by-session-id/{session_id}", response_model=VoiceSessionDetailResponse)
+async def get_voice_session_by_session_id(
+    session_id: str,
+    current_user: User = Depends(get_current_active_user),
+    voice_session_service: VoiceSessionService = Depends(get_voice_session_service),
+):
+    """session_id（文字列）で音声セッションの詳細を取得"""
+    try:
+        # サービス呼び出し
+        result = await voice_session_service.get_session_by_session_id(
+            session_id=session_id, user_id=current_user.id
+        )
+
+        return result
+
+    except BridgeLineException as e:
+        raise handle_bridge_line_exceptions(e)
+    except Exception as e:
+        logger.error(f"Failed to get voice session by session_id {session_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={"message": "Internal server error"},
+        )
+
+
+@router.post("/ensure/{session_id}", response_model=VoiceSessionDetailResponse)
+async def ensure_voice_session(
+    session_id: str,
+    current_user: User = Depends(get_current_active_user),
+    voice_session_service: VoiceSessionService = Depends(get_voice_session_service),
+):
+    """音声セッションの存在確認と自動作成"""
+    try:
+        logger.info(f"Ensuring voice session exists: {session_id} for user: {current_user.id}")
+        
+        # まずセッションの存在確認
+        try:
+            result = await voice_session_service.get_session_by_session_id(
+                session_id=session_id, user_id=current_user.id
+            )
+            logger.info(f"Voice session already exists: {session_id}")
+            return result
+        except BridgeLineException as e:
+            # セッションが存在しない場合は作成
+            if e.error_code == "SESSION_NOT_FOUND":
+                logger.info(f"Voice session not found, creating new one: {session_id}")
+                
+                # 新しいセッションを作成
+                session_data = VoiceSessionCreate(
+                    session_id=session_id,
+                    title=f"音声通話ルーム {session_id}",
+                    description=f"自動生成された音声通話ルームです",
+                    is_public=True,
+                    participant_count=1
+                )
+                
+                result = await voice_session_service.create_session(
+                    user_id=current_user.id, session_data=session_data
+                )
+                
+                logger.info(f"Voice session created successfully: {session_id}")
+                return result
+            else:
+                # その他のエラーは再発生
+                raise e
+
+    except BridgeLineException as e:
+        raise handle_bridge_line_exceptions(e)
+    except Exception as e:
+        logger.error(f"Failed to ensure voice session {session_id}: {e}")
+        raise HTTPException(
+            status_code=500,
             detail={"message": "Internal server error"},
         )
 
@@ -151,7 +228,7 @@ async def update_voice_session(
     except Exception as e:
         logger.error(f"Failed to update voice session {session_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail={"message": "Internal server error"},
         )
 
@@ -182,7 +259,7 @@ async def delete_voice_session(
     except Exception as e:
         logger.error(f"Failed to delete voice session {session_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail={"message": "Internal server error"},
         )
 
@@ -223,7 +300,7 @@ async def get_team_voice_sessions(
     except Exception as e:
         logger.error(f"Failed to get team voice sessions: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail={"message": "Internal server error"},
         )
 
@@ -261,7 +338,7 @@ async def get_public_voice_sessions(
     except Exception as e:
         logger.error(f"Failed to get public voice sessions: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail={"message": "Internal server error"},
         )
 
@@ -295,7 +372,7 @@ async def search_voice_sessions(
     except Exception as e:
         logger.error(f"Failed to search voice sessions: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail={"message": "Internal server error"},
         )
 
@@ -317,7 +394,7 @@ async def get_user_voice_session_stats(
     except Exception as e:
         logger.error(f"Failed to get user voice session stats: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail={"message": "Internal server error"},
         )
 
@@ -343,7 +420,7 @@ async def update_voice_session_audio(
     except Exception as e:
         logger.error(f"Failed to update voice session audio {session_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail={"message": "Internal server error"},
         )
 
@@ -363,7 +440,7 @@ async def generate_session_id(
     except Exception as e:
         logger.error(f"Failed to generate session ID: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail={"message": "Internal server error"},
         )
 
@@ -388,7 +465,7 @@ async def start_voice_session(
     except Exception as e:
         logger.error(f"Failed to start voice session {session_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail={"message": "Internal server error"},
         )
 
@@ -413,7 +490,7 @@ async def end_voice_session(
     except Exception as e:
         logger.error(f"Failed to end voice session {session_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail={"message": "Internal server error"},
         )
 
@@ -430,7 +507,7 @@ async def pause_voice_session(
         update_data = VoiceSessionUpdate(status="paused")
 
         # サービス呼び出し
-        result = await voice_session_service.update_session(
+        result = await voice_session_service.update_session_by_session_id(
             session_id=session_id, user_id=current_user.id, update_data=update_data
         )
 
@@ -441,7 +518,7 @@ async def pause_voice_session(
     except Exception as e:
         logger.error(f"Failed to pause voice session {session_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail={"message": "Internal server error"},
         )
 
@@ -458,7 +535,7 @@ async def resume_voice_session(
         update_data = VoiceSessionUpdate(status="active")
 
         # サービス呼び出し
-        result = await voice_session_service.update_session(
+        result = await voice_session_service.update_session_by_session_id(
             session_id=session_id, user_id=current_user.id, update_data=update_data
         )
 
@@ -469,7 +546,7 @@ async def resume_voice_session(
     except Exception as e:
         logger.error(f"Failed to resume voice session {session_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail={"message": "Internal server error"},
         )
 
@@ -499,7 +576,7 @@ async def add_participant(
     except Exception as e:
         logger.error(f"Failed to add participant to session {session_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail={"message": "Internal server error"},
         )
 
@@ -530,7 +607,7 @@ async def remove_participant(
     except Exception as e:
         logger.error(f"Failed to remove participant from session {session_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail={"message": "Internal server error"},
         )
 
@@ -555,7 +632,7 @@ async def get_participants(
     except Exception as e:
         logger.error(f"Failed to get participants for session {session_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail={"message": "Internal server error"},
         )
 
@@ -588,7 +665,7 @@ async def update_participant_role(
     except Exception as e:
         logger.error(f"Failed to update participant role in session {session_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail={"message": "Internal server error"},
         )
 
@@ -607,8 +684,8 @@ async def start_recording(
         result = await voice_session_service.start_recording(
             session_id=session_id,
             user_id=current_user.id,
-            quality=recording_data.quality,
-            format=recording_data.format,
+            quality=recording_data.quality or "high",
+            format=recording_data.format or "mp3",
         )
 
         return result
@@ -618,7 +695,7 @@ async def start_recording(
     except Exception as e:
         logger.error(f"Failed to start recording for session {session_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail={"message": "Internal server error"},
         )
 
@@ -643,7 +720,7 @@ async def stop_recording(
     except Exception as e:
         logger.error(f"Failed to stop recording for session {session_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail={"message": "Internal server error"},
         )
 
@@ -668,7 +745,7 @@ async def pause_recording(
     except Exception as e:
         logger.error(f"Failed to pause recording for session {session_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail={"message": "Internal server error"},
         )
 
@@ -693,7 +770,7 @@ async def resume_recording(
     except Exception as e:
         logger.error(f"Failed to resume recording for session {session_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail={"message": "Internal server error"},
         )
 
@@ -718,7 +795,7 @@ async def get_recording_status(
     except Exception as e:
         logger.error(f"Failed to get recording status for session {session_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail={"message": "Internal server error"},
         )
 
@@ -744,7 +821,7 @@ async def get_realtime_stats(
     except Exception as e:
         logger.error(f"Failed to get realtime stats for session {session_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail={"message": "Internal server error"},
         )
 
@@ -769,6 +846,6 @@ async def get_session_progress(
     except Exception as e:
         logger.error(f"Failed to get session progress for session {session_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail={"message": "Internal server error"},
         )
