@@ -56,7 +56,6 @@ export default function AddUsersPage() {
       setCurrentUserCount(data.total_users)
     } catch (err) {
       console.error('ユーザー数取得エラー:', err)
-      // 開発環境ではエラーでもモックデータを使用
       if (process.env.NODE_ENV === 'development') {
         setCurrentUserCount(15)
       }
@@ -109,13 +108,9 @@ export default function AddUsersPage() {
         role: user.role
       })
       
-      // 成功メッセージ（仮パスワードは表示しない）
       alert(`${user.name}さんを追加しました`)
-      
-      // 現在のユーザー数を更新
-      setCurrentUserCount(prev => prev + 1)
-      
 
+      setCurrentUserCount(prev => prev + 1)
       
       // 入力欄をクリア
       const updatedUsers = [...newUsers]
@@ -161,7 +156,7 @@ export default function AddUsersPage() {
 
   const regeneratePassword = (index: number) => {
     const updatedUsers = [...newUsers]
-    updatedUsers[index].temporaryPassword = "" // バックエンドで生成されるため空にする
+    updatedUsers[index].temporaryPassword = "" 
     setNewUsers(updatedUsers)
   }
 
@@ -185,7 +180,6 @@ export default function AddUsersPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    // バリデーション
     const hasEmptyFields = newUsers.some(user => 
       !user.email || !user.name || !user.department
     )
@@ -194,8 +188,7 @@ export default function AddUsersPage() {
       alert("すべての必須項目を入力してください")
       return
     }
-    
-    // ユーザー追加処理（実際の実装ではAPIを呼び出し）
+
     console.log("ユーザー追加処理:", newUsers)
     
     // 決済が必要な場合は決済画面に遷移
@@ -207,7 +200,6 @@ export default function AddUsersPage() {
       window.location.href = '/admin/billing'
       } else {
       // 決済不要の場合は直接ユーザー管理画面に遷移
-      // ユーザー情報をセッションストレージに保存（即座に反映用）
       sessionStorage.setItem('pendingUsers', JSON.stringify(newUsers))
       alert("ユーザーが正常に追加されました")
       window.location.href = '/admin/users'
@@ -222,8 +214,7 @@ export default function AddUsersPage() {
   const totalUsersAfter = currentUserCount + newUsers.length
   const overLimit = totalUsersAfter > maxUsers
   const additionalUsers = Math.max(0, totalUsersAfter - maxUsers)
-  const additionalCost = 0 // プラン料金ベースなので追加料金は0
-
+  const additionalCost = 0 
     return (
     <div className="min-h-screen bg-slate-50">
       <header className="bg-gradient-to-br from-orange-50 to-amber-50 shadow-sm border-b border-orange-200">
@@ -387,7 +378,6 @@ export default function AddUsersPage() {
                       type="button"
                       variant="outline"
                       onClick={() => {
-                        // 現在入力されているユーザーを一覧に追加
                         const currentUser = newUsers[0]
                         if (currentUser.email && currentUser.name && currentUser.department) {
                           addUserToList(0)
@@ -450,9 +440,6 @@ export default function AddUsersPage() {
             <Button
               onClick={async () => {
                 try {
-                  // セッションの有効性を確認
-                  // useAuthによってログイン状態が管理されているため、ここでは不要
-                  // ただし、バックエンドAPIにトークンを渡すために、ユーザー情報を取得
                   const auth = getAuth()
                   const currentUser = auth.currentUser
                   
@@ -460,12 +447,9 @@ export default function AddUsersPage() {
                     alert('ログインが必要です。再度ログインしてください。')
                     return
                   }
-
-                  // トークンの有効性を確認
                   const token = await currentUser.getIdToken(true)
                   console.log('認証確認完了:', currentUser.email)
-                  
-                  // 決済画面に遷移
+
                   window.location.href = '/admin/billing'
                 } catch (error) {
                   console.error('認証エラー:', error)

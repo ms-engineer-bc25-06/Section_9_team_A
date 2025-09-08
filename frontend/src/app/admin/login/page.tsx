@@ -1,4 +1,3 @@
-// 管理者ログインページ。認証フォームを表示。
 "use client"
 
 import { useState } from "react"

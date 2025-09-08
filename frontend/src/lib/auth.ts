@@ -1,4 +1,3 @@
-// 認証機能の集約
 import { initializeApp } from "firebase/app";
 import { 
   getAuth, 

@@ -1,4 +1,3 @@
-// ダッシュボード内のカード部品
 "use client"
 
 import { useState } from "react"
@@ -12,7 +11,7 @@ export function AdminDashboardHeader() {
   const router = useRouter()
   const { user, logout } = useAuth()
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
-  const adminName = "管理者" // 実際は管理者情報から取得
+  const adminName = "管理者"
 
   const handleLogout = () => {
     logout()

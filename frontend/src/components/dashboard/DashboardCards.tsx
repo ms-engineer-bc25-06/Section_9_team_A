@@ -1,4 +1,3 @@
-// ダッシュボード情報カード
 "use client"
 
 import type React from "react"

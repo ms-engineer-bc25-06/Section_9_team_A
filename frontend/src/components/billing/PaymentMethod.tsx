@@ -1,4 +1,3 @@
-// 支払方法管理
 'use client';
 
 import React, { useState, useEffect } from 'react';

@@ -1,4 +1,3 @@
-// チームメンバー詳細画面
 import { MemberDetail } from "@/components/team/MemberDetail"
 import { Button } from "@/components/ui/Button"
 import { ArrowLeft } from "lucide-react"

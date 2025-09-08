@@ -1,6 +1,4 @@
 "use client"
-
-// プロフィール編集ページ
 import { ProfileEditForm } from "@/components/profile/ProfileEditForm"
 import { Button } from "@/components/ui/Button"
 import { ArrowLeft } from "lucide-react"

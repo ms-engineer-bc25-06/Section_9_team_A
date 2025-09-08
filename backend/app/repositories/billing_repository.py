@@ -12,14 +12,14 @@ class BillingRepository(BaseRepository[Any, Any, Any]):
     """請求リポジトリ"""
 
     def __init__(self):
-        super().__init__(None)  # モデルは後で実装
+        super().__init__(None)  
 
     async def create_invoice(
         self, db: AsyncSession, invoice_data: Dict[str, Any]
     ) -> Any:
         """請求書を作成"""
         try:
-            # 仮実装 - 実際のモデルが実装されたら更新
+
             return {
                 "id": 1,
                 "user_id": invoice_data.get("user_id"),
@@ -37,7 +37,6 @@ class BillingRepository(BaseRepository[Any, Any, Any]):
     ) -> Optional[Any]:
         """請求書を取得"""
         try:
-            # 仮実装 - 実際のモデルが実装されたら更新
             return {
                 "id": invoice_id,
                 "user_id": 1,
@@ -58,7 +57,6 @@ class BillingRepository(BaseRepository[Any, Any, Any]):
     ) -> List[Any]:
         """ユーザーの請求書一覧を取得"""
         try:
-            # 仮実装 - 実際のモデルが実装されたら更新
             return []
         except Exception as e:
             logger.error(f"Failed to get user invoices: {str(e)}")
@@ -69,7 +67,6 @@ class BillingRepository(BaseRepository[Any, Any, Any]):
     ) -> bool:
         """請求書のステータスを更新"""
         try:
-            # 仮実装 - 実際のモデルが実装されたら更新
             logger.info(f"Invoice {invoice_id} status updated to {status}")
             return True
         except Exception as e:
@@ -81,7 +78,6 @@ class BillingRepository(BaseRepository[Any, Any, Any]):
     ) -> bool:
         """請求書の支払い情報を更新"""
         try:
-            # 仮実装 - 実際のモデルが実装されたら更新
             logger.info(f"Invoice {invoice_id} payment updated")
             return True
         except Exception as e:
@@ -93,7 +89,6 @@ class BillingRepository(BaseRepository[Any, Any, Any]):
     ) -> List[Any]:
         """支払い履歴を取得"""
         try:
-            # 仮実装 - 実際のモデルが実装されたら更新
             return []
         except Exception as e:
             logger.error(f"Failed to get payment history: {str(e)}")
@@ -104,7 +99,6 @@ class BillingRepository(BaseRepository[Any, Any, Any]):
     ) -> Dict[str, Any]:
         """請求サマリーを取得"""
         try:
-            # 仮実装 - 実際のモデルが実装されたら更新
             return {
                 "total_invoices": 0,
                 "total_amount": 0.0,

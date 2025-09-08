@@ -1,4 +1,3 @@
-// 認証状態をアプリ全体に提供するコンテキスト
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
@@ -30,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let profileSyncCleanup: (() => void) | null = null
     
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser || null) // nullを明示
+      setUser(firebaseUser || null) 
       
       if (firebaseUser) {
         // Firebase認証が成功した場合、バックエンドトークンが既に存在するかチェック
@@ -141,7 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         console.error("プロフィール同期チェックでエラー:", error)
       }
-    }, 10 * 60 * 1000) // 10分ごと
+    }, 10 * 60 * 1000) 
     
     // クリーンアップ関数を返す
     return () => {
@@ -150,7 +149,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // ログイン
   const login = async (email: string, password: string): Promise<string | null> => {
     setIsLoading(true)
     try {
@@ -371,7 +369,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // ログアウト
   const logout = async () => {
     await signOut(auth)
     setUser(null)
